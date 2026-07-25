@@ -1270,16 +1270,27 @@ async function handleNativeCamera(eventOrElement) {
     }
 }
 
-// 3. FUNGSI SCAN MANUAL / USB BARCODE SCANNER (DITINGKATKAN)
+// 3. FUNGSI SCAN MANUAL / USB BARCODE SCANNER (GLOBAL DETECT)
 function submitManualCheckIn() {
-    // Cari elemen input dengan berbagai kemungkinan ID/Atribut bawaan HTML Anda
+    // Ambil elemen yang sedang aktif/fokus saat tombol Enter ditekan
+    let activeEl = document.activeElement;
+    let targetValue = "";
+
+    // Coba deteksi elemen input manual dengan berbagai pendekatan
     let inputManual = document.getElementById('manualScanInput') || 
                        document.getElementById('inputQrCode') || 
                        document.getElementById('scanInput') ||
-                       document.querySelector('input[type="text"][placeholder*="ID"]');
-    
-    if (inputManual && inputManual.value.trim() !== "") {
-        const targetValue = inputManual.value.trim();
+                       document.querySelector('input[placeholder*="ID"]') ||
+                       document.querySelector('input[placeholder*="manual"]');
+
+    if (activeEl && activeEl.tagName === 'INPUT' && activeEl.value.trim() !== "") {
+        targetValue = activeEl.value.trim();
+    } else if (inputManual && inputManual.value.trim() !== "") {
+        targetValue = inputManual.value.trim();
+    }
+
+    if (targetValue !== "") {
+        console.log("Memproses check-in manual untuk ID:", targetValue);
         processGuestCheckIn(targetValue);
     } else {
         Swal.fire({ 
@@ -1291,25 +1302,14 @@ function submitManualCheckIn() {
     }
 }
 
-// Jalankan auto-bridge untuk mengikat event Enter langsung ke elemen
-function bindManualScannerEvent() {
-    let inputManual = document.getElementById('manualScanInput') || 
-                       document.getElementById('inputQrCode') || 
-                       document.getElementById('scanInput') ||
-                       document.querySelector('input[type="text"][placeholder*="ID"]');
-                       
-    if (inputManual) {
-        inputManual.removeEventListener('keypress', handleManualEnterKey);
-        inputManual.addEventListener('keypress', handleManualEnterKey);
-    }
-}
-
-function handleManualEnterKey(e) {
+// PENDENGAR GLOBAL: Tidak peduli ID-nya apa, selama dia elemen input di halaman scanner dan ditekan Enter
+document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        e.preventDefault();
-        submitManualCheckIn();
+        let activeEl = document.activeElement;
+        // Pastikan kursor memang lagi ada di dalam kotak input teks
+        if (activeEl && activeEl.tagName === 'INPUT' && activeEl.type === 'text') {
+            e.preventDefault(); // Hentikan reload halaman bawaan form browser
+            submitManualCheckIn();
+        }
     }
-}
-
-// Jalankan pencarian elemen secara berkala agar aman saat perpindahan tab menu
-setInterval(bindManualScannerEvent, 1500);
+});
