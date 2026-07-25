@@ -18,14 +18,28 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 })();
 
 // =========================================================================
-// INITIALIZATION & CLIENT ROUTING
+// INITIALIZATION & CLIENT ROUTING (SUPABASE VERSION)
 // =========================================================================
 const urlParams = new URLSearchParams(window.location.search);
 const MODE = urlParams.get('mode') || 'main';
 const IS_PUBLIC_MODE = MODE === 'public';
 const IS_TV_MODE = MODE === 'tv';
 
-let currentQuestions = []; let fullGuestData = []; let filteredGuestData = []; let spreadsheetUrl = ""; let appWebAppUrl = ""; let greetingPrefix = "Bapak / Ibu"; let greetingSuffix = ""; let enableSoundSuccess = true; let enableSoundError = true; let dynamicSouvenirLabel = "SOUVENIR"; let isSouvenirPerPax = false; let currentPage = 1; const rowsPerPage = 10; let selectedGuestsForZip = new Set(); let currentUserRole = IS_PUBLIC_MODE ? "Public" : "";
+let currentQuestions = []; 
+let fullGuestData = []; 
+let filteredGuestData = []; 
+let spreadsheetUrl = ""; 
+let appWebAppUrl = ""; 
+let greetingPrefix = "Bapak / Ibu"; 
+let greetingSuffix = ""; 
+let enableSoundSuccess = true; 
+let enableSoundError = true; 
+let dynamicSouvenirLabel = "SOUVENIR"; 
+let isSouvenirPerPax = false; 
+let currentPage = 1; 
+const rowsPerPage = 10; 
+let selectedGuestsForZip = new Set(); 
+let currentUserRole = IS_PUBLIC_MODE ? "Public" : "";
 
 window.onload = () => { 
     if (IS_TV_MODE) {
@@ -48,221 +62,112 @@ window.onload = () => {
         let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'none';
         showLoginPopup();
     }
+    
+    // Muat Form dari Supabase
     loadForm();
-    google.script.run.withSuccessHandler(url => { 
-        appWebAppUrl = url; 
-        let pubInput = document.getElementById('publicLinkDisplay'); if(pubInput) pubInput.value = url + "?mode=public";
-    }).getAppUrl();
+    
+    // Set Link Publik
+    appWebAppUrl = window.location.origin + window.location.pathname;
+    let pubInput = document.getElementById('publicLinkDisplay'); 
+    if(pubInput) pubInput.value = appWebAppUrl + "?mode=public";
 };
 
-function initTvMode() {
-    let tvDisplayTimeout;
-    google.script.run.withSuccessHandler(data => {
-      if(data) {
-        applyAppTheme(data.appTheme || "classic_gold");
-        document.getElementById('tvDisplayEventTitle').innerText = data.eventTitle || "GUEST BOOK"; document.getElementById('tvRunningText').innerText = data.announcement || "Selamat Datang";
-        if (data.posterUrl && data.posterUrl.trim() !== "") { let posterEl = document.getElementById('tvPosterImage'); posterEl.src = data.posterUrl; posterEl.style.display = 'block'; setTimeout(() => { posterEl.style.opacity = '1'; }, 200); }
-      }
-    }).getFormInitData();
-
-    window.addEventListener('storage', function(e) {
-      if(e.key === 'guest_display_data' && e.newValue) {
-        let guest = JSON.parse(e.newValue); let prefixText = guest.prefix ? `, ${guest.prefix}` : ""; let posterEl = document.getElementById('tvPosterImage');
-        if(posterEl && posterEl.src) { posterEl.style.opacity = '0'; }
-        document.getElementById('tvGreetingText').innerText = "Selamat Datang" + prefixText;
-        let nameHtml = guest.nama;
-        if (guest.suffix) { nameHtml += `<div style="font-family:'Montserrat', sans-serif; font-size:3rem; font-weight:600; color:var(--text-muted); text-transform:none; letter-spacing:2px; line-height:1.2; margin-top:10px;">${guest.suffix}</div>`; }
-        if (guest.extraHtml) { nameHtml += `<div style="display:block; width:100%; margin-top:25px; padding-top:25px; border-top:2px dashed var(--border-color); text-align:center;">${guest.extraHtml}</div>`; }
-        let badgeContainer = document.getElementById('tvBadgeContainer'); if(guest.kategori === 'VIP') { badgeContainer.innerHTML = `<div class="tv-badge-vip animate__animated animate__fadeInDown">Tamu VIP</div>`; } else { badgeContainer.innerHTML = ""; }
-        let nameElement = document.getElementById('tvGuestName'); nameElement.innerHTML = nameHtml; nameElement.classList.remove('animate__animated', 'animate__zoomIn'); void nameElement.offsetWidth; nameElement.classList.add('animate__animated', 'animate__zoomIn');
-        clearTimeout(tvDisplayTimeout);
-        tvDisplayTimeout = setTimeout(() => {
-            document.getElementById('tvGuestName').innerHTML = `<span style="font-family:'Montserrat'; font-size:2rem; font-weight:600; color:var(--text-muted); letter-spacing:2px;">- MENUNGGU SCANNER -</span>`; document.getElementById('tvGreetingText').innerText = ""; document.getElementById('tvBadgeContainer').innerHTML = ""; if(posterEl && posterEl.src) { posterEl.style.opacity = '1'; }
-        }, 12000);
-      }
+// =========================================================================
+// CORE LOGIC FUNCTIONS (MENGGUNAKAN SUPABASE)
+// =========================================================================
+async function loadForm() {
+  try {
+    // 1. Ambil data konfigurasi dari Supabase
+    const { data: configData, error: configError } = await db.from('app_config').select('*');
+    if (configError) throw configError;
+    
+    let data = {};
+    configData.forEach(row => {
+        data[row.key] = row.value;
     });
-}
 
-// =========================================================================
-// CORE LOGIC FUNCTIONS
-// =========================================================================
-function applyAppTheme(themeKey) {
-  const APP_THEMES = {
-    "classic_gold": { bg: "#fdfaf3", dark: "#846924", light: "#b39343", grad: "linear-gradient(to right, #cfaf57, #a9852c)", textMain: "#333333", textMuted: "#999999", cardBg: "#ffffff", border: "#f0e6d2" },
-    "royal_navy": { bg: "#f0f4f8", dark: "#1a365d", light: "#3182ce", grad: "linear-gradient(to right, #4299e1, #2b6cb0)", textMain: "#1a202c", textMuted: "#718096", cardBg: "#ffffff", border: "#e2e8f0" },
-    "midnight": { bg: "#f7fafc", dark: "#1a202c", light: "#4a5568", grad: "linear-gradient(to right, #718096, #2d3748)", textMain: "#1a202c", textMuted: "#718096", cardBg: "#ffffff", border: "#e2e8f0" },
-    "emerald": { bg: "#f0fff4", dark: "#22543d", light: "#38a169", grad: "linear-gradient(to right, #48bb78, #276749)", textMain: "#22543d", textMuted: "#718096", cardBg: "#ffffff", border: "#c6f6d5" }
-  };
-  const t = APP_THEMES[themeKey] || APP_THEMES["classic_gold"];
-  document.documentElement.style.setProperty('--bg-color', t.bg); document.documentElement.style.setProperty('--gold-dark', t.dark); document.documentElement.style.setProperty('--gold-light', t.light); document.documentElement.style.setProperty('--gold-gradient', t.grad); document.documentElement.style.setProperty('--text-main', t.textMain); document.documentElement.style.setProperty('--text-muted', t.textMuted); document.documentElement.style.setProperty('--card-bg', t.cardBg); document.documentElement.style.setProperty('--border-color', t.border);
-}
+    // 2. Ambil data pertanyaan form dinamis dari Supabase
+    const { data: settingsData, error: settingsError } = await db.from('form_settings').select('*').order('sort_order', { ascending: true });
+    if (settingsError) throw settingsError;
 
-function toggleFullScreen() {
-  let btn = document.getElementById('btnFullscreenIcon');
-  if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => {}); if(btn) btn.className = 'fas fa-compress'; } 
-  else { if (document.exitFullscreen) { document.exitFullscreen(); if(btn) btn.className = 'fas fa-expand'; } }
-}
-document.addEventListener('fullscreenchange', () => { let btn = document.getElementById('btnFullscreenIcon'); if (!document.fullscreenElement && btn) { btn.className = 'fas fa-expand'; } });
-
-function showLoginPopup() {
-  Swal.fire({
-    title: 'LOGIN SISTEM', html: '<input id="u" class="swal2-input" placeholder="Username" autocomplete="off"><input id="p" type="password" class="swal2-input" placeholder="Password">', confirmButtonText: 'Masuk', allowOutsideClick: false, allowEscapeKey: false, customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal', title: 'luxury-title' },
-    preConfirm: () => { let u = document.getElementById('u'); let p = document.getElementById('p'); return [(u ? u.value : ""), (p ? p.value : "")]; }
-  }).then((r) => { 
-      // TAMBAHAN: Cegah error jika popup ditutup paksa oleh sistem bypass
-      if (!r.isConfirmed || !r.value) return; 
-
-      let u = r.value[0]; let p = r.value[1];
-      if(u === 'Admin55' && p === 'QRCode') { currentUserRole = "Admin"; loginSuccess(); } 
-      else if(u === 'Scan' && p === '1234') { currentUserRole = "Scanner"; loginSuccess(); } 
-      else { Swal.fire({ title: 'Akses Ditolak', text: 'Username atau Password salah!', icon: 'error', allowOutsideClick: false, customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' } }).then(() => showLoginPopup()); }
-  });
-}
-
-function loginSuccess() {
-    let mc = document.querySelector('.main-card'); if(mc) { mc.style.display = 'block'; mc.classList.add('animate__fadeInUp'); }
-    let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'flex';
-    let btnOut = document.getElementById('btnLogoutBtn'); if(btnOut) btnOut.style.display = 'flex';
-    if(currentUserRole === "Scanner") {
-        let nR = document.getElementById('navRekap'); if(nR) nR.style.display = 'none';
-        let nS = document.getElementById('navSetup'); if(nS) nS.style.display = 'none';
+    // 3. Hitung total pendaftar
+    const { count, error: countError } = await db.from('data_tamu').select('*', { count: 'exact', head: true });
+    if (!countError) {
+        data.currentRegistered = count || 0;
     }
-    Swal.fire({ title: 'Berhasil Login', text: `Selamat datang, ${currentUserRole}!`, icon: 'success', timer: 1500, showConfirmButton: false, customClass: { popup: 'luxury-popup', title: 'luxury-title' } });
-}
 
-function logoutSystem() {
-    Swal.fire({ title: 'Keluar?', text: "Anda akan mengakhiri sesi keamanan ini.", icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Logout', cancelButtonText: 'Batal', customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal', cancelButton: 'btn-action-swal' }
-    }).then((res) => {
-        if (res.isConfirmed) {
-            currentUserRole = ""; let mc = document.querySelector('.main-card'); if(mc) mc.style.display = 'none'; let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'none'; let btnOut = document.getElementById('btnLogoutBtn'); if(btnOut) btnOut.style.display = 'none'; showLoginPopup();
-        }
-    });
-}
+    currentQuestions = settingsData.map(q => ({
+        id: q.id,
+        label: q.label,
+        type: q.type,
+        options: q.options ? q.options.split(",") : [],
+        showOnTv: q.show_on_tv,
+        required: q.required
+    }));
 
-function updateSouvenirLabelDOM(label) {
-    let upper = label.toUpperCase(); document.querySelectorAll('.dyn-souvenir-text').forEach(el => el.innerText = upper);
-    let filterSouv = document.getElementById('filterSouvenir'); if(filterSouv && filterSouv.options.length > 0) filterSouv.options[0].text = "Semua " + label;
-    let navSouv = document.getElementById('navSouvenir'); if(navSouv) navSouv.title = "Mode " + label;
-}
+    // --- INTEGRASI KE UI APLIKASI TAMOO ---
+    let currentTheme = data.AppTheme || "classic_gold"; applyAppTheme(currentTheme);
+    let elTheme = document.getElementById('adminAppTheme'); if(elTheme) elTheme.value = currentTheme;
+    spreadsheetUrl = "https://supabase.com"; 
+    greetingPrefix = data.GreetingPrefix || "Bapak / Ibu"; 
+    greetingSuffix = data.GreetingSuffix || "";
+    
+    let setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val || ""; };
+    let setText = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val || ""; };
 
-function updateRekapStats() {
-    let totalTerdaftar = 0; fullGuestData.forEach(g => { totalTerdaftar += 1; });
-    let totalHadir = fullGuestData.filter(g => g.status === 'Hadir').length;
-    let totalSouvenir = 0;
-    fullGuestData.forEach(g => { if (g.souvenir === 'Sudah Ambil') { totalSouvenir += (isSouvenirPerPax ? (parseInt(g.jumlahTamu) || 1) : 1); } });
-    google.script.run.withSuccessHandler(serverData => {
-        let liveHeadCount = serverData.currentRegistered || totalTerdaftar;
-        let el1 = document.getElementById('rekapTotalTerdaftar'); if(el1) el1.innerText = liveHeadCount < 10 ? '0'+liveHeadCount : liveHeadCount;
-    }).getFormInitData();
-    let el2 = document.getElementById('rekapTotalHadir'); if(el2) el2.innerText = totalHadir < 10 ? '0'+totalHadir : totalHadir;
-    let el3 = document.getElementById('rekapTotalSouvenir'); if(el3) el3.innerText = totalSouvenir < 10 ? '0'+totalSouvenir : totalSouvenir;
-}
+    setVal('adminPrefix', data.GreetingPrefix); setVal('adminSuffix', data.GreetingSuffix);
+    setText('displayEventTitle', data.EventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.EventTitle);
+    setText('runningTextDisplay', data.Announcement || "Selamat Datang"); setVal('adminAnnouncement', data.Announcement);
+    setVal('adminEventName', data.EventName); setVal('adminEventDate', data.EventDate); setVal('adminEventLocation', data.EventLocation); 
+    setVal('adminPosterUrl', data.PosterUrl); setVal('adminDetailUrl', data.DetailUrl);
+    enableSoundSuccess = data.SoundSuccess !== "false"; enableSoundError = data.SoundError !== "false";
+    setVal('adminSoundSuccess', data.SoundSuccess || "true"); setVal('adminSoundError', data.SoundError || "true");
+    dynamicSouvenirLabel = data.SouvenirLabel || "SOUVENIR"; setVal('adminSouvenirLabel', dynamicSouvenirLabel); updateSouvenirLabelDOM(dynamicSouvenirLabel);
+    isSouvenirPerPax = (data.SouvenirPerPax === "true"); setVal('adminSouvenirPerPax', data.SouvenirPerPax || "false");
+    setVal('adminMaxQuota', data.MaxQuota); setVal('adminFormStatus', data.FormStatus || "BUKA"); setVal('adminWaTemplate', data.WaTemplate); 
+    setVal('adminRequireLogin', data.RequireLogin || "true");
 
-function showPolosPublicFormQR() {
-    if(!appWebAppUrl) { Swal.fire('Error', 'Link publik belum siap. Harap muat ulang halaman.', 'error'); return; }
-    let fullUrl = appWebAppUrl + "?mode=public";
-    let qrServerUrl = "https://quickchart.io/qr?size=500&margin=1&text=" + encodeURIComponent(fullUrl);
-    Swal.fire({
-      title: 'QR CODE FORM PUBLIK (POLOS)',
-      html: '<p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:15px;">QR Code murni tanpa hiasan/bingkai. Sangat cocok ditaruh di desain poster registrasi On-The-Spot.</p>' +
-            '<img src="' + qrServerUrl + '" width="260" id="imgPolosQr" style="border: 1px solid var(--border-color); padding:10px; background:#fff; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.05);">' +
-            '<div><button onclick="downloadPolosQR(\'' + qrServerUrl + '\', \'' + fullUrl + '\')" class="btn-submit" style="width:auto; padding:12px 25px; border-radius:30px;"><i class="fas fa-download"></i> DOWNLOAD GAMBAR QR</button></div>',
-      showConfirmButton: false, showCloseButton: true, customClass: { popup: 'luxury-popup', title: 'luxury-title' }
-    });
-}
-
-function downloadPolosQR(qrUrl, fullUrl) {
-    Swal.fire({ title: 'Mengunduh QR...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    fetch(qrUrl).then(res => { if(!res.ok) throw new Error("Network error"); return res.blob(); }).then(blob => {
-        let objectUrl = URL.createObjectURL(blob); let a = document.createElement('a'); a.style.display = 'none'; a.href = objectUrl; a.download = 'QR_Pendaftaran_Polos.png'; document.body.appendChild(a); a.click(); URL.revokeObjectURL(objectUrl); document.body.removeChild(a); Swal.close();
-    }).catch(() => { Swal.close(); window.open(qrUrl, '_blank'); });
-}
-
-function toggleSelectAll(isChecked) {
-    if (isChecked) { filteredGuestData.forEach(g => selectedGuestsForZip.add(g.qrString)); } else { selectedGuestsForZip.clear(); }
-    renderRekapRows();
-}
-
-function toggleSelectGuest(qrString, isChecked) {
-    if (isChecked) { selectedGuestsForZip.add(qrString); } else { selectedGuestsForZip.delete(qrString); }
-    let chkAll = document.getElementById('chkSelectAll'); if (chkAll) { chkAll.checked = (selectedGuestsForZip.size === filteredGuestData.length && filteredGuestData.length > 0); }
-}
-
-function toggleAcc(id) {
-    let el = document.getElementById(id); let icon = document.getElementById('icon_' + id);
-    if (el.classList.contains('active')) { el.classList.remove('active'); icon.className = 'fas fa-chevron-down'; } 
-    else { document.querySelectorAll('.acc-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.acc-header i').forEach(i => i.className = 'fas fa-chevron-down'); el.classList.add('active'); icon.className = 'fas fa-chevron-up'; }
-}
-
-function loadForm() {
-  google.script.run.withSuccessHandler(data => {
-      try {
-        if(!data) throw new Error("Data dari server terputus.");
-        let currentTheme = data.appTheme || "classic_gold"; applyAppTheme(currentTheme);
-        let elTheme = document.getElementById('adminAppTheme'); if(elTheme) elTheme.value = currentTheme;
-        currentQuestions = data.questions || []; spreadsheetUrl = data.spreadsheetUrl || ""; greetingPrefix = data.prefix || ""; greetingSuffix = data.suffix || "";
-        
-        let setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val || ""; };
-        let setText = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val || ""; };
-
-        setVal('adminPrefix', data.prefix); setVal('adminSuffix', data.suffix);
-        setText('displayEventTitle', data.eventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.eventTitle);
-        setText('runningTextDisplay', data.announcement || "Selamat Datang"); setVal('adminAnnouncement', data.announcement);
-        setVal('adminEventName', data.eventName); setVal('adminEventDate', data.eventDate); setVal('adminEventLocation', data.eventLocation); 
-        setVal('adminPosterUrl', data.posterUrl); setVal('adminDetailUrl', data.detailUrl);
-        enableSoundSuccess = data.soundSuccess !== "false"; enableSoundError = data.soundError !== "false";
-        setVal('adminSoundSuccess', data.soundSuccess || "true"); setVal('adminSoundError', data.soundError || "true");
-        dynamicSouvenirLabel = data.souvenirLabel || "SOUVENIR"; setVal('adminSouvenirLabel', dynamicSouvenirLabel); updateSouvenirLabelDOM(dynamicSouvenirLabel);
-        isSouvenirPerPax = (data.souvenirPerPax === "true"); setVal('adminSouvenirPerPax', data.souvenirPerPax || "false");
-        setVal('adminMaxQuota', data.maxQuota); setVal('adminFormStatus', data.formStatus || "BUKA"); setVal('adminWaTemplate', data.waTemplate); 
-        // TAMBAHAN: Set nilai dropdown admin dari database
-        setVal('adminRequireLogin', data.requireLogin || "true");
-
-       // ==========================================
-        // EKSEKUTOR BYPASS LOGIN (DENGAN BACKDOOR)
-        // ==========================================
+    if (!IS_PUBLIC_MODE && currentUserRole === "" && data.RequireLogin === "false") {
         const urlParams = new URLSearchParams(window.location.search);
-        const forceLogin = urlParams.get('force') === 'login';
-
-        if (!IS_PUBLIC_MODE && currentUserRole === "" && data.requireLogin === "false") {
-            if (forceLogin) {
-                console.log("Backdoor aktif: Menahan popup login untuk Admin.");
-            } else {
-                Swal.close(); 
-                currentUserRole = "Scanner"; 
-                loginSuccess(); 
-            }
+        if (urlParams.get('force') === 'login') {
+            console.log("Backdoor aktif: Menahan popup login untuk Admin.");
+        } else {
+            Swal.close(); 
+            currentUserRole = "Scanner"; 
+            loginSuccess(); 
         }
+    }
 
-        if (data.posterUrl && data.posterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
+    if (data.PosterUrl && data.PosterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
 
-        if (data.formStatus === "TUTUP") {
-            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">PENDAFTARAN DITUTUP</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.</p></div>';
-            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-            document.getElementById('pubEventName').innerText = data.eventName || data.eventTitle; return;
-        }
+    if (data.FormStatus === "TUTUP") {
+        document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">PENDAFTARAN DITUTUP</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.</p></div>';
+        let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
+        let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
+        document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+    }
 
-        let maxQ = parseInt(data.maxQuota) || 0; let curRegHead = parseInt(data.currentRegistered) || 0;
-        if (maxQ > 0 && curRegHead >= maxQ) {
-            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">MOHON MAAF</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh.</p></div>';
-            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-            document.getElementById('pubEventName').innerText = data.eventName || data.eventTitle; return;
-        }
+    let maxQ = parseInt(data.MaxQuota) || 0; let curRegHead = parseInt(data.currentRegistered) || 0;
+    if (maxQ > 0 && curRegHead >= maxQ) {
+        document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">MOHON MAAF</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh.</p></div>';
+        let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
+        let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
+        document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+    }
 
-        if (IS_PUBLIC_MODE) {
-            document.getElementById('publicEventInfo').style.display = 'block'; document.getElementById('pubEventName').innerText = data.eventName || data.eventTitle;
-            let dateLoc = []; if(data.eventDate) dateLoc.push(data.eventDate); if(data.eventLocation) dateLoc.push(data.eventLocation); document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
-            if(data.detailUrl && data.detailUrl.trim() !== "") { let btnDetail = document.getElementById('pubDetailBtn'); let finalUrl = data.detailUrl.startsWith('http') ? data.detailUrl : 'https://' + data.detailUrl; btnDetail.href = finalUrl; btnDetail.style.display = 'inline-block'; }
-        }
-        renderGuestForm();
-      } catch(e) { Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); }
-  }).withFailureHandler(err => {
-      Swal.fire({ title: 'Koneksi Gagal', text: err.message, icon: 'error', confirmButtonText: 'Muat Ulang' }).then(() => { location.reload(); });
+    if (IS_PUBLIC_MODE) {
+        document.getElementById('publicEventInfo').style.display = 'block'; document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle;
+        let dateLoc = []; if(data.EventDate) dateLoc.push(data.EventDate); if(data.EventLocation) dateLoc.push(data.EventLocation); document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
+        if(data.DetailUrl && data.DetailUrl.trim() !== "") { let btnDetail = document.getElementById('pubDetailBtn'); let finalUrl = data.DetailUrl.startsWith('http') ? data.DetailUrl : 'https://' + data.DetailUrl; btnDetail.href = finalUrl; btnDetail.style.display = 'inline-block'; }
+    }
+    
+    renderGuestForm();
+    
+  } catch(e) { 
+      Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
       document.getElementById('displayEventTitle').innerText = "SYSTEM ERROR";
-      document.getElementById('dynamicFormContainer').innerHTML = "<div style='color:red; text-align:center; font-weight:bold;'>Gagal memuat database. Harap Refresh halaman.</div>";
-  }).getFormInitData();
+      document.getElementById('dynamicFormContainer').innerHTML = "<div style='color:red; text-align:center; font-weight:bold;'>Gagal memuat database Supabase.</div>";
+  }
 }
 
 function copyPublicLink() {
