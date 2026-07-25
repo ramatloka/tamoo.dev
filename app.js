@@ -688,9 +688,35 @@ function playBeepSound(type) {
 // REGISTRASI TAMU MANDIRI & GENERATE QR CODE (SUPABASE)
 // =========================================================================
 
-async function submitGuestForm() {
+// 1. Pemicu Utama (Tombol Formulir): Menampilkan Dialog Konfirmasi Ala App Lama
+function confirmTamu() {
+    Swal.fire({
+        title: 'Konfirmasi',
+        text: 'Simpan pendaftaran Anda?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya',
+        cancelButtonText: 'Cancel',
+        customClass: { 
+            popup: 'luxury-popup', 
+            confirmButton: 'btn-action-swal', 
+            cancelButton: 'btn-action-swal' 
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            executeGuestRegistration(); // Jika ditekan "Ya", eksekusi pengiriman data
+        }
+    });
+}
+
+// Alias pendukung
+function submitForm() { confirmTamu(); }
+function submitGuestForm() { confirmTamu(); }
+
+// 2. Eksekusi Pengiriman Data ke Supabase
+async function executeGuestRegistration() {
     try {
-        // 1. Validasi Input Dinamis
+        // Validasi Input Dinamis
         let formPayload = {};
         let missingRequired = false;
 
@@ -723,33 +749,30 @@ async function submitGuestForm() {
         // Tampilkan loading
         Swal.fire({ title: 'Memproses...', text: 'Mendaftarkan data & membuat QR Code', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        // 2. Generate ID Unique Tamu & Timestamp
+        // Generate ID Unique Tamu & Timestamp
         const timestamp = new Date().toISOString();
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const guestId = "TMO-" + Date.now().toString().slice(-6) + randomCode;
-
-        // Extract nama jika ada di field
         const guestName = formPayload['nama_tamu'] || formPayload[Object.keys(formPayload)[0]] || "Tamu Undangan";
 
-        // 3. Masukkan Data ke Tabel `data_tamu` Supabase
+        // Masukkan Data ke Tabel data_tamu Supabase
         const insertData = {
-        id: guestId,
-        nama_tamu: guestName,
-        kategori_tamu: formPayload['kategori_tamu'] || formPayload['kategori'] || 'Umum',
-        status_kehadiran: 'BELUM_HADIR',
-        status_souvenir: 'BELUM_AMBIL',
-        form_data: formPayload,
-        created_at: timestamp
-    };
+            id: guestId,
+            nama_tamu: guestName,
+            kategori_tamu: formPayload['kategori_tamu'] || formPayload['kategori'] || 'Umum',
+            status_kehadiran: 'BELUM_HADIR',
+            status_souvenir: 'BELUM_AMBIL',
+            form_data: formPayload,
+            created_at: timestamp
+        };
 
         const { data, error } = await db.from('data_tamu').insert([insertData]);
-
         if (error) throw error;
 
         // Play sound effect jika sukses
         if (typeof playBeepSound === "function") playBeepSound('success');
 
-        // 4. Tampilkan Pop-Up QR Code
+        // Tampilkan Pop-Up QR Code
         showQrCodeModal(guestId, guestName);
 
     } catch (err) {
@@ -758,21 +781,11 @@ async function submitGuestForm() {
     }
 }
 
-// ALIAS CADANGAN: Jika tombol HTML asli memanggil submitForm() bukan submitGuestForm()
-async function submitForm() {
-    await submitGuestForm();
-}
-
-// ALIAS TAMBAHAN: Untuk mencakup tombol confirmTamu() bawaan HTML
-async function confirmTamu() {
-    await submitGuestForm();
-}
 // =========================================================================
 // UI POP-UP QR CODE & GENERATOR E-TICKET (GAMBAR HD)
 // =========================================================================
 
 function showQrCodeModal(guestId, guestName) {
-    // Ambil data event dari input setup untuk ditaruh di tiket
     const eventTitle = document.getElementById('adminEventTitle')?.value || "GUEST BOOK TICKET";
     const eventDate = document.getElementById('adminEventDate')?.value || "";
     const eventLoc = document.getElementById('adminEventLocation')?.value || "";
@@ -798,10 +811,109 @@ function showQrCodeModal(guestId, guestName) {
             </div>
         `,
         showConfirmButton: false,
-        width: '340px', // Ukuran popup lebih kecil & ringkas untuk ponsel
+        width: '340px',
         padding: '20px',
         customClass: { popup: 'luxury-popup' }
+    }).then(() => {
+        // Reset Total Seluruh Isian Formulir Tanpa Sisa Teks setelah popup ditutup
+        let formContainer = document.getElementById('dynamicFormContainer');
+        if (formContainer) {
+            let inputs = formContainer.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], input[type="date"], select, textarea');
+            inputs.forEach(i => i.value = "");
+
+            let checks = formContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+            checks.forEach(c => c.checked = false);
+        }
     });
+}
+
+async function downloadETicket(id, name, title, date, loc) {
+    const btn = window.event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MEMPROSES...';
+    btn.disabled = true;
+
+    try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 600;
+        canvas.height = 850;
+
+        // 1. Background & Border Mewah (Gold)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#846924';
+        ctx.lineWidth = 15;
+        ctx.strokeRect(15, 15, canvas.width - 30, canvas.height - 30);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+        // 2. Judul Acara (Tiket Digital)
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#846924';
+        ctx.font = 'bold 32px serif';
+        ctx.fillText(title.toUpperCase(), canvas.width / 2, 110);
+
+        // Garis Pemisah
+        ctx.beginPath();
+        ctx.moveTo(150, 135);
+        ctx.lineTo(450, 135);
+        ctx.stroke();
+
+        // 3. Info Tanggal & Lokasi
+        ctx.fillStyle = '#777';
+        ctx.font = '600 18px sans-serif';
+        ctx.fillText(`${date}  |  ${loc.toUpperCase()}`, canvas.width / 2, 175);
+
+        // 4. Header Tiket
+        ctx.fillStyle = '#999';
+        ctx.font = '500 20px sans-serif';
+        ctx.letterSpacing = "4px";
+        ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
+        ctx.letterSpacing = "0px";
+
+        // 5. Nama Tamu
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 42px sans-serif';
+        ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
+
+        // 6. Gambar QR Code
+        const qrImg = new Image();
+        qrImg.crossOrigin = "anonymous";
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(id)}`;
+        
+        await new Promise((resolve) => { qrImg.onload = resolve; });
+        
+        // Frame putih untuk QR
+        ctx.fillStyle = '#fdfaf3';
+        ctx.fillRect(150, 360, 300, 300);
+        ctx.drawImage(qrImg, 175, 385, 250, 250);
+
+        // 7. Footer & Instruksi
+        ctx.fillStyle = '#888';
+        ctx.font = 'italic 16px sans-serif';
+        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
+
+        ctx.fillStyle = '#846924';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.letterSpacing = "5px";
+        ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
+
+        // 8. Proses Download
+        const link = document.createElement('a');
+        link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+
+        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1500, showConfirmButton: false });
+
+    } catch (err) {
+        console.error(err);
+        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket.', 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 async function downloadETicket(id, name, title, date, loc) {
