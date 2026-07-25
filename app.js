@@ -1354,118 +1354,221 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (FIXED TABLE NAME: 'data_tamu')
+// MODUL REKAPITULASI TAMU (UI VERSI AWAL + KARTU STATISTIK + MODAL)
 // =========================================================================
 
 async function loadGuestRecapTable() {
-    // 1. Sembunyikan running text jika ada di Halaman Rekap
     const ticker = document.getElementById('tickerWrapContainer');
     if (ticker) ticker.style.display = 'none';
 
-    // 2. Cari elemen tabel rekap
     const tableBody = document.getElementById('guestTableBody') || 
                       document.getElementById('rekapTableBody') || 
                       document.querySelector('#rekapTable tbody');
     
     if (!tableBody) return;
 
-    // Tampilkan status loading
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="5" style="text-align: center; padding: 20px; color: #777;">
-                <i class="fas fa-spinner fa-spin"></i> Memuat data dari tabel 'data_tamu'...
-            </td>
-        </tr>
-    `;
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #777;"><i class="fas fa-spinner fa-spin"></i> Memuat data dari tabel 'data_tamu'...</td></tr>`;
 
     try {
-        if (typeof db === "undefined" || !db) {
-            console.warn("Variabel koneksi 'db' belum siap.");
-            return;
-        }
+        if (typeof db === "undefined" || !db) return;
 
-        // 3. Tarik data dari tabel 'data_tamu' (bukan 'guests')
         const { data: guests, error } = await db.from('data_tamu').select('*');
 
         if (error) throw error;
 
-        // Jika data di Supabase masih kosong
         if (!guests || guests.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
-                        Belum ada data tamu terdaftar di database.
-                    </td>
-                </tr>
-            `;
-            if (typeof updateRekapSummaryCards === "function") updateRekapSummaryCards([]);
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #888;">Belum ada data tamu terdaftar di database.</td></tr>`;
+            updateRekapSummaryCards([]);
             return;
         }
 
-        // 4. Render data tamu ke dalam tabel
-        tableBody.innerHTML = guests.map((guest, index) => {
-            // Sesuaikan nama kolom jika ada perbedaan (misal: nama / nama_tamu, is_checked_in / status_hadir)
-            const namaTamu = guest.nama || guest.nama_tamu || guest.name || '-';
-            const kategoriTamu = guest.kategori || guest.kategori_tamu || 'Reguler';
-            const isHadir = guest.is_checked_in || guest.status_hadir || guest.checked_in || false;
-            const isSouvenir = guest.souvenir_taken || guest.souvenir || false;
+        // Render Baris Tabel
+        tableBody.innerHTML = guests.map((guest) => {
+            const namaTamu = guest.nama_tamu || '-';
+            const jumlahOrang = guest.jumlah_aktual || 1;
+            
+            let rawKategori = guest.kategori_tamu || 'Reguler';
+            if (rawKategori.toLowerCase() === 'umum') rawKategori = 'Reguler';
+            const kategoriTamu = rawKategori.toUpperCase();
 
-            const statusKehadiran = isHadir 
-                ? `<span style="background: #22c55e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">HADIR</span>`
-                : `<span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">BELUM HADIR</span>`;
+            const isHadir = guest.status_kehadiran === 'HADIR';
+            const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
 
-            const statusSouvenir = isSouvenir
-                ? `<span style="color: #16a34a; font-weight: bold;"><i class="fas fa-check-circle"></i> Sudah</span>`
-                : `<span style="color: #9ca3af;"><i class="fas fa-minus-circle"></i> Belum</span>`;
+            let katBadge = `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">${kategoriTamu}</span>`;
+            if (kategoriTamu === 'VIP' || kategoriTamu === 'TAMU VIP') {
+                katBadge = `<span style="background: #fef08a; color: #854d0e; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"><i class="fas fa-crown"></i> VIP</span>`;
+            }
+
+            const hadirBadge = isHadir 
+                ? `<span style="background: #e6f4ea; color: #137333; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">HADIR</span>`
+                : `<span style="background: #fce8e6; color: #c5221f; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">BELUM HADIR</span>`;
+
+            const souvBadge = isSouvenir
+                ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
+                : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
+
+            const aksiHtml = `
+                <i class="fas fa-user-edit" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Edit Tamu"></i>
+                <i class="fas fa-qrcode" style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Lihat QR"></i>
+                <i class="fas fa-print" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Cetak QR"></i>
+                <i class="fas fa-crown" style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Jadikan VIP"></i>
+                <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
+            `;
 
             return `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="text-align: center; padding: 10px;">
-                        <input type="checkbox" class="chk-select-guest" value="${guest.id}">
+                <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <td style="text-align: center; padding: 15px 10px;">
+                        <input type="checkbox" class="chk-select-guest" value="${guest.id}" style="transform: scale(1.2); cursor: pointer;">
                     </td>
-                    <td style="padding: 10px; font-weight: bold;">${namaTamu}</td>
-                    <td style="padding: 10px;">${kategoriTamu}</td>
-                    <td style="text-align: center; padding: 10px;">${statusKehadiran} / ${statusSouvenir}</td>
-                    <td style="text-align: center; padding: 10px;">-</td>
+                    <td style="padding: 15px 10px;">
+                        <div style="font-weight: 800; color: #333; font-size: 0.95rem; margin-bottom: 4px;">${namaTamu}</div>
+                        <div style="color: #b39343; font-weight: 800; font-size: 0.75rem;">
+                            <i class="fas fa-user-friends"></i> ${jumlahOrang} Orang
+                        </div>
+                    </td>
+                    <td style="padding: 15px 10px; vertical-align: middle;">
+                        ${katBadge}
+                    </td>
+                    <td style="padding: 15px 10px;">
+                        <div style="margin-bottom: 6px;">${hadirBadge}</div>
+                        <div>${souvBadge}</div>
+                    </td>
+                    <td style="text-align: center; padding: 15px 10px; vertical-align: middle; white-space: nowrap;">
+                        ${aksiHtml}
+                    </td>
                 </tr>
             `;
         }).join('');
 
-        if (typeof updateRekapSummaryCards === "function") updateRekapSummaryCards(guests);
+        updateRekapSummaryCards(guests);
 
     } catch (err) {
         console.error("Gagal memuat rekap data_tamu:", err);
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">
-                    Gagal mengambil data dari tabel data_tamu.
-                </td>
-            </tr>
-        `;
     }
 }
-// FUNGSI PEMBANTU: Update angka total di kartu statistik
+
+// =========================================================================
+// FUNGSI PEMBANTU: UPDATE ANGKA KARTU STATISTIK (DIPERBAIKI)
+// =========================================================================
 function updateRekapSummaryCards(guests) {
-    const totalTamu = guests.length;
-    const totalHadir = guests.filter(g => g.is_checked_in).length;
-    const totalSouvenir = guests.filter(g => g.souvenir_taken).length;
+    // Hitung berdasarkan kepala (jumlah_aktual)
+    const totalTamu = guests.reduce((sum, g) => sum + (parseInt(g.jumlah_aktual) || 1), 0);
+    
+    // Hitung yang hadir saja
+    const totalHadir = guests
+        .filter(g => g.status_kehadiran === 'HADIR')
+        .reduce((sum, g) => sum + (parseInt(g.jumlah_aktual) || 1), 0);
+    
+    // Hitung yang sudah ambil souvenir
+    const totalSouvenir = guests
+        .filter(g => g.status_souvenir === 'SUDAH_AMBIL' || g.status_souvenir === 'SUDAH AMBIL')
+        .length; // Jika souvenir dihitung 1 per nama/baris
 
-    const elTotal = document.getElementById('statTotalTamu') || document.getElementById('totalGuests');
-    const elHadir = document.getElementById('statTotalHadir') || document.getElementById('totalCheckedIn');
-    const elSouvenir = document.getElementById('statTotalSouvenir') || document.getElementById('totalSouvenir');
+    // Targetkan ID dari index.html Anda
+    const elTotal = document.getElementById('rekapTotalTerdaftar');
+    const elHadir = document.getElementById('rekapTotalHadir');
+    const elSouvenir = document.getElementById('rekapTotalSouvenir');
 
+    // Update angkanya di layar
     if (elTotal) elTotal.innerText = totalTamu;
     if (elHadir) elHadir.innerText = totalHadir;
     if (elSouvenir) elSouvenir.innerText = totalSouvenir;
 }
 
-// PEMICU OTOMATIS: Dengar setiap kali user mengklik tombol/menu Rekap
+// =========================================================================
+// MODUL TAMBAH TAMU MANUAL (MODAL FORM FORMULIR)
+// =========================================================================
+async function openAddGuestModal() {
+    const { value: formValues } = await Swal.fire({
+        title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900;">TAMBAH TAMU MANUAL</h2>',
+        html: `
+            <div style="text-align: left; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; padding-top: 10px;">
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Nama Tamu</label>
+                <input id="swal-input-nama" class="swal2-input" placeholder="Masukkan nama..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Institusi</label>
+                <select id="swal-input-institusi" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
+                    <option value="Civitas SMKN 10 Bandung">Civitas SMKN 10 Bandung</option>
+                    <option value="Umum">Umum</option>
+                </select>
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Asal (bila anda memilih umum diatas)</label>
+                <input id="swal-input-asal" class="swal2-input" placeholder="Kota/Instansi..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Jumlah tamu hadir (termasuk anda)</label>
+                <select id="swal-input-jumlah" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
+                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                    <option value="4">4</option><option value="5">5</option>
+                </select>
+
+                <hr style="border: 0; border-top: 2px dashed #eee; margin: 25px 0 20px 0;">
+
+                <label style="font-weight: 900; color: #846924; display: block; margin-bottom: 5px;">KATEGORI TAMU</label>
+                <select id="swal-input-kategori" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 2px solid #846924; font-weight: bold; color: #846924; border-radius: 6px; box-sizing: border-box;">
+                    <option value="Reguler">Tamu Reguler</option>
+                    <option value="VIP">Tamu VIP</option>
+                </select>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Buat & Tampilkan QR',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#b39343',
+        cancelButtonColor: '#b39343',
+        width: '450px',
+        preConfirm: () => {
+            const nama = document.getElementById('swal-input-nama').value;
+            const institusi = document.getElementById('swal-input-institusi').value;
+            const asal = document.getElementById('swal-input-asal').value;
+            const jumlah = document.getElementById('swal-input-jumlah').value;
+            const kategori = document.getElementById('swal-input-kategori').value;
+            
+            if (!nama) {
+                Swal.showValidationMessage('Nama tamu wajib diisi!');
+                return false;
+            }
+            return { nama, institusi, asal, jumlah, kategori };
+        }
+    });
+
+    if (formValues) saveNewGuestManual(formValues);
+}
+
+async function saveNewGuestManual(data) {
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terkoneksi.");
+        const newId = "TMO-" + Date.now();
+        
+        const { error } = await db.from('data_tamu').insert([{
+            id: newId,
+            nama_tamu: data.nama,
+            kategori_tamu: data.kategori,
+            jumlah_aktual: parseInt(data.jumlah),
+            status_kehadiran: 'BELUM_HADIR',
+            status_souvenir: 'BELUM_AMBIL',
+            keterangan_tambahan: JSON.stringify({ institusi: data.institusi, asal: data.asal })
+        }]);
+        
+        if (error) throw error;
+        
+        Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Tamu manual berhasil ditambahkan ke database.', confirmButtonColor: '#137333' }).then(() => {
+            loadGuestRecapTable();
+        });
+    } catch (err) {
+        console.error("Gagal simpan tamu manual:", err);
+        Swal.fire('Gagal!', 'Terjadi kesalahan saat menyimpan data ke server.', 'error');
+    }
+}
+
+// =========================================================================
+// PEMICU OTOMATIS: DENGAR MENU NAVIGASI REKAP DIKLIK
+// =========================================================================
 document.addEventListener('click', function(e) {
     const target = e.target.closest('#navRekap, [onclick*="rekap"], [data-tab="rekap"]');
-    if (target) {
-        setTimeout(loadGuestRecapTable, 100);
-    }
+    if (target) setTimeout(loadGuestRecapTable, 100);
 });
 
-// Panggil sekali saat script pertama kali termuat di browser
+// Panggil sekali saat script pertama kali termuat
 setTimeout(loadGuestRecapTable, 1000);
