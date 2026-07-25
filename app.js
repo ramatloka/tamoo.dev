@@ -156,10 +156,76 @@ async function loadForm() {
     }
     
     renderGuestForm();
+    renderSetupQuestionsTable();
     
   } catch(e) { 
       Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
   }
+}
+
+// =========================================================================
+// SETUP ACCORDION & MANAGEMENT UTILS (PENGENDALI ACTION SETUP)
+// =========================================================================
+function toggleAcc(headerEl) {
+    const content = headerEl.nextElementSibling;
+    const icon = headerEl.querySelector('.fas.fa-chevron-down');
+    if (content.style.maxHeight) {
+        content.style.maxHeight = null;
+        if(icon) icon.style.transform = "rotate(0deg)";
+    } else {
+        content.style.maxHeight = content.scrollHeight + "px";
+        if(icon) icon.style.transform = "rotate(180deg)";
+    }
+}
+
+function renderSetupQuestionsTable() {
+    let tbody = document.getElementById('setupQuestionsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    currentQuestions.forEach((q, index) => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${q.label}</strong><br><small style="color:gray;">ID: ${q.id} | Tipe: ${q.type}</small></td>
+            <td style="text-align:center;">${q.required ? '✅ Ya' : '❌ Tidak'}</td>
+            <td style="text-align:center;">${q.showOnTv ? '✅ Ya' : '❌ Tidak'}</td>
+            <td style="text-align:center;">
+                <button type="button" class="btn-action-outline" onclick="deleteQuestion('${q.id}')" style="color:red; border-color:red; padding:4px 8px; font-size:11px;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function addQuestion() {
+    let label = document.getElementById('newQTxt').value.trim();
+    let type = document.getElementById('newQType').value;
+    let optStr = document.getElementById('newQOpt').value.trim();
+    let req = document.getElementById('newQReq').checked;
+    let tv = document.getElementById('newQTv').checked;
+
+    if (!label) { Swal.fire('Gagal', 'Label pertanyaan wajib diisi!', 'warning'); return; }
+    
+    let id = "c_" + label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    if(currentQuestions.some(q => q.id === id)) { id += "_" + Math.floor(Math.random() * 100); }
+
+    currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
+    
+    // Reset Form Input
+    document.getElementById('newQTxt').value = "";
+    document.getElementById('newQOpt').value = "";
+    document.getElementById('newQReq').checked = false;
+    document.getElementById('newQTv').checked = true;
+
+    renderSetupQuestionsTable();
+    Swal.fire('Ditambahkan', 'Pertanyaan berhasil masuk list sementara. Jangan lupa klik Simpan Pengaturan!', 'success');
+}
+
+function deleteQuestion(id) {
+    if(id === 'nama_tamu') { Swal.fire('Dilarang', 'Kolom Nama Lengkap adalah field sistem utama dan tidak boleh dihapus!', 'warning'); return; }
+    currentQuestions = currentQuestions.filter(q => q.id !== id);
+    renderSetupQuestionsTable();
 }
 
 // =========================================================================
@@ -299,6 +365,13 @@ function renderGuestForm() {
     html += '</div>';
   });
   document.getElementById('dynamicFormContainer').innerHTML = html;
+}
+
+function toggleQOptDisplay() {
+    let type = document.getElementById('newQType').value;
+    let container = document.getElementById('newQOptContainer');
+    if(type === 'dropdown' || type === 'radio' || type === 'checkbox') { if(container) container.style.display = 'block'; } 
+    else { if(container) container.style.display = 'none'; }
 }
 
 function initTvMode() { console.log("Layar TV Extended Aktif."); }
