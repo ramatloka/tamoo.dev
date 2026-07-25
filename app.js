@@ -1379,8 +1379,8 @@ async function loadGuestRecapTable() {
     `;
 
     try {
-        // 3. Panggil objek 'supabase' (bukan supabaseClient)
-        const client = typeof supabase !== "undefined" ? supabase : supabaseClient;
+        // 3. Menggunakan objek 'supabase' yang sudah aktif di app.js Anda
+        const client = typeof supabase !== "undefined" ? supabase : window.supabase;
         
         const { data: guests, error } = await client
             .from('guests')
@@ -1442,7 +1442,6 @@ async function loadGuestRecapTable() {
         `;
     }
 }
-
 // FUNGSI PEMBANTU: Update angka total di kartu statistik
 function updateRekapSummaryCards(guests) {
     const totalTamu = guests.length;
