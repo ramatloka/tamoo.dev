@@ -1142,7 +1142,7 @@ setTimeout(initManualScannerBridge, 1000);
 let html5QrCodeScanner = null;
 
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (CLEAN CONNECTIONS - ANTI BENTROK)
+// HANDLER KAMERA WEBCAM & HP (CSS FIX - ANTI BLANK VIEW)
 // =========================================================================
 
 async function openCameraModal() {
@@ -1154,7 +1154,7 @@ async function openCameraModal() {
             didOpen: () => Swal.showLoading()
         });
 
-        // 1. Langsung ambil daftar kamera dari library (tanpa getUserMedia manual)
+        // 1. Ambil daftar kamera dari library
         const devices = await Html5Qrcode.getCameras();
 
         if (!devices || devices.length === 0) {
@@ -1182,7 +1182,9 @@ async function openCameraModal() {
                         </select>
                     </div>
                     
-                    <div id="reader" style="width:100%; height:230px; background:#000; border-radius:10px; overflow:hidden;"></div>
+                    <div id="readerContainer" style="width:100%; max-width:320px; margin:0 auto; background:#000; border-radius:10px; overflow:hidden;">
+                        <div id="reader" style="width:100%; display:block;"></div>
+                    </div>
                     
                     <p style="font-size:11px; color:#888; margin-top:8px;">Arahkan kamera ke QR Code milik tamu</p>
                 </div>
@@ -1201,20 +1203,26 @@ async function openCameraModal() {
                 // Fungsi Inisialisasi & Start Scanner
                 const startScanner = async (camId) => {
                     try {
-                        // Pastikan instance lama benar-benar mati bersih sebelum bikin baru
                         if (html5QrCodeScanner) {
-                            try {
-                                await html5QrCodeScanner.stop();
-                            } catch(e) { /* abaikan jika belum jalan */ }
+                            try { await html5QrCodeScanner.stop(); } catch(e) {}
                             html5QrCodeScanner = null;
                         }
 
-                        // Buat instance baru secara fresh
+                        // Buat instance baru
                         html5QrCodeScanner = new Html5Qrcode("reader");
                         
+                        // Konfigurasi Aspek Rasio Otomatis agar mengikuti resolusi webcam asli laptop
                         await html5QrCodeScanner.start(
                             camId,
-                            { fps: 10, qrbox: { width: 180, height: 180 } },
+                            { 
+                                fps: 15, 
+                                qrbox: (width, height) => {
+                                    // Menentukan kotak scan dinamis agar pas di layar laptop/HP
+                                    const minEdge = Math.min(width, height);
+                                    const qrboxSize = Math.floor(minEdge * 0.65);
+                                    return { width: qrboxSize, height: qrboxSize };
+                                }
+                            },
                             (decodedText) => {
                                 // Jika scan QR berhasil
                                 html5QrCodeScanner.stop().then(() => {
@@ -1226,17 +1234,27 @@ async function openCameraModal() {
                                     processGuestCheckIn(decodedText);
                                 });
                             },
-                            (errorMessage) => { /* Silently ignore frame errors */ }
+                            (errorMessage) => {}
                         );
+
+                        // FORCE FIX: Terkadang tag <video> bawaan library tersembunyi, kita paksa muncul secara CSS
+                        const videoElement = document.querySelector('#reader video');
+                        if (videoElement) {
+                            videoElement.style.width = '100%';
+                            videoElement.style.height = 'auto';
+                            videoElement.style.display = 'block';
+                            videoElement.style.objectFit = 'cover';
+                        }
+
                     } catch (err) {
                         console.error("Gagal menyalakan scanner di div reader:", err);
                     }
                 };
 
-                // Beri jeda 400ms agar animasi modal SweetAlert selesai terbuka sempurna di layar
+                // Beri jeda 500ms agar modal SweetAlert2 terbuka 100% sempurna
                 setTimeout(() => {
                     startScanner(selectedCamId);
-                }, 400);
+                }, 500);
 
                 // Jika petugas mengganti pilihan kamera lewat dropdown
                 cameraSelect.addEventListener('change', (e) => {
@@ -1244,7 +1262,6 @@ async function openCameraModal() {
                 });
             },
             willClose: () => {
-                // Hentikan streaming video secara bersih saat modal ditutup
                 if (html5QrCodeScanner) {
                     html5QrCodeScanner.stop().then(() => {
                         html5QrCodeScanner = null;
@@ -1260,7 +1277,7 @@ async function openCameraModal() {
         if (typeof playBeepSound === "function") playBeepSound('error');
         Swal.fire({
             title: 'Akses Kamera Bermasalah',
-            text: 'Tidak dapat mengunci sumber video. Pastikan kamera Anda tidak sedang dibuka oleh aplikasi lain (seperti Zoom, Teams, atau tab browser lain).',
+            text: 'Tidak dapat menampilkan streaming video.',
             icon: 'error',
             customClass: { popup: 'luxury-popup' }
         });
