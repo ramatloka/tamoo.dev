@@ -1142,34 +1142,27 @@ setTimeout(initManualScannerBridge, 1000);
 let html5QrCodeScanner = null;
 
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (NATIVE STREAM - ANTI BLANK)
+// HANDLER KAMERA WEBCAM & HP (CLEAN CONNECTIONS - ANTI BENTROK)
 // =========================================================================
 
 async function openCameraModal() {
-    // 1. Minta izin & aktifkan sensor kamera secara NATIVE agar lampu webcam langsung menyala
     try {
         Swal.fire({
-            title: 'Menghubungkan Kamera...',
-            text: 'Meminta akses ke perangkat webcam/kamera...',
+            title: 'Mempersiapkan Kamera...',
+            text: 'Membaca daftar perangkat video...',
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
 
-        // Paksa browser membakar stream kamera native (Lampu Webcam AKAN NYALA di sini)
-        const initStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        
-        // Dapatkan daftar hardware kamera yang valid
+        // 1. Langsung ambil daftar kamera dari library (tanpa getUserMedia manual)
         const devices = await Html5Qrcode.getCameras();
-
-        // Matikan stream sementara setelah izin & hardware terkonfirmasi
-        initStream.getTracks().forEach(track => track.stop());
 
         if (!devices || devices.length === 0) {
             Swal.fire('Kamera Tidak Ditemukan', 'Tidak ada perangkat kamera yang terdeteksi.', 'warning');
             return;
         }
 
-        // Buat Opsi Pilihan Kamera (Depan / Belakang / External Webcam)
+        // Buat Opsi Pilihan Kamera
         let cameraOptionsHtml = devices.map((device, idx) => {
             let label = device.label || `Kamera ${idx + 1}`;
             if (label.toLowerCase().includes('back') || label.toLowerCase().includes('belakang')) label = "📷 Kamera Belakang";
@@ -1201,17 +1194,22 @@ async function openCameraModal() {
             didOpen: () => {
                 const cameraSelect = document.getElementById('cameraSelectDropdown');
                 
-                // Utamakan Kamera Belakang untuk Smartphone, atau Kamera Utama untuk Laptop
+                // Pilih kamera default (Kamera pertama untuk laptop, kamera terakhir untuk HP)
                 let selectedCamId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
                 cameraSelect.value = selectedCamId;
 
-                // Fungsi Inisialisasi Scanner Kamera
+                // Fungsi Inisialisasi & Start Scanner
                 const startScanner = async (camId) => {
                     try {
+                        // Pastikan instance lama benar-benar mati bersih sebelum bikin baru
                         if (html5QrCodeScanner) {
-                            await html5QrCodeScanner.stop().catch(() => {});
+                            try {
+                                await html5QrCodeScanner.stop();
+                            } catch(e) { /* abaikan jika belum jalan */ }
+                            html5QrCodeScanner = null;
                         }
 
+                        // Buat instance baru secara fresh
                         html5QrCodeScanner = new Html5Qrcode("reader");
                         
                         await html5QrCodeScanner.start(
@@ -1220,41 +1218,49 @@ async function openCameraModal() {
                             (decodedText) => {
                                 // Jika scan QR berhasil
                                 html5QrCodeScanner.stop().then(() => {
+                                    html5QrCodeScanner = null;
+                                    Swal.close();
+                                    processGuestCheckIn(decodedText);
+                                }).catch(() => {
                                     Swal.close();
                                     processGuestCheckIn(decodedText);
                                 });
                             },
-                            (errorMessage) => {}
+                            (errorMessage) => { /* Silently ignore frame errors */ }
                         );
                     } catch (err) {
                         console.error("Gagal menyalakan scanner di div reader:", err);
                     }
                 };
 
-                // Beri jeda kecil 250ms agar SweetAlert selesai menggambar elemen #reader di layar
+                // Beri jeda 400ms agar animasi modal SweetAlert selesai terbuka sempurna di layar
                 setTimeout(() => {
                     startScanner(selectedCamId);
-                }, 250);
+                }, 400);
 
-                // Jika user mengganti kamera via dropdown
+                // Jika petugas mengganti pilihan kamera lewat dropdown
                 cameraSelect.addEventListener('change', (e) => {
                     startScanner(e.target.value);
                 });
             },
             willClose: () => {
-                // Matikan aliran kamera secara bersih saat modal ditutup
+                // Hentikan streaming video secara bersih saat modal ditutup
                 if (html5QrCodeScanner) {
-                    html5QrCodeScanner.stop().catch(() => {});
+                    html5QrCodeScanner.stop().then(() => {
+                        html5QrCodeScanner = null;
+                    }).catch(() => {
+                        html5QrCodeScanner = null;
+                    });
                 }
             }
         });
 
     } catch (err) {
-        console.error("Izin Kamera Ditolak / Blocked:", err);
+        console.error("Gagal inisialisasi awal perangkat kamera:", err);
         if (typeof playBeepSound === "function") playBeepSound('error');
         Swal.fire({
-            title: 'Akses Kamera Ditolak',
-            text: 'Izin kamera belum diberikan. Silakan izinkan akses kamera pada ikon gembok/kamera di address bar browser Anda.',
+            title: 'Akses Kamera Bermasalah',
+            text: 'Tidak dapat mengunci sumber video. Pastikan kamera Anda tidak sedang dibuka oleh aplikasi lain (seperti Zoom, Teams, atau tab browser lain).',
             icon: 'error',
             customClass: { popup: 'luxury-popup' }
         });
