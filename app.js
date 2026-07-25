@@ -225,17 +225,31 @@ function renderSetupQuestionsTable() {
 }
 
 function addQuestion() {
-    let elTxt = document.getElementById('newQTxt');
-    let elType = document.getElementById('newQType');
-    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions');
-    let elReq = document.getElementById('newQReq');
-    let elTv = document.getElementById('newQTv');
+    // Cari elemen teks label dengan berbagai kecocokan ID bawaan HTML TAMOO
+    let elTxt = document.getElementById('newQTxt') || 
+                document.getElementById('newQLabel') || 
+                document.getElementById('inputQuestionLabel') ||
+                document.querySelector('.acc-content input[type="text"]'); // Fallback input teks pertama di akordeon
+
+    let elType = document.getElementById('newQType') || document.getElementById('selectQuestionType');
+    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions') || document.getElementById('inputQuestionOptions');
+    let elReq = document.getElementById('newQReq') || document.getElementById('checkQuestionRequired');
+    let elTv = document.getElementById('newQTv') || document.getElementById('checkQuestionTv');
 
     let label = elTxt ? elTxt.value.trim() : "";
     let type = elType ? elType.value : "text";
     let optStr = elOpt ? elOpt.value.trim() : "";
     let req = elReq ? elReq.checked : false;
     let tv = elTv ? elTv.checked : true;
+
+    // Jika label tetap kosong, coba intip apakah ada input teks lain di dekat tombol yang diklik
+    if (!label && window.event && window.event.target) {
+        let parentCard = window.event.target.closest('.acc-content') || window.event.target.parentElement;
+        if (parentCard) {
+            let alternativeInput = parentCard.querySelector('input[type="text"]');
+            if (alternativeInput) label = alternativeInput.value.trim();
+        }
+    }
 
     if (!label) { 
         Swal.fire({ title: 'Gagal', text: 'Label pertanyaan wajib diisi!', icon: 'warning', customClass: { popup: 'luxury-popup' } }); 
@@ -247,6 +261,7 @@ function addQuestion() {
 
     currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
     
+    // Reset Form Input setelah berhasil ditambahkan
     if(elTxt) elTxt.value = "";
     if(elOpt) elOpt.value = "";
     if(elReq) elReq.checked = false;
