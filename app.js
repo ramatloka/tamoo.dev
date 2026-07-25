@@ -1007,18 +1007,35 @@ async function downloadETicket(id, name, title, date, loc) {
     }
 }
     // =========================================================================
+// =========================================================================
 // ENGINE PROCESSOR CHECK-IN TAMU (SUPABASE)
 // =========================================================================
 
-// FUNGSI 1: Eksekusi Utama Check-in ke Supabase (Dipakai oleh Kamera, File, & Manual)
+// Pembersih Input Manual Global
+function clearManualInput() {
+    let activeEl = document.activeElement;
+    if (activeEl && activeEl.tagName === 'INPUT') {
+        activeEl.value = "";
+    }
+    
+    let inputs = document.querySelectorAll('input[type="text"]');
+    inputs.forEach(i => {
+        if (i.id.includes('Scan') || i.id.includes('Qr') || i.placeholder?.includes('ID') || i.placeholder?.includes('manual')) {
+            i.value = "";
+        }
+    });
+}
+
+// FUNGSI 1: Eksekusi Utama Check-in ke Supabase (Wajib Async)
 async function processGuestCheckIn(guestId) {
     if (!guestId || guestId.trim() === "") return;
     
-    // Bersihkan format input (menghilangkan spasi tak sengaja)
     const cleanId = guestId.trim();
     
+    // Bersihkan kolom input langsung saat proses dimulai
+    clearManualInput();
+
     try {
-        // Tampilkan loading indikator scan
         Swal.fire({ title: 'Memverifikasi...', text: 'Mengecek kode QR tamu...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         // 1. Ambil data tamu berdasarkan ID dari Supabase
@@ -1030,7 +1047,7 @@ async function processGuestCheckIn(guestId) {
         if (!guest) {
             if (typeof playBeepSound === "function") playBeepSound('error');
             Swal.fire({ title: 'Scan Gagal', text: `ID Tamu (${cleanId}) tidak terdaftar di sistem!`, icon: 'error', customClass: { popup: 'luxury-popup' } });
-            resetManualScanInput();
+            clearManualInput();
             return;
         }
 
@@ -1043,7 +1060,7 @@ async function processGuestCheckIn(guestId) {
                 icon: 'warning', 
                 customClass: { popup: 'luxury-popup' } 
             });
-            resetManualScanInput();
+            clearManualInput();
             return;
         }
 
@@ -1059,7 +1076,7 @@ async function processGuestCheckIn(guestId) {
         // Bunyikan Bell Sukses Check-in!
         if (typeof playBeepSound === "function") playBeepSound('success');
 
-        // 3. Tampilkan Pop-Up Selamat Datang yang Mewah
+        // 3. Tampilkan Pop-Up Selamat Datang Mewah
         Swal.fire({
             title: 'BERHASIL CHECK-IN',
             html: `
@@ -1077,16 +1094,14 @@ async function processGuestCheckIn(guestId) {
             customClass: { popup: 'luxury-popup' }
         });
 
-        // Reset kolom input manual agar siap menerima scan berikutnya
-        resetManualScanInput();
+        clearManualInput();
         
-        // Refresh daftar rekap jika sedang terbuka di belakang layar
         if (typeof loadForm === "function") loadForm();
 
     } catch (err) {
         if (typeof playBeepSound === "function") playBeepSound('error');
         Swal.fire({ title: 'Sistem Error', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
-        resetManualScanInput();
+        clearManualInput();
     }
 }
 
