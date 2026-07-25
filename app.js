@@ -268,7 +268,7 @@ function deleteQuestion(id) {
 // =========================================================================
 // SIMPAN PENGATURAN KE SUPABASE (DATABASE BRIDGE)
 // =========================================================================
-async function saveAdminSettings() {
+async function saveAdminSettingsData() {
     try {
         Swal.fire({ title: 'Menyimpan...', text: 'Mengirim konfigurasi ke Supabase', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
