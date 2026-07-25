@@ -1145,8 +1145,6 @@ let html5QrCodeScanner = null;
 // HANDLER KAMERA WEBCAM & HP (NATIVE STREAM - ANTI BLANK)
 // =========================================================================
 
-let html5QrCodeScanner = null;
-
 async function openCameraModal() {
     // 1. Minta izin & aktifkan sensor kamera secara NATIVE agar lampu webcam langsung menyala
     try {
