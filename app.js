@@ -1833,6 +1833,30 @@ function generateAndDownloadTicket(guestData) {
         document.body.removeChild(a); URL.revokeObjectURL(url);
     }, 'image/png');
 }
+    // G. SUKSES: Konversi Kanvas ke File PNG & Unduh
+    canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        const safeName = guestData.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const vipSuffix = isVip ? '_VIP' : '';
+        a.download = `tamoo_ticket_${safeName}${vipSuffix}.png`;
+        
+        a.href = url; 
+        document.body.appendChild(a);
+        a.click();
+        
+        // Bersihkan elemen temporary link
+        document.body.removeChild(a); 
+        URL.revokeObjectURL(url);
+
+        // =========================================================
+        // TAMBAHKAN BARIS INI UNTUK MENUTUP POPUP SETELAH DOWNLOAD
+        // =========================================================
+        Swal.close();
+
+    }, 'image/png');
+}
 
 // =========================================================================
 // PEMICU OTOMATIS: DENGAR MENU NAVIGASI REKAP DIKLIK
