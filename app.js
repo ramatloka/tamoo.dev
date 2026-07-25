@@ -733,13 +733,14 @@ async function submitGuestForm() {
 
         // 3. Masukkan Data ke Tabel `data_tamu` Supabase
         const insertData = {
-            id: guestId,
-            nama: guestName,
-            form_data: formPayload, // Simpan objek JSON dinamis
-            waktu_daftar: timestamp,
-            status_kehadiran: 'BELUM_HADIR',
-            souvenir_diambil: false
-        };
+        id: guestId,
+        nama_tamu: guestName,
+        kategori_tamu: formPayload['kategori_tamu'] || formPayload['kategori'] || 'Umum',
+        status_kehadiran: 'BELUM_HADIR',
+        status_souvenir: 'BELUM_AMBIL',
+        form_data: formPayload,
+        created_at: timestamp
+    };
 
         const { data, error } = await db.from('data_tamu').insert([insertData]);
 
