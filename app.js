@@ -1354,7 +1354,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (FIXED USING 'db' VARIABLE)
+// MODUL REKAPITULASI TAMU (SAFE FROM SUPABASE 404 / MISSING TABLE)
 // =========================================================================
 
 async function loadGuestRecapTable() {
@@ -1379,10 +1379,29 @@ async function loadGuestRecapTable() {
     `;
 
     try {
-        // 3. Tarik data menggunakan variabel 'db' yang valid
+        // Pastikan variabel 'db' tersedia
+        if (typeof db === "undefined" || !db) {
+            console.warn("Variabel 'db' Supabase belum terinisialisasi.");
+            return;
+        }
+
+        // 3. Tarik data dari Supabase
         const { data: guests, error } = await db.from('guests').select('*');
 
-        if (error) throw error;
+        if (error) {
+            // Tangkap error khusus 404 jika tabel 'guests' belum dibuat
+            if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: #d97706; font-size: 13px;">
+                            <i class="fas fa-exclamation-triangle"></i> Tabel <b>'guests'</b> belum dibuat di Dashboard Supabase.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            throw error;
+        }
 
         // Jika data di Supabase masih kosong
         if (!guests || guests.length === 0) {
@@ -1393,7 +1412,7 @@ async function loadGuestRecapTable() {
                     </td>
                 </tr>
             `;
-            updateRekapSummaryCards([]);
+            if (typeof updateRekapSummaryCards === "function") updateRekapSummaryCards([]);
             return;
         }
 
@@ -1420,8 +1439,7 @@ async function loadGuestRecapTable() {
             `;
         }).join('');
 
-        // Update Kartu Angka Statistik
-        updateRekapSummaryCards(guests);
+        if (typeof updateRekapSummaryCards === "function") updateRekapSummaryCards(guests);
 
     } catch (err) {
         console.error("Gagal memuat rekap tamu:", err);
