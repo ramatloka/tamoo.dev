@@ -767,35 +767,130 @@ async function submitForm() {
 async function confirmTamu() {
     await submitGuestForm();
 }
-// Fungsi Menampilkan Pop-Up QR Code Hasil Generate
+// =========================================================================
+// UI POP-UP QR CODE & GENERATOR E-TICKET (GAMBAR HD)
+// =========================================================================
+
 function showQrCodeModal(guestId, guestName) {
+    // Ambil data event dari input setup untuk ditaruh di tiket
+    const eventTitle = document.getElementById('adminEventTitle')?.value || "GUEST BOOK TICKET";
+    const eventDate = document.getElementById('adminEventDate')?.value || "";
+    const eventLoc = document.getElementById('adminEventLocation')?.value || "";
+
     Swal.fire({
-        title: 'Pendaftaran Berhasil!',
         html: `
-            <div style="text-align:center; padding: 10px;">
-                <p style="margin-bottom:15px; color:#555; font-size:14px;">Simpan QR Code ini untuk ditunjukkan saat tiba di lokasi acara:</p>
-                <div id="qrcodeDisplay" style="display:flex; justify-content:center; margin:15px auto;"></div>
-                <h4 style="margin:10px 0 5px 0; color:var(--gold-dark, #846924); font-family:'Playfair Display', serif;">${guestName}</h4>
-                <small style="color:#888; font-family:monospace; font-size:12px;">ID: ${guestId}</small>
+            <div style="text-align:center; padding: 5px; font-family:'Montserrat', sans-serif;">
+                <h3 style="margin: 0 0 10px 0; font-family:'Playfair Display', serif; color:var(--gold-dark); letter-spacing:1px; font-size:18px;">QR CODE ANDA</h3>
+                <h2 style="margin: 0 0 15px 0; font-weight:800; font-size:24px; color:#333; text-transform:uppercase;">${guestName}</h2>
+                
+                <div id="qrcodeDisplay" style="display:inline-block; border: 2px solid #f0e6d2; border-radius: 15px; padding: 10px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <img id="qrImgSource" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(guestId)}" 
+                         crossorigin="anonymous" alt="QR Code" style="display:block; width:180px; height:180px;">
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button onclick="downloadETicket('${guestId}', '${guestName}', '${eventTitle}', '${eventDate}', '${eventLoc}')" 
+                            class="btn-action-swal" style="width:100%; border-radius:50px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; padding: 12px 0;">
+                        <i class="fas fa-download"></i> DOWNLOAD E-TICKET
+                    </button>
+                </div>
+                <button onclick="Swal.close()" style="background:none; border:none; color:#aaa; font-size:12px; margin-top:15px; cursor:pointer;">Tutup</button>
             </div>
         `,
-        confirmButtonText: 'Tutup & Simpan',
-        customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' },
-        didOpen: () => {
-            const qrContainer = document.getElementById('qrcodeDisplay');
-            if (qrContainer) {
-                qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(guestId)}" alt="QR Code Tamu" style="border: 2px solid var(--border-color, #f0e6d2); border-radius: 12px; padding: 8px; background: #fff;">`;
-            }
-        }
-    }).then(() => {
-        // Reset form pendaftaran setelah selesai
-        let formContainer = document.getElementById('dynamicFormContainer');
-        if (formContainer) {
-            let inputs = formContainer.querySelectorAll('input, select, textarea');
-            inputs.forEach(i => {
-                if (i.type === 'checkbox' || i.type === 'radio') i.checked = false;
-                else i.value = "";
-            });
-        }
+        showConfirmButton: false,
+        width: '340px', // Ukuran popup lebih kecil & ringkas untuk ponsel
+        padding: '20px',
+        customClass: { popup: 'luxury-popup' }
     });
+}
+
+async function downloadETicket(id, name, title, date, loc) {
+    const btn = window.event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MEMPROSES...';
+    btn.disabled = true;
+
+    try {
+        // Buat Canvas (Ukuran Portrait HD)
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 600;
+        canvas.height = 850;
+
+        // 1. Background & Border Mewah (Gold)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#846924';
+        ctx.lineWidth = 15;
+        ctx.strokeRect(15, 15, canvas.width - 30, canvas.height - 30);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+        // 2. Judul Acara (Tiket Digital)
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#846924';
+        ctx.font = 'bold 32px serif';
+        ctx.fillText(title.toUpperCase(), canvas.width / 2, 110);
+
+        // Garis Pemisah
+        ctx.beginPath();
+        ctx.moveTo(150, 135);
+        ctx.lineTo(450, 135);
+        ctx.stroke();
+
+        // 3. Info Tanggal & Lokasi
+        ctx.fillStyle = '#777';
+        ctx.font = '600 18px sans-serif';
+        ctx.fillText(`${date}  |  ${loc.toUpperCase()}`, canvas.width / 2, 175);
+
+        // 4. Header Tiket
+        ctx.fillStyle = '#999';
+        ctx.font = '500 20px sans-serif';
+        ctx.letterSpacing = "4px";
+        ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
+        ctx.letterSpacing = "0px";
+
+        // 5. Nama Tamu
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 42px sans-serif';
+        ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
+
+        // 6. Gambar QR Code
+        const qrImg = new Image();
+        qrImg.crossOrigin = "anonymous";
+        // Gunakan ukuran lebih besar untuk hasil download yang tajam
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(id)}`;
+        
+        await new Promise((resolve) => { qrImg.onload = resolve; });
+        
+        // Frame putih untuk QR
+        ctx.fillStyle = '#fdfaf3';
+        ctx.fillRect(150, 360, 300, 300);
+        ctx.drawImage(qrImg, 175, 385, 250, 250);
+
+        // 7. Footer & Instruksi
+        ctx.fillStyle = '#888';
+        ctx.font = 'italic 16px sans-serif';
+        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
+
+        ctx.fillStyle = '#846924';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.letterSpacing = "5px";
+        ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
+
+        // 8. Proses Download
+        const link = document.createElement('a');
+        link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+
+        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1500, showConfirmButton: false });
+
+    } catch (err) {
+        console.error(err);
+        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket.', 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
