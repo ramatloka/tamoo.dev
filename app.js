@@ -1690,91 +1690,106 @@ async function showGeneratedQrCard(guestData) {
     });
 }
 
-// 4. Fungsi Utama Membuat File PNG E-Ticket Utuh (Tampilan seperti Gambar 9 + Poin 3)
+/// 4. Fungsi Utama Membuat File PNG E-Ticket Utuh (Dinamis & Auto-Resize Font)
 function generateAndDownloadTicket(guestData) {
-    // Kita gunakan teknik menggambar di <canvas> untuk membuat hasil akhir beresolusi tinggi (Poin 3)
-    // Desain kanvas harus mirip Gambar 9 berbingkai emas.
+    // 1. AMBIL DATA DINAMIS DARI HALAMAN SETUP
+    // Mengambil value dari input setup, gunakan uppercase agar seragam
+    const rawEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
+    const rawEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
+    const rawEventLocation = document.getElementById('adminEventLocation')?.value || 'LOKASI';
+    
+    const eventNameText = rawEventName.toUpperCase();
+    const eventSubText = `${rawEventDate} | ${rawEventLocation}`.toUpperCase();
 
-    // Tentukan Judul Berstatus VIP (Poin 3 wajib tercantum di gambar akhir)
+    // 2. Tentukan Judul Nama Tamu Berstatus VIP
     const isVip = guestData.kategori_tamu.toUpperCase() === 'VIP';
     const nameOnTicket = guestData.nama_tamu + (isVip ? ' (VIP)' : '');
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // Resolusi tinggi untuk e-ticket PNG yang tajam (contoh rasio A4 vertikal)
+    // Resolusi tinggi untuk e-ticket PNG
     canvas.width = 600;
     canvas.height = 800;
 
-    // A. Gambar Background Putih & Bingkai Emas (Mirip Gambar 9)
+    // A. Gambar Background Putih & Bingkai Emas
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
     ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
 
-    // B. Gambar Header Teks Emas (Mirip Gambar 9)
+    // B. Gambar Header Teks Emas (JUDUL ACARA DINAMIS + AUTO RESIZE)
     ctx.fillStyle = "#846924"; 
+    ctx.textAlign = "center";
     
-    // Gunakan font Playfair Display ( serif elegan ) dari index.html
-    ctx.font = "900 40px 'Playfair Display'"; ctx.textAlign = "center";
-    ctx.fillText("DRAMA TARI - RAMA SHINTA", canvas.width/2, 100);
+    // Auto-Resize Font untuk Judul Acara (Max lebar 520px)
+    let fontSizeTitle = 45; 
+    ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+    while (ctx.measureText(eventNameText).width > 520 && fontSizeTitle > 16) {
+        fontSizeTitle -= 2; // Kurangi ukuran font perlahan sampai muat
+        ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+    }
+    ctx.fillText(eventNameText, canvas.width/2, 100);
 
+    // Auto-Resize Font untuk Sub-Judul (Tanggal | Lokasi)
     ctx.fillStyle = "#333";
-    ctx.font = "600 18px 'Montserrat'";
-    ctx.fillText("2026-07-04 | GEDUNG HARIRING SMKN 10 BANDUNG", canvas.width/2, 160);
+    let fontSizeSub = 18;
+    ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+    while (ctx.measureText(eventSubText).width > 520 && fontSizeSub > 10) {
+        fontSizeSub -= 1;
+        ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+    }
+    ctx.fillText(eventSubText, canvas.width/2, 160);
 
+    // C. Tulisan E-Ticket Pass
     ctx.fillStyle = "#777";
     ctx.font = "800 24px 'Montserrat'";
     ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
 
-    // C. Gambar Nama Dinamis Berstatus VIP (Poin 3 Terpenuhi)
+    // D. Gambar Nama Tamu Dinamis + Auto Resize juga biar ga nabrak
     ctx.fillStyle = "#333";
-    ctx.font = "900 42px 'Montserrat'";
+    let fontSizeName = 42;
+    ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+    while (ctx.measureText(nameOnTicket).width > 520 && fontSizeName > 20) {
+        fontSizeName -= 2;
+        ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+    }
     ctx.fillText(nameOnTicket, canvas.width/2, 300);
 
-    // D. Gambar QR Code (Kita ambil dari modal yang sudah tergenerate)
+    // E. Gambar QR Code
     const qrWrapper = document.getElementById('swalQrCanvasWrapper');
-    const qrImageSource = qrWrapper.querySelector('img'); // qrcodejs membuat elemen img
+    const qrImageSource = qrWrapper ? qrWrapper.querySelector('img') : null;
 
-    // Pastikan QR sudah siap di modal, jika belum kita gunakan placeholder sementara
     if (qrImageSource && qrImageSource.complete && qrImageSource.src) {
-        // Gambar QR code ke tengah canvas
         ctx.drawImage(qrImageSource, canvas.width/2 - 100, 360, 200, 200);
     } else {
-        // Fallback jika gambar belum complete, buat wrapper baru untuk qrcodejs (aman untuk client-side cepat)
         const tempDiv = document.createElement('div');
         new QRCode(tempDiv, { text: guestData.id, width: 200, height: 200 });
         const tempImg = tempDiv.querySelector('img');
-        if (tempImg.src) {
+        if (tempImg && tempImg.src) {
              ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
         }
     }
 
-    // E. Gambar Footer Teks (Mirip Gambar 9)
+    // F. Gambar Footer Teks
     ctx.fillStyle = "#777";
-    ctx.font = "600 14px 'Montserrat'"; ctx.textAlign = "center";
+    ctx.font = "600 14px 'Montserrat'";
     ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
 
     ctx.fillStyle = "#846924";
     ctx.font = "800 22px 'Montserrat'";
     ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
 
-    // F. SUKSES: Konversi Kanvas ke File PNG & Unduh (Poin 1 Tercapai)
+    // G. SUKSES: Konversi Kanvas ke File PNG & Unduh
     canvas.toBlob((blob) => {
-        // Buat link download palsu di browser
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         
-        // Tentukan nama file unduhan dinamis berstatus (VIP)
-        const safeName = guestData.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase(); // Ganti karakter aneh ke _
+        const safeName = guestData.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const vipSuffix = isVip ? '_VIP' : '';
         a.download = `tamoo_ticket_${safeName}${vipSuffix}.png`;
         
         a.href = url; document.body.appendChild(a);
-        
-        // Trigger klik unduh secara otomatis
         a.click();
-        
-        // Bersihkan link palsu
         document.body.removeChild(a); URL.revokeObjectURL(url);
     }, 'image/png');
 }
