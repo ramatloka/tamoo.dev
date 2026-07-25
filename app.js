@@ -209,35 +209,58 @@ function toggleAcc(headerEl) {
 // =========================================================================
 
 function renderSetupQuestionsTable() {
-    // Cari container list bawaan HTML Anda (biasanya ID: setupQuestionsList atau sejenisnya)
+    // Cari container list bawaan HTML Anda dengan beberapa target ID/Selector alternatif
     let container = document.getElementById('setupQuestionsList') || 
-                    document.getElementById('setupQuestionsTableBody') || 
-                    document.querySelector('.acc-content div[style*="border"]')?.parentElement;
+                    document.getElementById('setupQuestionsTableBody') ||
+                    document.getElementById('questionsContainer') ||
+                    document.querySelector('.acc-content div[style*="border-top"]') ||
+                    document.querySelector('.acc-card:nth-child(2) .acc-content') || // Target akordeon ke-2
+                    document.querySelector('.acc-content'); // Fallback terakhir jika semua gagal
                     
-    if (!container) return;
+    if (!container) {
+        console.error("❌ Gagal menemukan container untuk merender list pertanyaan.");
+        return;
+    }
+
+    // Jika container berupa tabel, bersihkan isinya
     container.innerHTML = "";
 
+    // Buat bungkus baru berbentuk list box jika target container adalah elemen akordeon langsung
+    let listWrapper = container;
+    if (container.classList.contains('acc-content')) {
+        // Cek apakah sudah ada wrapper buatan di dalamnya agar tidak menumpuk tombol tambah field
+        let existingWrapper = container.querySelector('.dynamic-questions-wrapper');
+        if (!existingWrapper) {
+            existingWrapper = document.createElement('div');
+            existingWrapper.className = 'dynamic-questions-wrapper';
+            existingWrapper.style.marginBottom = "15px";
+            // Sisipkan di bagian paling atas sebelum tombol "+ Tambah Field" bawaan HTML
+            container.insertBefore(existingWrapper, container.firstChild);
+        }
+        listWrapper = existingWrapper;
+        listWrapper.innerHTML = "";
+    }
+
     currentQuestions.forEach((q, index) => {
-        // Buat komponen box list mewah sesuai dengan Gambar 2 Anda
         let box = document.createElement('div');
-        box.className = "setup-question-item"; // Sesuai class CSS TAMOO
-        box.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);";
+        box.className = "setup-question-item";
+        box.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left;";
         
-        // Label info badge TV / Wajib
         let badges = "";
         if (q.showOnTv || q.show_on_tv) badges += `<span style="background: #e6f4ea; color: #137333; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold;">TV</span>`;
         if (q.required) badges += `<span style="background: #fce8e6; color: #c5221f; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold;">Wajib</span>`;
 
         box.innerHTML = `
-            <div style="text-align: left;">
+            <div style="flex-grow: 1;">
                 <span style="font-weight: 600; color: var(--text-main); font-size: 14px;">${q.label}</span>
                 ${badges}
+                <br><small style="color: #999; font-size: 11px;">Tipe: ${q.type}</small>
             </div>
             <button type="button" onclick="deleteQuestion('${q.id}')" style="background: #fce8e6; color: #c5221f; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;">
                 <i class="fas fa-times" style="font-size: 14px;"></i>
             </button>
         `;
-        container.appendChild(box);
+        listWrapper.appendChild(box);
     });
 }
 
