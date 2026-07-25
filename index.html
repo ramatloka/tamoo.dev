@@ -149,7 +149,7 @@
           <div class="rekap-table-wrapper">
             <table class="rekap-table">
               <thead><tr><th style="width: 30px; text-align: center;"><input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this.checked)" style="transform: scale(1.2); cursor: pointer;" title="Pilih Semua"></th><th>Nama Tamu</th><th>Kategori</th><th>Status / <span class="dyn-souvenir-text">SOUVENIR</span></th><th style="text-align: center;">Aksi</th></tr></thead>
-              <tbody id="rekapTableBody"><tr><td colspan="5" style="text-align:center; opacity:0.5;">Memuat data rekap...</td></tr></tbody>
+              <tbody id="guestTableBody"><tr><td colspan="5" style="text-align:center; opacity:0.5;">Memuat data rekap...</td></tr></tbody>
             </table>
           </div>
           <div class="pagination-container" id="paginationControls"></div>
@@ -247,21 +247,16 @@
     </div>
 
     <div class="footer-container">
-      <div id="tickerWrapContainer" class="ticker-wrap animate__animated animate__fadeIn"><div class="ticker-content" id="runningTextDisplay">LOADING ANNOUNCEMENT...</div></div>
-      <div class="bottom-nav">
-        <div id="navScan" class="nav-item" onclick="activateTab('petugas')" title="Mode Scan Masuk"><i class="fas fa-qrcode"></i></div>
-        <div id="navSouvenir" class="nav-item" onclick="activateTab('souvenir')" title="Mode Souvenir"><i class="fas fa-gift"></i></div>
-        <div id="navHome" class="nav-item active-icon" onclick="goToHome()" title="Registrasi Tamu"><i class="fas fa-user-friends"></i></div>
-        <div id="navRekap" class="nav-item" onclick="activateTab('rekap')" title="Rekap Tamu"><i class="fas fa-list-alt"></i></div>
-        <div id="navSetup" class="nav-item" onclick="activateTab('admin')" title="Setup Aplikasi"><i class="fas fa-sliders-h"></i></div>
-      </div>
-    </div>
+  <div id="tickerWrapContainer" class="ticker-wrap animate__animated animate__fadeIn">
+    <div class="ticker-content" id="runningTextDisplay">LOADING ANNOUNCEMENT...</div>
+  </div>
+  </div>
 
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="app.js"></script>
 <div id="cameraModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px);">
     <div style="background: var(--card-bg, #ffffff); padding: 20px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
         
