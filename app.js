@@ -684,3 +684,113 @@ function playBeepSound(type) {
         console.log("Audio not supported or blocked by user gesture:", e);
     }
 }
+// =========================================================================
+// REGISTRASI TAMU MANDIRI & GENERATE QR CODE (SUPABASE)
+// =========================================================================
+
+async function submitGuestForm() {
+    try {
+        // 1. Validasi Input Dinamis
+        let formPayload = {};
+        let missingRequired = false;
+
+        currentQuestions.forEach(q => {
+            let el = document.getElementById('field_' + q.id);
+            let val = "";
+
+            if (q.type === 'radio') {
+                let checkedRadio = document.querySelector(`input[name="field_${q.id}"]:checked`);
+                val = checkedRadio ? checkedRadio.value : "";
+            } else if (q.type === 'checkbox') {
+                let checkedBoxes = Array.from(document.querySelectorAll(`input[name="field_${q.id}"]:checked`)).map(cb => cb.value);
+                val = checkedBoxes.join(', ');
+            } else if (el) {
+                val = el.value.trim();
+            }
+
+            if (q.required && !val) {
+                missingRequired = true;
+            }
+
+            formPayload[q.id] = val;
+        });
+
+        if (missingRequired) {
+            Swal.fire({ title: 'Mohon Lengkapi', text: 'Semua kolom bertanda bintang (*) wajib diisi!', icon: 'warning', customClass: { popup: 'luxury-popup' } });
+            return;
+        }
+
+        // Tampilkan loading
+        Swal.fire({ title: 'Memproses...', text: 'Mendaftarkan data & membuat QR Code', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // 2. Generate ID Unique Tamu & Timestamp
+        const timestamp = new Date().toISOString();
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        const guestId = "TMO-" + Date.now().toString().slice(-6) + randomCode;
+
+        // Extract nama jika ada di field
+        const guestName = formPayload['nama_tamu'] || formPayload[Object.keys(formPayload)[0]] || "Tamu Undangan";
+
+        // 3. Masukkan Data ke Tabel `data_tamu` Supabase
+        const insertData = {
+            id: guestId,
+            nama: guestName,
+            form_data: formPayload, // Simpan objek JSON dinamis
+            waktu_daftar: timestamp,
+            status_kehadiran: 'BELUM_HADIR',
+            souvenir_diambil: false
+        };
+
+        const { data, error } = await db.from('data_tamu').insert([insertData]);
+
+        if (error) throw error;
+
+        // Play sound effect jika sukses
+        if (typeof playBeepSound === "function") playBeepSound('success');
+
+        // 4. Tampilkan Pop-Up QR Code
+        showQrCodeModal(guestId, guestName);
+
+    } catch (err) {
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({ title: 'Gagal Mendaftar', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
+    }
+}
+
+// ALIAS CADANGAN: Jika tombol HTML asli memanggil submitForm() bukan submitGuestForm()
+async function submitForm() {
+    await submitGuestForm();
+}
+
+// Fungsi Menampilkan Pop-Up QR Code Hasil Generate
+function showQrCodeModal(guestId, guestName) {
+    Swal.fire({
+        title: 'Pendaftaran Berhasil!',
+        html: `
+            <div style="text-align:center; padding: 10px;">
+                <p style="margin-bottom:15px; color:#555; font-size:14px;">Simpan QR Code ini untuk ditunjukkan saat tiba di lokasi acara:</p>
+                <div id="qrcodeDisplay" style="display:flex; justify-content:center; margin:15px auto;"></div>
+                <h4 style="margin:10px 0 5px 0; color:var(--gold-dark, #846924); font-family:'Playfair Display', serif;">${guestName}</h4>
+                <small style="color:#888; font-family:monospace; font-size:12px;">ID: ${guestId}</small>
+            </div>
+        `,
+        confirmButtonText: 'Tutup & Simpan',
+        customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' },
+        didOpen: () => {
+            const qrContainer = document.getElementById('qrcodeDisplay');
+            if (qrContainer) {
+                qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(guestId)}" alt="QR Code Tamu" style="border: 2px solid var(--border-color, #f0e6d2); border-radius: 12px; padding: 8px; background: #fff;">`;
+            }
+        }
+    }).then(() => {
+        // Reset form pendaftaran setelah selesai
+        let formContainer = document.getElementById('dynamicFormContainer');
+        if (formContainer) {
+            let inputs = formContainer.querySelectorAll('input, select, textarea');
+            inputs.forEach(i => {
+                if (i.type === 'checkbox' || i.type === 'radio') i.checked = false;
+                else i.value = "";
+            });
+        }
+    });
+}
