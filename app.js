@@ -1135,13 +1135,13 @@ function resetManualScanInput() {
 
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
+
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (STABLE NATIVE VIDEO + LIVE AUTO SCAN)
+// HANDLER KAMERA WEBCAM & HP (INSTANT REAL-TIME SCANNER)
 // =========================================================================
 
 let cameraMediaStream = null;
-let scanIntervalId = null;
-let currentFacingMode = "environment"; // Default kamera belakang
+let currentFacingMode = "environment"; 
 
 async function openCameraModal() {
     Swal.fire({
@@ -1155,9 +1155,7 @@ async function openCameraModal() {
                 </div>
 
                 <div style="position: relative; width: 100%; max-width: 280px; height: 240px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--gold-dark, #846924); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    <video id="webcamPreview" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
-                    
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 160px; height: 160px; border: 2px solid #fff; border-radius: 10px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); pointer-events: none;"></div>
+                    <div id="reader" style="width: 100%; height: 100%;"></div>
                 </div>
                 
                 <p style="font-size: 11px; color: #777; margin-top: 10px;">Arahkan kamera tepat ke QR Code milik tamu</p>
@@ -1171,80 +1169,47 @@ async function openCameraModal() {
         didOpen: () => {
             const btnSwitch = document.getElementById('btnSwitchCamera');
 
-            // 1. Fungsi Menyalakan Stream Video
-            const startStream = async (facingMode) => {
-                stopCameraStream(); // Hentikan stream lama
+            // Fungsi utama pemindai QR Code
+            const initScanner = (facingMode) => {
+                stopCameraStream().then(() => {
+                    const html5QrCode = new Html5Qrcode("reader");
+                    html5QrCodeScanner = html5QrCode;
 
-                try {
-                    cameraMediaStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    const config = { 
+                        fps: 15, // Pindai 15 frame per detik
+                        qrbox: { width: 180, height: 180 } 
+                    };
+
+                    // Jalankan pemindaian langsung dari driver kamera
+                    html5QrCode.start(
+                        { facingMode: facingMode },
+                        config,
+                        (decodedText) => {
+                            // BEGITO KODE QR TERBACA:
+                            stopCameraStream().then(() => {
+                                Swal.close();
+                                processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
+                            });
+                        },
+                        (errorMessage) => {
+                            // Abaikan error pembacaan per frame (normal saat belum ada QR)
+                        }
+                    ).catch(err => {
+                        console.error("Gagal memulai scanner:", err);
                     });
-
-                    const videoEl = document.getElementById('webcamPreview');
-                    if (videoEl && cameraMediaStream) {
-                        videoEl.srcObject = cameraMediaStream;
-                        
-                        // Handler aman untuk eksekusi play() tanpa mengganggu DOM
-                        videoEl.onloadedmetadata = () => {
-                            videoEl.play().then(() => {
-                                startLiveScanning(videoEl); // Mulai pemindaian otomatis setelah video berputar
-                            }).catch(e => console.warn("Play interrupted:", e));
-                        };
-                    }
-                } catch (err) {
-                    console.error("Gagal membuka kamera stream:", err);
-                }
+                });
             };
 
-            // 2. Mesin Pemindai QR Code dari Video (Canvas Capture Real-time)
-            const startLiveScanning = (videoEl) => {
-                if (scanIntervalId) clearInterval(scanIntervalId);
+            // Beri jeda 300ms agar DOM SweetAlert2 siap sepenuhnya
+            setTimeout(() => {
+                initScanner(currentFacingMode);
+            }, 300);
 
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                // Lakukan pemindaian 10 kali per detik
-                scanIntervalId = setInterval(async () => {
-                    if (!videoEl || videoEl.paused || videoEl.ended || videoEl.readyState < 2) return;
-
-                    try {
-                        canvas.width = videoEl.videoWidth || 640;
-                        canvas.height = videoEl.videoHeight || 480;
-                        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-                        // Ambil snapshot gambar lalu minta Html5Qrcode ekstrak QR-nya
-                        canvas.toBlob(async (blob) => {
-                            if (!blob || !typeof Html5Qrcode === "undefined") return;
-                            const file = new File([blob], "frame.png", { type: "image/png" });
-
-                            try {
-                                const html5QrCode = new Html5Qrcode("temp-reader" || "webcamPreview");
-                                const decodedText = await html5QrCode.scanFile(file, true);
-
-                                if (decodedText) {
-                                    stopCameraStream();
-                                    Swal.close();
-                                    processGuestCheckIn(decodedText); // EKSEKUSI CHECK-IN!
-                                }
-                            } catch (e) {
-                                // QR tidak terdeteksi pada frame ini (normal)
-                            }
-                        }, 'image/png');
-
-                    } catch (err) {
-                        // Abaikan error pemrosesan frame
-                    }
-                }, 200); // 200ms interval
-            };
-
-            // Jalankan kamera pertama kali
-            startStream(currentFacingMode);
-
-            // Handler Tombol Switch Kamera
+            // Event listener tombol ganti kamera
             if (btnSwitch) {
                 btnSwitch.addEventListener('click', () => {
                     currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
-                    startStream(currentFacingMode);
+                    initScanner(currentFacingMode);
                 });
             }
         },
@@ -1254,17 +1219,16 @@ async function openCameraModal() {
     });
 }
 
-// Fungsi Pembantu Mematikan Kamera Secara Total & Bersih
-function stopCameraStream() {
-    if (scanIntervalId) {
-        clearInterval(scanIntervalId);
-        scanIntervalId = null;
-    }
-    if (cameraMediaStream) {
+// Fungsi Pembantu Mematikan Kamera Secara Total
+async function stopCameraStream() {
+    if (typeof html5QrCodeScanner !== "undefined" && html5QrCodeScanner) {
         try {
-            cameraMediaStream.getTracks().forEach(track => track.stop());
-        } catch (e) {}
-        cameraMediaStream = null;
+            await html5QrCodeScanner.stop();
+            html5QrCodeScanner.clear();
+        } catch (e) {
+            // Abaikan jika scanner sudah berhenti
+        }
+        html5QrCodeScanner = null;
     }
 }
 
