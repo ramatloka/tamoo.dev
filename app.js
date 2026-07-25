@@ -1121,65 +1121,129 @@ function resetManualScanInput() {
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
 // =========================================================================
-// HANDLER KAMERA, UPLOAD QR, & SCANNER (HTML5-QRCODE / INSTASCAN)
+// HANDLER KAMERA, UPLOAD QR, & SCANNER (FIXED)
 // =========================================================================
 
 let html5QrCodeScanner = null;
 
-// 1. FUNGSI UNTUK MEMBUA MODAL KAMERA (openCameraModal)
-function openCameraModal() {
-    Swal.fire({
-        title: 'Scan QR Code Tamu',
-        html: `
-            <div style="text-align:center;">
-                <div id="reader" style="width: 100%; max-width: 320px; margin: 0 auto; border-radius: 12px; overflow: hidden; background:#000;"></div>
-                <p style="font-size:12px; color:#777; margin-top:10px;">Arahkan kamera ke QR Code milik tamu</p>
-            </div>
-        `,
-        showConfirmButton: false,
-        showCloseButton: true,
-        width: '360px',
-        customClass: { popup: 'luxury-popup' },
-        didOpen: () => {
-            // Inisialisasi Scanner Kamera dengan Library Html5Qrcode
-            if (typeof Html5Qrcode !== "undefined") {
-                html5QrCodeScanner = new Html5Qrcode("reader");
-                html5QrCodeScanner.start(
-                    { facingMode: "environment" }, // Gunakan kamera belakang
-                    { fps: 10, qrbox: { width: 220, height: 220 } },
-                    (decodedText) => {
-                        // Jika QR Berhasil Terbaca oleh Kamera:
-                        html5QrCodeScanner.stop().then(() => {
-                            Swal.close();
-                            processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
-                        });
-                    },
-                    (errorMessage) => {
-                        // Abaikan error pembacaan per frame
-                    }
-                ).catch(err => {
-                    console.error("Gagal membuka kamera:", err);
-                    Swal.fire('Kamera Error', 'Tidak dapat mengakses kamera perangkat.', 'error');
-                });
-            } else {
-                Swal.fire('Library Belum Siap', 'Library Html5Qrcode belum terload di halaman.', 'warning');
-            }
-        },
-        willClose: () => {
-            // Hentikan streaming kamera saat pop-up ditutup
-            if (html5QrCodeScanner) {
-                html5QrCodeScanner.stop().catch(() => {});
-            }
+// 1. POP-UP KAMERA DENGAN PILIHAN KAMERA (DEPAN/BELAKANG & PERIZINAN)
+async function openCameraModal() {
+    try {
+        // Dapatkan daftar kamera yang tersedia di perangkat
+        const devices = await Html5Qrcode.getCameras();
+        
+        if (!devices || devices.length === 0) {
+            Swal.fire('Kamera Tidak Ditemukan', 'Tidak ada perangkat kamera yang terdeteksi.', 'warning');
+            return;
         }
-    });
+
+        // Buat opsi pilihan kamera untuk dropdown
+        let cameraOptionsHtml = devices.map(device => 
+            `<option value="${device.id}">${device.label || `Kamera (${device.id.slice(0,5)}...)`}</option>`
+        ).join('');
+
+        // Tampilkan Pop-Up Pemilihan Kamera (Persis seperti UI di Gambar Anda)
+        Swal.fire({
+            title: 'Scan QR Code Tamu',
+            html: `
+                <div style="text-align:center;">
+                    <div style="margin-bottom: 12px; text-align: left;">
+                        <label style="font-size:12px; font-weight:bold; color:#555;">Pilih Kamera:</label>
+                        <select id="cameraSelectDropdown" class="swal2-select" style="width:100%; margin:5px 0 10px 0; padding:8px; border-radius:8px; font-size:13px;">
+                            ${cameraOptionsHtml}
+                        </select>
+                    </div>
+                    <div id="reader" style="width: 100%; max-width: 320px; height: 250px; margin: 0 auto; border-radius: 12px; overflow: hidden; background:#000;"></div>
+                    <p style="font-size:12px; color:#777; margin-top:10px;">Arahkan kamera ke QR Code milik tamu</p>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: '360px',
+            customClass: { popup: 'luxury-popup' },
+            didOpen: () => {
+                const cameraSelect = document.getElementById('cameraSelectDropdown');
+                
+                // Pilih kamera belakang secara default jika ada
+                let selectedCameraId = devices[devices.length - 1].id;
+                cameraSelect.value = selectedCameraId;
+
+                // Fungsi untuk menjalankan stream scanner
+                const startScanning = (cameraId) => {
+                    if (html5QrCodeScanner) {
+                        html5QrCodeScanner.stop().catch(() => {}).then(() => initScanner(cameraId));
+                    } else {
+                        initScanner(cameraId);
+                    }
+                };
+
+                const initScanner = (cameraId) => {
+                    html5QrCodeScanner = new Html5Qrcode("reader");
+                    html5QrCodeScanner.start(
+                        cameraId,
+                        { fps: 10, qrbox: { width: 200, height: 200 } },
+                        (decodedText) => {
+                            // Jika scan berhasil
+                            html5QrCodeScanner.stop().then(() => {
+                                Swal.close();
+                                processGuestCheckIn(decodedText);
+                            });
+                        },
+                        (errorMessage) => {}
+                    ).catch(err => {
+                        console.error("Gagal memulai kamera:", err);
+                    });
+                };
+
+                // Jalankan kamera pertama kali
+                startScanning(selectedCameraId);
+
+                // Jika pengguna mengganti pilihan kamera di dropdown
+                cameraSelect.addEventListener('change', (e) => {
+                    startScanning(e.target.value);
+                });
+            },
+            willClose: () => {
+                if (html5QrCodeScanner) {
+                    html5QrCodeScanner.stop().catch(() => {});
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error("Error akses izin kamera:", err);
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({
+            title: 'Izin Kamera Ditolak',
+            text: 'Mohon izinkan akses kamera pada browser Anda untuk menggunakan fitur ini.',
+            icon: 'error',
+            customClass: { popup: 'luxury-popup' }
+        });
+    }
 }
 
-// 2. FUNGSI UNTUK UPLOAD FILE GAMBAR QR (handleNativeCamera / File Input)
-async function handleNativeCamera(inputElement) {
-    let file = inputElement ? inputElement.files[0] : null;
+// 2. FUNGSI UPLOAD FILE GAMBAR QR (DIBERSIHKAN DARI ERROR UNDEFINED)
+async function handleNativeCamera(eventOrElement) {
+    let file = null;
+
+    // Aman menangkap file baik dikirim berupa event, input element, atau dipanggil manual
+    if (eventOrElement && eventOrElement.target && eventOrElement.target.files) {
+        file = eventOrElement.target.files[0];
+    } else if (eventOrElement && eventOrElement.files) {
+        file = eventOrElement.files[0];
+    } else {
+        const fileInput = document.querySelector('input[type="file"]');
+        if (fileInput && fileInput.files) file = fileInput.files[0];
+    }
+
     if (!file) return;
 
-    Swal.fire({ title: 'Membaca Gambar...', text: 'Mengecek kode QR dari file...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ 
+        title: 'Membaca Gambar...', 
+        text: 'Mengecek kode QR dari file...', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
 
     try {
         if (typeof Html5Qrcode !== "undefined") {
@@ -1187,14 +1251,45 @@ async function handleNativeCamera(inputElement) {
             const decodedText = await html5QrCode.scanFile(file, true);
             
             Swal.close();
-            processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
+            processGuestCheckIn(decodedText);
         } else {
             throw new Error("Library Html5Qrcode tidak ditemukan.");
         }
     } catch (err) {
         if (typeof playBeepSound === "function") playBeepSound('error');
-        Swal.fire({ title: 'Gagal Membaca QR', text: 'Tidak dapat menemukan QR Code yang valid pada gambar tersebut.', icon: 'error', customClass: { popup: 'luxury-popup' } });
+        Swal.fire({ 
+            title: 'Gagal Membaca QR', 
+            text: 'Tidak dapat menemukan QR Code yang valid pada gambar tersebut.', 
+            icon: 'error', 
+            customClass: { popup: 'luxury-popup' } 
+        });
     } finally {
-        if (inputElement) inputElement.value = ""; // Reset input file
+        // Reset nilai input file agar bisa upload file yang sama jika diperlukan
+        let inputs = document.querySelectorAll('input[type="file"]');
+        inputs.forEach(i => i.value = "");
     }
 }
+
+// 3. FUNGSI SCAN MANUAL / USB BARCODE SCANNER
+function submitManualCheckIn() {
+    let inputManual = document.getElementById('manualScanInput') || 
+                       document.getElementById('inputQrCode') || 
+                       document.querySelector('input[placeholder*="Ketik ID"], input[placeholder*="Scan manual"]');
+    
+    if (inputManual && inputManual.value.trim() !== "") {
+        processGuestCheckIn(inputManual.value.trim());
+    } else {
+        Swal.fire({ title: 'Input Kosong', text: 'Silakan ketik atau tempel Kode ID Tamu terlebih dahulu.', icon: 'warning' });
+    }
+}
+
+// Deteksi otomatis tombol Enter pada input manual
+document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        let activeEl = document.activeElement;
+        if (activeEl && (activeEl.id === 'manualScanInput' || activeEl.id === 'inputQrCode' || activeEl.placeholder?.includes('Ketik ID') || activeEl.placeholder?.includes('Scan manual'))) {
+            e.preventDefault();
+            submitManualCheckIn();
+        }
+    }
+});
