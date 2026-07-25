@@ -209,54 +209,60 @@ function toggleAcc(headerEl) {
 // =========================================================================
 
 function renderSetupQuestionsTable() {
-    // 1. Cari container utama berdasarkan ID bawaan yang mungkin ada
     let container = document.getElementById('setupQuestionsList') || 
                     document.getElementById('setupQuestionsTableBody') ||
                     document.getElementById('questionsContainer');
                     
-    // 2. Jika ID di atas tidak ketemu, cari tombol "+ Tambah Field" untuk menemukan letak akordeon Formulir
+    let targetBtn = null;
+
+    // Pelacakan Pintar Anti-Bocor: Cari tombol tapi batasi panjang teksnya (< 40 karakter)
     if (!container) {
-        // Cari tombol berdasarkan teks "+ Tambah" atau "+ Tambah Field"
-        let allButtons = document.querySelectorAll('button, div');
-        let targetBtn = null;
-        for (let btn of allButtons) {
-            if (btn.innerText && (btn.innerText.includes('+ Tambah') || btn.innerText.includes('Tambah Field'))) {
-                targetBtn = btn;
+        let allElements = document.querySelectorAll('button, div, a');
+        for (let el of allElements) {
+            let txt = el.innerText ? el.innerText.trim().toUpperCase() : "";
+            // Hanya tangkap elemen tombol kecil, BUKAN elemen bungkus satu halaman penuh
+            if ((txt.includes('TAMBAH FIELD') || txt.includes('+ TAMBAH')) && txt.length < 40) {
+                targetBtn = el;
                 break;
             }
         }
-        
+
         if (targetBtn) {
-            // Cari pembungkus terdekat (.acc-content atau parent div dari tombol tersebut)
-            container = targetBtn.closest('.acc-content') || targetBtn.parentElement;
+            container = targetBtn.parentElement; // Jadikan bungkus tombol sebagai container
         }
     }
 
-    if (!container) {
-        console.error("❌ Gagal menemukan lokasi halaman formulir di HTML.");
+    // Proteksi ekstra agar tidak bocor ke Body/Atap Web
+    if (!container || container.tagName === 'BODY' || container.tagName === 'HTML') {
+        console.error("❌ Gagal menemukan lokasi halaman formulir yang tepat di HTML.");
         return;
     }
 
-    // 3. Buat atau cari elemen khusus agar list kita terisolasi rapi dan tidak merusak tombol bawaan HTML
+    // Buat wadah khusus untuk list jika belum ada
     let listWrapper = container.querySelector('.tamoo-dynamic-list-box');
     if (!listWrapper) {
         listWrapper = document.createElement('div');
         listWrapper.className = 'tamoo-dynamic-list-box';
         listWrapper.style.cssText = "margin-bottom: 20px; width: 100%; display: block;";
         
-        // Sisipkan di bagian paling atas container (sebelum tombol "+ Tambah Field")
-        container.insertBefore(listWrapper, container.firstChild);
+        // Taruh tepat di atas tombol "+ Tambah Field"
+        if (targetBtn) {
+            container.insertBefore(listWrapper, targetBtn);
+        } else {
+            container.insertBefore(listWrapper, container.firstChild);
+        }
     }
 
-    // Bersihkan isi list box lama sebelum merender ulang
+    // Bersihkan daftar sebelum dirender ulang
     listWrapper.innerHTML = "";
 
-    // 4. Render seluruh daftar pertanyaan dari database ke dalam list box
+    // Jika tidak ada pertanyaan, beri tahu dengan rapi
     if (!currentQuestions || currentQuestions.length === 0) {
         listWrapper.innerHTML = `<div style="text-align:center; padding: 15px; border: 1px dashed var(--border-color); border-radius:12px; color:var(--text-muted); font-size:13px;">Belum ada field pertanyaan. Klik tombol di bawah untuk menambah.</div>`;
         return;
     }
 
+    // Render list box seperti Gambar 2 Anda
     currentQuestions.forEach((q, index) => {
         let box = document.createElement('div');
         box.className = "setup-question-item";
