@@ -167,26 +167,23 @@ async function loadForm() {
 // SETUP ACCORDION & MANAGEMENT UTILS (PENGENDALI ACTION SETUP)
 // =========================================================================
 function toggleAcc(headerEl) {
-    // Jika parameter bukan elemen DOM yang valid, hentikan agar tidak error
-    if (!headerEl || typeof headerEl.querySelector !== 'function') {
-        // Cari fallback jika target onclick adalah element text di dalamnya
-        if (event && event.currentTarget) {
-            headerEl = event.currentTarget;
-        } else {
-            return;
-        }
-    }
+    if (!headerEl) return;
     
-    const content = headerEl.nextElementSibling;
+    // Dapatkan elemen parent card atau langsung sibling kontennya
+    const card = headerEl.closest('.acc-card') || headerEl.parentElement;
+    const content = card ? card.querySelector('.acc-content') : headerEl.nextElementSibling;
     const icon = headerEl.querySelector('.fas.fa-chevron-down') || headerEl.querySelector('.fa-chevron-down');
-    
+
     if (content) {
-        if (content.style.maxHeight && content.style.maxHeight !== "0px") {
-            content.style.maxHeight = null;
-            if(icon) icon.style.transform = "rotate(0deg)";
+        // Toggle tampilan menggunakan display / maxHeight
+        if (content.style.display === "block" || (content.style.maxHeight && content.style.maxHeight !== "0px")) {
+            content.style.display = "none";
+            content.style.maxHeight = "0px";
+            if (icon) icon.style.transform = "rotate(0deg)";
         } else {
+            content.style.display = "block";
             content.style.maxHeight = content.scrollHeight + "px";
-            if(icon) icon.style.transform = "rotate(180deg)";
+            if (icon) icon.style.transform = "rotate(180deg)";
         }
     }
 }
@@ -214,7 +211,7 @@ function renderSetupQuestionsTable() {
 function addQuestion() {
     let elTxt = document.getElementById('newQTxt');
     let elType = document.getElementById('newQType');
-    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions'); // Fallback multi-ID
+    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions');
     let elReq = document.getElementById('newQReq');
     let elTv = document.getElementById('newQTv');
 
@@ -224,27 +221,94 @@ function addQuestion() {
     let req = elReq ? elReq.checked : false;
     let tv = elTv ? elTv.checked : true;
 
-    if (!label) { Swal.fire('Gagal', 'Label pertanyaan wajib diisi!', 'warning'); return; }
+    if (!label) { 
+        Swal.fire({ title: 'Gagal', text: 'Label pertanyaan wajib diisi!', icon: 'warning', customClass: { popup: 'luxury-popup' } }); 
+        return; 
+    }
     
     let id = "c_" + label.toLowerCase().replace(/[^a-z0-9]/g, "_");
     if(currentQuestions.some(q => q.id === id)) { id += "_" + Math.floor(Math.random() * 100); }
 
     currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
     
-    // Reset Form Input dengan proteksi null
     if(elTxt) elTxt.value = "";
     if(elOpt) elOpt.value = "";
     if(elReq) elReq.checked = false;
     if(elTv) elTv.checked = true;
 
     renderSetupQuestionsTable();
-    Swal.fire('Ditambahkan', 'Pertanyaan berhasil masuk list sementara. Jangan lupa klik Simpan Pengaturan!', 'success');
+    Swal.fire({ title: 'Ditambahkan', text: 'Pertanyaan berhasil masuk list sementara. Klik Simpan Pengaturan di bawah!', icon: 'success', customClass: { popup: 'luxury-popup' } });
 }
 
 function deleteQuestion(id) {
-    if(id === 'nama_tamu') { Swal.fire('Dilarang', 'Kolom Nama Lengkap adalah field sistem utama dan tidak boleh dihapus!', 'warning'); return; }
+    if(id === 'nama_tamu') { 
+        Swal.fire({ title: 'Dilarang', text: 'Kolom Nama Lengkap adalah field sistem utama!', icon: 'warning', customClass: { popup: 'luxury-popup' } }); 
+        return; 
+    }
     currentQuestions = currentQuestions.filter(q => q.id !== id);
     renderSetupQuestionsTable();
+}
+
+// =========================================================================
+// SIMPAN PENGATURAN KE SUPABASE (DATABASE BRIDGE)
+// =========================================================================
+async function saveAdminSettings() {
+    try {
+        Swal.fire({ title: 'Menyimpan...', text: 'Mengirim konfigurasi ke Supabase', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const getVal = (id) => { let el = document.getElementById(id); return el ? el.value : ""; };
+
+        // 1. Kumpulkan Konfigurasi Utama
+        const configs = [
+            { key: 'EventTitle', value: getVal('adminEventTitle') },
+            { key: 'EventName', value: getVal('adminEventName') },
+            { key: 'EventDate', value: getVal('adminEventDate') },
+            { key: 'EventLocation', value: getVal('adminEventLocation') },
+            { key: 'Announcement', value: getVal('adminAnnouncement') },
+            { key: 'GreetingPrefix', value: getVal('adminPrefix') },
+            { key: 'GreetingSuffix', value: getVal('adminSuffix') },
+            { key: 'SouvenirLabel', value: getVal('adminSouvenirLabel') },
+            { key: 'SouvenirPerPax', value: getVal('adminSouvenirPerPax') },
+            { key: 'MaxQuota', value: getVal('adminMaxQuota') },
+            { key: 'FormStatus', value: getVal('adminFormStatus') },
+            { key: 'RequireLogin', value: getVal('adminRequireLogin') },
+            { key: 'AppTheme', value: getVal('adminAppTheme') },
+            { key: 'SoundSuccess', value: getVal('adminSoundSuccess') },
+            { key: 'SoundError', value: getVal('adminSoundError') },
+            { key: 'PosterUrl', value: getVal('adminPosterUrl') },
+            { key: 'DetailUrl', value: getVal('adminDetailUrl') },
+            { key: 'WaTemplate', value: getVal('adminWaTemplate') }
+        ];
+
+        // Upsert (Simpan/Update) ke tabel app_config Supabase
+        const { error: configError } = await db.from('app_config').upsert(configs, { onConflict: 'key' });
+        if (configError) throw configError;
+
+        // 2. Simpan Struktur Field Pertanyaan ke tabel form_settings Supabase
+        // Hapus data setting lama lalu masukkan list baru
+        await db.from('form_settings').delete().neq('id', 'keep_alive_placeholder');
+
+        const questionsPayload = currentQuestions.map((q, index) => ({
+            id: q.id,
+            label: q.label,
+            type: q.type,
+            options: Array.isArray(q.options) ? q.options.join(',') : (q.options || null),
+            show_on_tv: q.showOnTv,
+            required: q.required,
+            sort_order: index + 1
+        }));
+
+        const { error: formError } = await db.from('form_settings').upsert(questionsPayload, { onConflict: 'id' });
+        if (formError) throw formError;
+
+        Swal.fire({ title: 'Berhasil!', text: 'Pengaturan berhasil disimpan ke Supabase!', icon: 'success', customClass: { popup: 'luxury-popup' } });
+        
+        // Refresh UI Aplikasi
+        loadForm();
+
+    } catch (err) {
+        Swal.fire({ title: 'Gagal Menyimpan', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
+    }
 }
 
 // =========================================================================
