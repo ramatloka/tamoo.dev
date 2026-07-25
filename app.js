@@ -159,106 +159,146 @@ async function loadForm() {
     
   } catch(e) { 
       Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
-      document.getElementById('displayEventTitle').innerText = "SYSTEM ERROR";
-      document.getElementById('dynamicFormContainer').innerHTML = "<div style='color:red; text-align:center; font-weight:bold;'>Gagal memuat database Supabase.</div>";
   }
 }
 
 // =========================================================================
-// INTERFACE RENDERING & LOG IN UTILS
+// FUNGSI LAYAR PENUH (FULLSCREEN UTIL)
+// =========================================================================
+function toggleFullScreen() {
+  let btn = document.getElementById('btnFullscreenIcon');
+  if (!document.fullscreenElement) { 
+      document.documentElement.requestFullscreen().catch(err => {}); 
+      if(btn) btn.className = 'fas fa-compress'; 
+  } else { 
+      if (document.exitFullscreen) { 
+          document.exitFullscreen(); 
+          if(btn) btn.className = 'fas fa-expand'; 
+      } 
+  }
+}
+document.addEventListener('fullscreenchange', () => { 
+    let btn = document.getElementById('btnFullscreenIcon'); 
+    if (!document.fullscreenElement && btn) { btn.className = 'fas fa-expand'; } 
+});
+
+// =========================================================================
+// INTERFACE NAVIGATION & LOG IN UTILS
 // =========================================================================
 function showLoginPopup() {
-    Swal.fire({
-        title: 'LOGIN AKSES',
-        html: '<input type="password" id="swal-input1" class="swal2-input" placeholder="Masukkan PIN Akses">',
-        focusConfirm: false,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: 'MASUK',
-        confirmButtonColor: '#846924',
-        preConfirm: () => {
-            const pin = document.getElementById('swal-input1').value;
-            if (!pin) { Swal.showValidationMessage('PIN tidak boleh kosong'); return false; }
-            return pin;
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // bypass validasi dasar pin admin (1234 atau admin)
-            if (result.value === "1234" || result.value.toLowerCase() === "admin") {
-                currentUserRole = "Scanner";
-                loginSuccess();
-            } else {
-                Swal.fire('Gagal', 'PIN Akses Salah!', 'error').then(() => showLoginPopup());
-            }
-        }
-    });
+  Swal.fire({
+    title: 'LOGIN SISTEM', 
+    html: '<input id="u" class="swal2-input" placeholder="Username" autocomplete="off"><input id="p" type="password" class="swal2-input" placeholder="Password">', 
+    confirmButtonText: 'Masuk', 
+    allowOutsideClick: false, 
+    allowEscapeKey: false, 
+    customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal', title: 'luxury-title' },
+    preConfirm: () => { 
+        let u = document.getElementById('u'); 
+        let p = document.getElementById('p'); 
+        return [(u ? u.value : ""), (p ? p.value : "")]; 
+    }
+  }).then((r) => { 
+      if (!r.isConfirmed || !r.value) return; 
+      let u = r.value[0]; let p = r.value[1];
+      if(u === 'Admin55' && p === 'QRCode') { currentUserRole = "Admin"; loginSuccess(); } 
+      else if(u === 'Scan' && p === '1234') { currentUserRole = "Scanner"; loginSuccess(); } 
+      else { 
+          Swal.fire({ title: 'Akses Ditolak', text: 'Username atau Password salah!', icon: 'error', allowOutsideClick: false, customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' } }).then(() => showLoginPopup()); 
+      }
+  });
 }
 
 function loginSuccess() {
-    let mc = document.querySelector('.main-card'); if(mc) mc.style.display = 'block';
-    let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'block';
+    let mc = document.querySelector('.main-card'); if(mc) { mc.style.display = 'block'; mc.classList.add('animate__fadeInUp'); }
+    let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'flex';
+    let btnOut = document.getElementById('btnLogoutBtn'); if(btnOut) btnOut.style.display = 'flex';
+    if(currentUserRole === "Scanner") {
+        let nR = document.getElementById('navRekap'); if(nR) nR.style.display = 'none';
+        let nS = document.getElementById('navSetup'); if(nS) nS.style.display = 'none';
+    }
+    Swal.fire({ title: 'Berhasil Login', text: `Selamat datang, ${currentUserRole}!`, icon: 'success', timer: 1500, showConfirmButton: false, customClass: { popup: 'luxury-popup', title: 'luxury-title' } });
     goToHome();
 }
 
-function goToHome() {
-    activateTab('register');
-}
-
-function activateTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    
-    const targetTab = document.getElementById('tab-' + tabId);
-    const targetNav = document.querySelector(`[onclick="activateTab('${tabId}')"]`);
-    
-    if (targetTab) targetTab.classList.add('active');
-    if (targetNav) targetNav.classList.add('active');
-}
-
-function renderGuestForm() {
-    let container = document.getElementById('dynamicFormContainer');
-    if (!container) return;
-    container.innerHTML = "";
-
-    currentQuestions.forEach(q => {
-        let block = document.createElement('div');
-        block.style.marginBottom = "15px";
-        block.style.textAlign = "left";
-
-        let label = document.createElement('label');
-        label.innerHTML = `<strong>${q.label}</strong> ${q.required ? '<span style="color:red">*</span>' : ''}`;
-        label.style.display = "block";
-        label.style.marginBottom = "5px";
-        block.appendChild(label);
-
-        if (q.type === 'text') {
-            let input = document.createElement('input');
-            input.type = "text";
-            input.id = "field_" + q.id;
-            input.className = "form-control-custom";
-            input.required = q.required;
-            block.appendChild(input);
-        } else if (q.type === 'textarea') {
-            let text = document.createElement('textarea');
-            text.id = "field_" + q.id;
-            text.className = "form-control-custom";
-            text.rows = 3;
-            text.required = q.required;
-            block.appendChild(text);
+function logoutSystem() {
+    Swal.fire({ title: 'Keluar?', text: "Anda akan mengakhiri sesi keamanan ini.", icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Logout', cancelButtonText: 'Batal', customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal', cancelButton: 'btn-action-swal' }
+    }).then((res) => {
+        if (res.isConfirmed) {
+            currentUserRole = ""; 
+            let mc = document.querySelector('.main-card'); if(mc) mc.style.display = 'none'; 
+            let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'none'; 
+            let btnOut = document.getElementById('btnLogoutBtn'); if(btnOut) btnOut.style.display = 'none'; 
+            showLoginPopup();
         }
-        container.appendChild(block);
     });
 }
 
-function applyAppTheme(theme) {
-    document.documentElement.className = "theme-" + theme;
+function goToHome() { 
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active')); 
+  document.getElementById('secTamu').classList.add('active'); 
+  document.getElementById('tickerWrapContainer').classList.remove('active-ticker'); 
+  updateNavHighlight('navHome'); 
+  let mainCard = document.querySelector('.main-card'); if(mainCard) mainCard.classList.remove('main-card-wide');
+}
+
+function activateTab(tab) {
+  if(currentUserRole === "Scanner" && (tab === 'rekap' || tab === 'admin')) { 
+      Swal.fire('Akses Ditolak', 'Hanya Admin yang dapat membuka halaman ini.', 'warning'); 
+      return; 
+  }
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  let targetSec = document.getElementById('sec' + tab.charAt(0).toUpperCase() + tab.slice(1)); 
+  if(targetSec) targetSec.classList.add('active');
+  
+  let mainCard = document.querySelector('.main-card'); 
+  if(mainCard) { 
+      if(tab === 'rekap') { mainCard.classList.add('main-card-wide'); } 
+      else { mainCard.classList.remove('main-card-wide'); } 
+  }
+  updateNavHighlight('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
+}
+
+function updateNavHighlight(activeId) { 
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active-icon')); 
+    let el = document.getElementById(activeId); if(el) el.classList.add('active-icon'); 
+}
+
+function applyAppTheme(themeKey) {
+  const APP_THEMES = {
+    "classic_gold": { bg: "#fdfaf3", dark: "#846924", light: "#b39343", grad: "linear-gradient(to right, #cfaf57, #a9852c)", textMain: "#333333", textMuted: "#999999", cardBg: "#ffffff", border: "#f0e6d2" },
+    "royal_navy": { bg: "#f0f4f8", dark: "#1a365d", light: "#3182ce", grad: "linear-gradient(to right, #4299e1, #2b6cb0)", textMain: "#1a202c", textMuted: "#718096", cardBg: "#ffffff", border: "#e2e8f0" },
+    "midnight": { bg: "#f7fafc", dark: "#1a202c", light: "#4a5568", grad: "linear-gradient(to right, #718096, #2d3748)", textMain: "#1a202c", textMuted: "#718096", cardBg: "#ffffff", border: "#e2e8f0" },
+    "emerald": { bg: "#f0fff4", dark: "#22543d", light: "#38a169", grad: "linear-gradient(to right, #48bb78, #276749)", textMain: "#22543d", textMuted: "#718096", cardBg: "#ffffff", border: "#c6f6d5" }
+  };
+  const t = APP_THEMES[themeKey] || APP_THEMES["classic_gold"];
+  document.documentElement.style.setProperty('--bg-color', t.bg); 
+  document.documentElement.style.setProperty('--gold-dark', t.dark); 
+  document.documentElement.style.setProperty('--gold-light', t.light); 
+  document.documentElement.style.setProperty('--gold-gradient', t.grad); 
+  document.documentElement.style.setProperty('--text-main', t.textMain); 
+  document.documentElement.style.setProperty('--text-muted', t.textMuted); 
+  document.documentElement.style.setProperty('--card-bg', t.cardBg); 
+  document.documentElement.style.setProperty('--border-color', t.border);
 }
 
 function updateSouvenirLabelDOM(label) {
-    let el = document.getElementById('txtSouvenirLabel');
-    if (el) el.innerText = label;
+    let upper = label.toUpperCase(); document.querySelectorAll('.dyn-souvenir-text').forEach(el => el.innerText = upper);
+    let filterSouv = document.getElementById('filterSouvenir'); if(filterSouv && filterSouv.options.length > 0) filterSouv.options[0].text = "Semua " + label;
 }
 
-function initTvMode() {
-    console.log("TV Mode Aktif");
+function renderGuestForm() {
+  let html = '';
+  currentQuestions.forEach(q => {
+    let isReq = q.required ? 'required' : ''; let reqLabel = q.required ? '<span style="color:red;">*</span>' : '';
+    html += '<div class="form-group"><label>' + q.label + ' ' + reqLabel + '</label>';
+    if(q.type === 'dropdown') { html += '<select id="field_' + q.id + '" ' + isReq + '><option value="">-- Pilih --</option>' + q.options.map(o => '<option value="' + o + '">' + o + '</option>').join('') + '</select>'; } 
+    else if (q.type === 'radio') { q.options.forEach(o => { html += '<div style="margin-bottom:8px;"><input type="radio" name="field_' + q.id + '" value="' + o + '" ' + isReq + ' style="width:auto; display:inline-block; margin-right:8px;"> ' + o + '</div>'; }); } 
+    else if (q.type === 'checkbox') { q.options.forEach(o => { html += '<div style="margin-bottom:8px;"><input type="checkbox" name="field_' + q.id + '" value="' + o + '" style="width:auto; display:inline-block; margin-right:8px;"> ' + o + '</div>'; }); } 
+    else { html += '<input type="' + q.type + '" id="field_' + q.id + '" placeholder="..." ' + isReq + '>'; }
+    html += '</div>';
+  });
+  document.getElementById('dynamicFormContainer').innerHTML = html;
 }
+
+function initTvMode() { console.log("Layar TV Extended Aktif."); }
