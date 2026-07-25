@@ -1136,20 +1136,13 @@ function resetManualScanInput() {
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
 // =========================================================================
-// HANDLER KAMERA, UPLOAD QR, & SCANNER (FIXED)
+// HANDLER KAMERA, UPLOAD QR, & SCANNER (FINAL STABLE)
 // =========================================================================
 
-let html5QrCodeScanner = null;
-
-// =========================================================================
-// HANDLER KAMERA WEBCAM & HP (AMANDEMEN STABILISASI & PERBAIKAN POPUP)
-// =========================================================================
-
-// Deklarasi global instance scanner agar bisa dimatikan dengan bersih
+// Deklarasi HANYA 1 KALI untuk seluruh fungsi di bawah ini
 let html5QrCodeScanner = null;
 
 async function openCameraModal() {
-    // 1. Tampilkan Pop-Up UI Kamera
     Swal.fire({
         title: 'Scan QR Code Tamu',
         html: `
@@ -1164,63 +1157,56 @@ async function openCameraModal() {
         `,
         showConfirmButton: false,
         showCloseButton: true,
-        width: '380px', // Sedikit diperlebar agar dropdown internal library pas
+        width: '380px',
         customClass: { popup: 'luxury-popup' },
         didOpen: () => {
-            // Beri jeda 400ms agar modal SweetAlert2 terbuka 100% sempurna
             setTimeout(async () => {
                 if (typeof Html5QrcodeScanner !== "undefined") {
-                    // Gunakan pendekatan inisialisasi UI terintegrasi untuk stabilitas maksimal
                     html5QrCodeScanner = new Html5QrcodeScanner(
                         "reader", 
                         { 
                             fps: 10, 
-                            // Pastikan ukuran kotak scan (qrbox) tidak di bawah 50px
                             qrbox: (width, height) => {
                                 let minDim = Math.min(width, height);
                                 let desiredSize = Math.floor(minDim * 0.70);
-                                // Terapkan batas minimum 100px agar aman dari error library
-                                let safeSize = Math.max(100, desiredSize); 
-                                return { width: safeSize, height: safeSize };
+                                return { width: Math.max(100, desiredSize), height: Math.max(100, desiredSize) };
                             },
-                            // Memaksa aspek rasio 1:1 agar video tampil penuh di div penampung
                             aspectRatio: 1.0, 
-                            // Konfigurasi ini membantu mendobrak kunci driver kamera (NotReadableError)
-                            supportedScanTypes: 
+                            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] 
                         }, 
                         /* disableVerbose= */ true
                     );
                     
-                    // Eksekusi fungsi sukses saat QR terbaca
-                    function onScanSuccess(decodedText, decodedResult) {
+                    function onScanSuccess(decodedText) {
                         html5QrCodeScanner.clear().then(() => {
+                            html5QrCodeScanner = null;
                             Swal.close();
-                            // Kirim hasil scan (Kode ID) ke fungsi pemroses check-in
                             if (typeof processGuestCheckIn === "function") {
                                 processGuestCheckIn(decodedText);
                             }
-                        }).catch(error => {
-                            console.error("Gagal membersihkan instance scanner:", error);
+                        }).catch(() => {
+                            html5QrCodeScanner = null;
+                            Swal.close();
+                            if (typeof processGuestCheckIn === "function") {
+                                processGuestCheckIn(decodedText);
+                            }
                         });
                     }
 
-                    // Rendah/Render scanner ke dalam elemen #reader
-                    // Perintah render ini akan meminta izin kamera dan menampilkan UI internal library
                     html5QrCodeScanner.render(onScanSuccess);
 
-                    // --- Perbaikan CSS Lanjut untuk Mengatasi Blank/Hitam (Force Render) ---
+                    // Force CSS render untuk tag video/canvas
                     const videoObserver = new MutationObserver((mutations) => {
                         mutations.forEach((mutation) => {
                             if (mutation.addedNodes.length) {
-                                // Paksa paksa paksa tag <video> dan <canvas> dirender penuh
                                 const videoEl = document.querySelector('#reader video');
                                 const canvasEl = document.querySelector('#reader canvas');
                                 
-                               .forEach(el => {
+                                [videoEl, canvasEl].forEach(el => {
                                     if (el) {
                                         el.style.width = '100%';
                                         el.style.height = '100%';
-                                        el.style.objectFit = 'cover'; // Pastikan video mengisi bingkai penuh
+                                        el.style.objectFit = 'cover';
                                         el.style.display = 'block';
                                     }
                                 });
@@ -1228,7 +1214,6 @@ async function openCameraModal() {
                         });
                     });
 
-                    // Mulai memonitoring div #reader untuk kemunculan tag video/canvas
                     const readerNode = document.getElementById('reader');
                     if (readerNode) {
                         videoObserver.observe(readerNode, { childList: true, subtree: true });
@@ -1240,10 +1225,11 @@ async function openCameraModal() {
             }, 400);
         },
         willClose: () => {
-            // Bersihkan instance scanner secara total saat modal ditutup untuk melepaskan kunci driver kamera
             if (html5QrCodeScanner) {
-                html5QrCodeScanner.clear().catch(error => {
-                    console.error("Gagal mematikan scanner saat penutupan modal:", error);
+                html5QrCodeScanner.clear().then(() => {
+                    html5QrCodeScanner = null;
+                }).catch(() => {
+                    html5QrCodeScanner = null;
                 });
             }
         }
