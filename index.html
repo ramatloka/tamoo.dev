@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="style.css">
   
   <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#846924">
+  <meta name="theme-color" content="#846924">
   
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -67,7 +67,8 @@
         </div>
 
         <div class="branding-text">RAMATLOKA</div>
-    </div>
+      </div>
+
       <div id="secPetugas" class="section" style="position: relative;">
         <div class="tab-badge"><i class="fas fa-qrcode"></i> MODE SCAN CHECK-IN</div>
         <button onclick="openTvWindow()" class="btn-action-icon tv-action-btn" style="position: absolute; top: -35px; right: -15px; font-size: 1.5rem; color: var(--gold-light); transition: 0.3s;" title="Buka Layar TV (Extended)"><i class="fas fa-desktop"></i></button>
@@ -247,34 +248,43 @@
     </div>
 
     <div class="footer-container">
-  <div id="tickerWrapContainer" class="ticker-wrap animate__animated animate__fadeIn">
-    <div class="ticker-content" id="runningTextDisplay">LOADING ANNOUNCEMENT...</div>
-  </div>
-  </div>
+      <div id="tickerWrapContainer" class="ticker-wrap animate__animated animate__fadeIn">
+        <div class="ticker-content" id="runningTextDisplay">LOADING ANNOUNCEMENT...</div>
+      </div>
+      
+      <div class="bottom-nav">
+        <div id="navScan" class="nav-item" onclick="activateTab('petugas')" title="Mode Scan Masuk"><i class="fas fa-qrcode"></i></div>
+        <div id="navSouvenir" class="nav-item" onclick="activateTab('souvenir')" title="Mode Souvenir"><i class="fas fa-gift"></i></div>
+        <div id="navHome" class="nav-item active-icon" onclick="goToHome()" title="Registrasi Tamu"><i class="fas fa-user-friends"></i></div>
+        <div id="navRekap" class="nav-item" onclick="activateTab('rekap')" title="Rekap Tamu"><i class="fas fa-list-alt"></i></div>
+        <div id="navSetup" class="nav-item" onclick="activateTab('admin')" title="Setup Aplikasi"><i class="fas fa-sliders-h"></i></div>
+      </div>
+    </div>
 
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="app.js"></script>
-<div id="cameraModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px);">
-    <div style="background: var(--card-bg, #ffffff); padding: 20px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-        
-        <h3 style="margin-top: 0; font-family: 'Montserrat', sans-serif; color: var(--text-main, #333); font-weight: 800; letter-spacing: 1px;">
-            <i class="fas fa-qrcode"></i> SCAN TIKET
-        </h3>
-        
-        <button id="btnToggleCamera" onclick="toggleCameraFacingMode()" style="margin-bottom: 15px; padding: 10px 15px; border: 2px solid var(--border, #e2e8f0); border-radius: 8px; background: var(--bg, #f7fafc); color: var(--text-main, #333); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: bold; width: 100%; transition: all 0.3s ease;">
-            <i class="fas fa-camera-rotate"></i> Gunakan Kamera Depan
-        </button>
 
-        <div id="scannerModalReader" style="width: 100%; border-radius: 12px; overflow: hidden; border: 3px solid var(--light, #b39343); background: #000; min-height: 250px;"></div>
+  <div id="cameraModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px);">
+      <div style="background: var(--card-bg, #ffffff); padding: 20px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          
+          <h3 style="margin-top: 0; font-family: 'Montserrat', sans-serif; color: var(--text-main, #333); font-weight: 800; letter-spacing: 1px;">
+              <i class="fas fa-qrcode"></i> SCAN TIKET
+          </h3>
+          
+          <button id="btnToggleCamera" onclick="toggleCameraFacingMode()" style="margin-bottom: 15px; padding: 10px 15px; border: 2px solid var(--border, #e2e8f0); border-radius: 8px; background: var(--bg, #f7fafc); color: var(--text-main, #333); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: bold; width: 100%; transition: all 0.3s ease;">
+              <i class="fas fa-camera-rotate"></i> Gunakan Kamera Depan
+          </button>
 
-        <button onclick="closeCameraModal()" style="margin-top: 20px; padding: 12px 20px; border: none; border-radius: 8px; background: #e53e3e; color: white; font-weight: bold; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.3);">
-            <i class="fas fa-times-circle"></i> BATAL / TUTUP KAMERA
-        </button>
+          <div id="scannerModalReader" style="width: 100%; border-radius: 12px; overflow: hidden; border: 3px solid var(--light, #b39343); background: #000; min-height: 250px;"></div>
 
-    </div>
-</div>
+          <button onclick="closeCameraModal()" style="margin-top: 20px; padding: 12px 20px; border: none; border-radius: 8px; background: #e53e3e; color: white; font-weight: bold; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.3);">
+              <i class="fas fa-times-circle"></i> BATAL / TUTUP KAMERA
+          </button>
+
+      </div>
+  </div>
 </body>
 </html>
