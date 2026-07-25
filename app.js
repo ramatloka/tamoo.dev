@@ -167,14 +167,27 @@ async function loadForm() {
 // SETUP ACCORDION & MANAGEMENT UTILS (PENGENDALI ACTION SETUP)
 // =========================================================================
 function toggleAcc(headerEl) {
+    // Jika parameter bukan elemen DOM yang valid, hentikan agar tidak error
+    if (!headerEl || typeof headerEl.querySelector !== 'function') {
+        // Cari fallback jika target onclick adalah element text di dalamnya
+        if (event && event.currentTarget) {
+            headerEl = event.currentTarget;
+        } else {
+            return;
+        }
+    }
+    
     const content = headerEl.nextElementSibling;
-    const icon = headerEl.querySelector('.fas.fa-chevron-down');
-    if (content.style.maxHeight) {
-        content.style.maxHeight = null;
-        if(icon) icon.style.transform = "rotate(0deg)";
-    } else {
-        content.style.maxHeight = content.scrollHeight + "px";
-        if(icon) icon.style.transform = "rotate(180deg)";
+    const icon = headerEl.querySelector('.fas.fa-chevron-down') || headerEl.querySelector('.fa-chevron-down');
+    
+    if (content) {
+        if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+            content.style.maxHeight = null;
+            if(icon) icon.style.transform = "rotate(0deg)";
+        } else {
+            content.style.maxHeight = content.scrollHeight + "px";
+            if(icon) icon.style.transform = "rotate(180deg)";
+        }
     }
 }
 
@@ -199,11 +212,17 @@ function renderSetupQuestionsTable() {
 }
 
 function addQuestion() {
-    let label = document.getElementById('newQTxt').value.trim();
-    let type = document.getElementById('newQType').value;
-    let optStr = document.getElementById('newQOpt').value.trim();
-    let req = document.getElementById('newQReq').checked;
-    let tv = document.getElementById('newQTv').checked;
+    let elTxt = document.getElementById('newQTxt');
+    let elType = document.getElementById('newQType');
+    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions'); // Fallback multi-ID
+    let elReq = document.getElementById('newQReq');
+    let elTv = document.getElementById('newQTv');
+
+    let label = elTxt ? elTxt.value.trim() : "";
+    let type = elType ? elType.value : "text";
+    let optStr = elOpt ? elOpt.value.trim() : "";
+    let req = elReq ? elReq.checked : false;
+    let tv = elTv ? elTv.checked : true;
 
     if (!label) { Swal.fire('Gagal', 'Label pertanyaan wajib diisi!', 'warning'); return; }
     
@@ -212,11 +231,11 @@ function addQuestion() {
 
     currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
     
-    // Reset Form Input
-    document.getElementById('newQTxt').value = "";
-    document.getElementById('newQOpt').value = "";
-    document.getElementById('newQReq').checked = false;
-    document.getElementById('newQTv').checked = true;
+    // Reset Form Input dengan proteksi null
+    if(elTxt) elTxt.value = "";
+    if(elOpt) elOpt.value = "";
+    if(elReq) elReq.checked = false;
+    if(elTv) elTv.checked = true;
 
     renderSetupQuestionsTable();
     Swal.fire('Ditambahkan', 'Pertanyaan berhasil masuk list sementara. Jangan lupa klik Simpan Pengaturan!', 'success');
