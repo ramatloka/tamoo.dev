@@ -1353,3 +1353,119 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+// =========================================================================
+// MODUL REKAPITULASI TAMU (SUPABASE AUTOLOAD)
+// =========================================================================
+
+async function loadGuestRecapTable() {
+    // 1. Cari elemen tabel rekap di HTML
+    const tableBody = document.getElementById('guestTableBody') || 
+                      document.getElementById('rekapTableBody') || 
+                      document.querySelector('#rekapTable tbody') ||
+                      document.querySelector('table tbody');
+    
+    if (!tableBody) return;
+
+    // 2. Tampilkan status loading saat mengambil data
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="7" style="text-align: center; padding: 20px; color: #777;">
+                <i class="fas fa-spinner fa-spin"></i> Memuat data tamu dari Supabase...
+            </td>
+        </tr>
+    `;
+
+    try {
+        // 3. Ambil seluruh data dari tabel 'guests' Supabase
+        const { data: guests, error } = await supabaseClient
+            .from('guests')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        // Jika data kosong
+        if (!guests || guests.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 20px; color: #888;">
+                        Belum ada data tamu terdaftar di database.
+                    </td>
+                </tr>
+            `;
+            updateRekapSummaryCards([]);
+            return;
+        }
+
+        // 4. Render data tamu ke dalam baris tabel
+        tableBody.innerHTML = guests.map((guest, index) => {
+            // Format Status Kehadiran
+            const statusKehadiran = guest.is_checked_in 
+                ? `<span style="background: #22c55e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">HADIR</span>`
+                : `<span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">BELUM HADIR</span>`;
+
+            // Format Waktu Check-In
+            const waktuHadir = guest.check_in_time 
+                ? new Date(guest.check_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) 
+                : '-';
+
+            // Format Status Souvenir
+            const statusSouvenir = guest.souvenir_taken
+                ? `<span style="color: #16a34a; font-weight: bold;"><i class="fas fa-check-circle"></i> Sudah</span>`
+                : `<span style="color: #9ca3af;"><i class="fas fa-minus-circle"></i> Belum</span>`;
+
+            return `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="text-align: center; padding: 10px;">${index + 1}</td>
+                    <td style="padding: 10px; font-weight: 500;">${guest.qr_code || guest.id || '-'}</td>
+                    <td style="padding: 10px; font-weight: bold;">${guest.nama || '-'}</td>
+                    <td style="padding: 10px;">${guest.kategori || 'Tamu Undangan'}</td>
+                    <td style="text-align: center; padding: 10px;">${statusKehadiran} <br><small style="color:#777;">(${waktuHadir})</small></td>
+                    <td style="text-align: center; padding: 10px;">${statusSouvenir}</td>
+                    <td style="text-align: center; padding: 10px;">
+                        <span style="font-size: 11px; color: #aaa;">-</span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Update Kartu Angka Statistik di bagian atas jika ada
+        updateRekapSummaryCards(guests);
+
+    } catch (err) {
+        console.error("Gagal memuat rekap tamu:", err);
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">
+                    Gagal mengambil data dari server Supabase.
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// FUNGSI PEMBANTU: Update angka total di kartu statistik
+function updateRekapSummaryCards(guests) {
+    const totalTamu = guests.length;
+    const totalHadir = guests.filter(g => g.is_checked_in).length;
+    const totalSouvenir = guests.filter(g => g.souvenir_taken).length;
+
+    const elTotal = document.getElementById('statTotalTamu') || document.getElementById('totalGuests');
+    const elHadir = document.getElementById('statTotalHadir') || document.getElementById('totalCheckedIn');
+    const elSouvenir = document.getElementById('statTotalSouvenir') || document.getElementById('totalSouvenir');
+
+    if (elTotal) elTotal.innerText = totalTamu;
+    if (elHadir) elHadir.innerText = totalHadir;
+    if (elSouvenir) elSouvenir.innerText = totalSouvenir;
+}
+
+// PEMICU OTOMATIS: Dengar setiap kali user mengklik tombol/menu Rekap
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('#navRekap, [onclick*="rekap"], [data-tab="rekap"]');
+    if (target) {
+        setTimeout(loadGuestRecapTable, 100);
+    }
+});
+
+// Panggil sekali saat script pertama kali termuat di browser
+setTimeout(loadGuestRecapTable, 1000);
