@@ -1376,11 +1376,12 @@ async function loadGuestRecapTable() {
     `;
 
     try {
-        // 3. Ambil seluruh data dari tabel 'guests' Supabase
+        // Ambil seluruh data dari tabel 'guests' Supabase (tanpa filter order khusus)
         const { data: guests, error } = await supabaseClient
             .from('guests')
-            .select('*')
-            .order('created_at', { ascending: true });
+            .select('*');
+
+        if (error) throw error;
 
         if (error) throw error;
 
