@@ -762,6 +762,10 @@ async function submitForm() {
     await submitGuestForm();
 }
 
+// ALIAS TAMBAHAN: Untuk mencakup tombol confirmTamu() bawaan HTML
+async function confirmTamu() {
+    await submitGuestForm();
+}
 // Fungsi Menampilkan Pop-Up QR Code Hasil Generate
 function showQrCodeModal(guestId, guestName) {
     Swal.fire({
