@@ -167,15 +167,31 @@ async function loadForm() {
 // SETUP ACCORDION & MANAGEMENT UTILS (PENGENDALI ACTION SETUP)
 // =========================================================================
 function toggleAcc(headerEl) {
-    if (!headerEl) return;
+    // Ambil elemen yang sedang aktif diklik secara global (bulletproof fallback)
+    let target = headerEl;
+    if (window.event && window.event.currentTarget) {
+        target = window.event.currentTarget;
+    } else if (window.event && window.event.target) {
+        target = window.event.target;
+    }
     
-    // Dapatkan elemen parent card atau langsung sibling kontennya
-    const card = headerEl.closest('.acc-card') || headerEl.parentElement;
-    const content = card ? card.querySelector('.acc-content') : headerEl.nextElementSibling;
-    const icon = headerEl.querySelector('.fas.fa-chevron-down') || headerEl.querySelector('.fa-chevron-down');
+    // Cari elemen pembungkus header terdekat secara manual merangkak naik ke atas DOM tree
+    let currentHeader = target;
+    while (currentHeader && currentHeader !== document.body) {
+        if (currentHeader.tagName === 'DIV' && (currentHeader.onclick || currentHeader.getAttribute('onclick'))) {
+            break;
+        }
+        currentHeader = currentHeader.parentElement;
+    }
+    
+    if (!currentHeader) currentHeader = target;
+
+    // Cari elemen konten (biasanya berada tepat setelah header ini)
+    const content = currentHeader.nextElementSibling;
+    const icon = currentHeader.querySelector('.fas.fa-chevron-down') || currentHeader.querySelector('.fa-chevron-down');
 
     if (content) {
-        // Toggle tampilan menggunakan display / maxHeight
+        // Cek status tampilan saat ini
         if (content.style.display === "block" || (content.style.maxHeight && content.style.maxHeight !== "0px")) {
             content.style.display = "none";
             content.style.maxHeight = "0px";
