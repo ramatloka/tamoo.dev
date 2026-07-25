@@ -1136,145 +1136,113 @@ function resetManualScanInput() {
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (SUPPORT DROPDOWN PILIH KAMERA DEPAN/BELAKANG)
+// HANDLER KAMERA WEBCAM & HP (INTEGRATED ORIENTATION MODE)
 // =========================================================================
 
+// Deklarasi Variabel Global agar aman dan tidak memicu ReferenceError
 let cameraMediaStream = null;
+let currentHtml5QrScanner = null; 
+let currentFacingMode = "environment"; // Default: Kamera Belakang / Utama
 
 async function openCameraModal() {
-    try {
-        Swal.fire({
-            title: 'Mencari Kamera...',
-            text: 'Membaca daftar perangkat kamera...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
-
-        // 1. Dapatkan daftar seluruh perangkat video/kamera yang ada di perangkat
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-        if (videoDevices.length === 0) {
-            Swal.fire('Kamera Tidak Ditemukan', 'Tidak ada perangkat kamera yang terdeteksi.', 'warning');
-            return;
-        }
-
-        // 2. Buat Opsi Dropdown Pilihan Kamera
-        let cameraOptionsHtml = videoDevices.map((device, idx) => {
-            let label = device.label || `Kamera ${idx + 1}`;
-            if (label.toLowerCase().includes('back') || label.toLowerCase().includes('belakang') || label.toLowerCase().includes('environment')) {
-                label = "📷 Kamera Belakang (Utama)";
-            } else if (label.toLowerCase().includes('front') || label.toLowerCase().includes('depan') || label.toLowerCase().includes('user')) {
-                label = "🤳 Kamera Depan (Selfie)";
-            }
-            return `<option value="${device.deviceId}">${label}</option>`;
-        }).join('');
-
-        // 3. Tampilkan Pop-Up UI Kamera
-        Swal.fire({
-            title: 'Scan QR Code Tamu',
-            html: `
-                <div style="text-align:center; padding: 5px;">
-                    <div style="margin-bottom: 10px; text-align: left;">
-                        <label style="font-size: 11px; font-weight: bold; color: #666;">Pilih Kamera:</label>
-                        <select id="cameraSelectDropdown" class="swal2-select" style="width: 100%; margin: 4px 0 8px 0; padding: 6px; border-radius: 8px; font-size: 12px;">
-                            ${cameraOptionsHtml}
-                        </select>
-                    </div>
-
-                    <div style="position: relative; width: 100%; max-width: 300px; height: 260px; margin: 0 auto; background: #000; border-radius: 15px; overflow: hidden; border: 2px solid var(--gold-dark, #846924);">
-                        <video id="webcamPreview" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-                        
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); pointer-events: none;"></div>
-                    </div>
-                    
-                    <p style="font-size: 11px; color: #777; margin-top: 12px;">Arahkan kamera tepat ke QR Code milik tamu</p>
+    Swal.fire({
+        title: 'Scan QR Code Tamu',
+        html: `
+            <div style="text-align:center; padding: 5px;">
+                <div style="margin-bottom: 12px;">
+                    <button id="btnSwitchCamera" class="swal2-styled" style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 6px 16px; font-size: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        📷 Gunakan Kamera Depan
+                    </button>
                 </div>
-            `,
-            showConfirmButton: false,
-            showCloseButton: true,
-            width: '360px',
-            padding: '15px',
-            customClass: { popup: 'luxury-popup' },
-            didOpen: async () => {
-                const cameraSelect = document.getElementById('cameraSelectDropdown');
+
+                <div style="position: relative; width: 100%; max-width: 300px; height: 260px; margin: 0 auto; background: #000; border-radius: 15px; overflow: hidden; border: 2px solid var(--gold-dark, #846924);">
+                    <video id="webcamPreview" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); pointer-events: none;"></div>
+                </div>
                 
-                // Pilih kamera belakang secara default jika ada lebih dari 1 kamera (HP)
-                let selectedDeviceId = videoDevices.length > 1 ? videoDevices[videoDevices.length - 1].deviceId : videoDevices[0].deviceId;
-                if (cameraSelect) cameraSelect.value = selectedDeviceId;
+                <p style="font-size: 11px; color: #777; margin-top: 12px;">Arahkan kamera tepat ke QR Code milik tamu</p>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '360px',
+        padding: '15px',
+        customClass: { popup: 'luxury-popup' },
+        didOpen: async () => {
+            const btnSwitch = document.getElementById('btnSwitchCamera');
 
-                // Fungsi Internal untuk Menyalakan Stream Kamera berdasarkan Device ID
-                const startCameraStreamByDeviceId = async (deviceId) => {
-                    stopCameraStream(); // Hentikan stream lama jika sedang berjalan
+            // Fungsi utama untuk menyalakan aliran kamera berdasarkan Mode Orientasi
+            const startStreamingByFacingMode = async (mode) => {
+                stopCameraStream(); // Matikan stream sebelumnya agar tidak bentrok
 
-                    try {
-                        cameraMediaStream = await navigator.mediaDevices.getUserMedia({
-                            video: { deviceId: { exact: deviceId } }
-                        });
-                        
-                        const videoEl = document.getElementById('webcamPreview');
-                        if (videoEl) {
-                            videoEl.srcObject = cameraMediaStream;
-                            await videoEl.play();
-                        }
-
-                        // Jalankan pemindai Html5Qrcode
-                        if (typeof Html5Qrcode !== "undefined") {
-                            html5QrCodeScanner = new Html5Qrcode("webcamPreview");
-                            html5QrCodeScanner.start(
-                                deviceId,
-                                { fps: 10, qrbox: { width: 180, height: 180 } },
-                                (decodedText) => {
-                                    stopCameraStream();
-                                    Swal.close();
-                                    if (typeof processGuestCheckIn === "function") {
-                                        processGuestCheckIn(decodedText);
-                                    }
-                                },
-                                (err) => { /* abaikan error frame */ }
-                            ).catch(() => {});
-                        }
-                    } catch (err) {
-                        console.error("Gagal mengganti kamera:", err);
-                    }
-                };
-
-                // Jalankan kamera pertama kali
-                startCameraStreamByDeviceId(selectedDeviceId);
-
-                // Event listener saat user mengubah opsi di dropdown kamera
-                if (cameraSelect) {
-                    cameraSelect.addEventListener('change', (e) => {
-                        startCameraStreamByDeviceId(e.target.value);
+                try {
+                    // 1. Dapatkan stream video native berdasarkan orientasi ideal
+                    cameraMediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } }
                     });
-                }
-            },
-            willClose: () => {
-                stopCameraStream();
-            }
-        });
+                    
+                    const videoEl = document.getElementById('webcamPreview');
+                    if (videoEl) {
+                        videoEl.srcObject = cameraMediaStream;
+                        await videoEl.play();
+                    }
 
-    } catch (err) {
-        console.error("Gagal membaca daftar kamera:", err);
-        stopCameraStream();
-        Swal.fire({
-            title: 'Kamera Tidak Aktif',
-            text: 'Tidak dapat mengakses perangkat kamera. Pastikan izin kamera telah diberikan.',
-            icon: 'error',
-            customClass: { popup: 'luxury-popup' }
-        });
-    }
+                    // 2. Tembakkan modul pembaca QR dari library Html5Qrcode
+                    if (typeof Html5Qrcode !== "undefined") {
+                        currentHtml5QrScanner = new Html5Qrcode("webcamPreview");
+                        await currentHtml5QrScanner.start(
+                            { facingMode: mode },
+                            { fps: 10, qrbox: { width: 180, height: 180 } },
+                            (decodedText) => {
+                                stopCameraStream();
+                                Swal.close();
+                                if (typeof processGuestCheckIn === "function") {
+                                    processGuestCheckIn(decodedText);
+                                }
+                            },
+                            (err) => { /* abaikan log per frame */ }
+                        ).catch(() => {});
+                    }
+                } catch (err) {
+                    console.error("Gagal memuat orientasi kamera:", err);
+                }
+            };
+
+            // Jalankan kamera belakang (environment) saat pertama kali dibuka
+            startStreamingByFacingMode(currentFacingMode);
+
+            // Logic klik tombol ganti kamera depan/belakang
+            if (btnSwitch) {
+                btnSwitch.addEventListener('click', () => {
+                    if (currentFacingMode === "environment") {
+                        currentFacingMode = "user"; // Pindah ke depan
+                        btnSwitch.innerHTML = "📷 Gunakan Kamera Belakang";
+                    } else {
+                        currentFacingMode = "environment"; // Pindah ke belakang
+                        btnSwitch.innerHTML = "🤳 Gunakan Kamera Depan";
+                    }
+                    startStreamingByFacingMode(currentFacingMode);
+                });
+            }
+        },
+        willClose: () => {
+            stopCameraStream();
+        }
+    });
 }
 
-// Fungsi Pembantu Mematikan Stream Kamera
+// Fungsi Pembantu Mematikan Stream Kamera Secara Total & Bersih
 function stopCameraStream() {
     if (cameraMediaStream) {
-        cameraMediaStream.getTracks().forEach(track => track.stop());
+        try {
+            cameraMediaStream.getTracks().forEach(track => track.stop());
+        } catch(e) {}
         cameraMediaStream = null;
     }
-    if (html5QrCodeScanner) {
-        try { html5QrCodeScanner.stop(); } catch(e) {}
-        html5QrCodeScanner = null;
+    if (currentHtml5QrScanner) {
+        try { currentHtml5QrScanner.stop(); } catch(e) {}
+        currentHtml5QrScanner = null;
     }
 }
 
