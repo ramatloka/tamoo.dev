@@ -1155,7 +1155,7 @@ async function openCameraModal() {
                 </div>
 
                 <div style="position: relative; width: 100%; max-width: 280px; height: 240px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--gold-dark, #846924); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    <div id="reader" style="width: 100%; height: 100%;"></div>
+                    <div id="reader" style="width: 100%; height: 240px; background: #000;"></div>
                 </div>
                 
                 <p style="font-size: 11px; color: #777; margin-top: 10px;">Arahkan kamera tepat ke QR Code milik tamu</p>
@@ -1169,27 +1169,36 @@ async function openCameraModal() {
         didOpen: () => {
             const btnSwitch = document.getElementById('btnSwitchCamera');
 
-            // Fungsi Utama Menjalankan Mesin Scanner & Penata Layout Video
             const initScanner = (facingMode) => {
                 stopCameraStream().then(() => {
                     html5QrCodeScanner = new Html5Qrcode("reader");
 
                     html5QrCodeScanner.start(
                         { facingMode: facingMode },
-                        { fps: 15, qrbox: { width: 180, height: 180 } },
+                        { 
+                            fps: 15, 
+                            qrbox: { width: 180, height: 180 },
+                            aspectRatio: 1.0 
+                        },
                         (decodedText) => {
-                            // Sukses Scan: Matikan Kamera -> Tutup Pop-Up -> Proses Ke Supabase
                             stopCameraStream().then(() => {
                                 Swal.close();
                                 processGuestCheckIn(decodedText);
                             });
                         },
                         (errorMessage) => {}
-                    ).catch(err => {
+                    ).then(() => {
+                        const videoEl = document.querySelector('#reader video');
+                        if (videoEl) {
+                            videoEl.style.width = '100%';
+                            videoEl.style.height = '100%';
+                            videoEl.style.objectFit = 'cover';
+                            videoEl.style.display = 'block';
+                        }
+                    }).catch(err => {
                         console.error("Gagal memulai scanner:", err);
                     });
 
-                    // FORCE RENDERING VIEW: Mencegat kemunculan tag <video> dan memaksanya tampil full screen di kotak
                     const containerObserver = new MutationObserver(() => {
                         const videoEl = document.querySelector('#reader video');
                         if (videoEl) {
@@ -1207,12 +1216,10 @@ async function openCameraModal() {
                 });
             };
 
-            // Jeda kecil agar modal selesai transisi render
             setTimeout(() => {
                 initScanner(currentFacingMode);
-            }, 300);
+            }, 400);
 
-            // Listener Ganti Kamera
             if (btnSwitch) {
                 btnSwitch.addEventListener('click', () => {
                     currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
@@ -1226,7 +1233,7 @@ async function openCameraModal() {
     });
 }
 
-// Fungsi Pembantu Mematikan Aliran Kamera Bersih
+// FUNGSI INI DIBIARKAN / TETAP DIPAKAI:
 async function stopCameraStream() {
     if (html5QrCodeScanner) {
         try {
