@@ -111,7 +111,16 @@ async function loadForm() {
 
     setVal('adminPrefix', data.GreetingPrefix); setVal('adminSuffix', data.GreetingSuffix);
     setText('displayEventTitle', data.EventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.EventTitle);
-    setText('runningTextDisplay', data.Announcement || "Selamat Datang"); setVal('adminAnnouncement', data.Announcement);
+    let announcementText = data.Announcement || "Selamat Datang";
+    setText('runningTextDisplay', announcementText); 
+    setVal('adminAnnouncement', announcementText);
+
+    // --- AKTIFKAN RUNNING TEXT DI DOM ---
+    let tickerContainer = document.getElementById('tickerWrapContainer') || document.querySelector('.ticker-wrap');
+    if (tickerContainer && announcementText.trim() !== "") {
+    tickerContainer.classList.add('active-ticker');
+    tickerContainer.style.display = 'block';
+ }     
     setVal('adminEventName', data.EventName); setVal('adminEventDate', data.EventDate); setVal('adminEventLocation', data.EventLocation); 
     setVal('adminPosterUrl', data.PosterUrl); setVal('adminDetailUrl', data.DetailUrl);
     enableSoundSuccess = data.SoundSuccess !== "false"; enableSoundError = data.SoundError !== "false";
