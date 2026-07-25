@@ -1354,42 +1354,45 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (SUPABASE AUTOLOAD)
+// MODUL REKAPITULASI TAMU (FIXED SUPABASE VARIABLE)
 // =========================================================================
 
 async function loadGuestRecapTable() {
+    // Sembunyikan running text saat berada di Halaman Rekap
+    const ticker = document.getElementById('tickerWrapContainer');
+    if (ticker) ticker.style.display = 'none';
+
     // 1. Cari elemen tabel rekap di HTML
     const tableBody = document.getElementById('guestTableBody') || 
                       document.getElementById('rekapTableBody') || 
-                      document.querySelector('#rekapTable tbody') ||
-                      document.querySelector('table tbody');
+                      document.querySelector('#rekapTable tbody');
     
     if (!tableBody) return;
 
     // 2. Tampilkan status loading saat mengambil data
     tableBody.innerHTML = `
         <tr>
-            <td colspan="7" style="text-align: center; padding: 20px; color: #777;">
+            <td colspan="5" style="text-align: center; padding: 20px; color: #777;">
                 <i class="fas fa-spinner fa-spin"></i> Memuat data tamu dari Supabase...
             </td>
         </tr>
     `;
 
     try {
-        // Ambil seluruh data dari tabel 'guests' Supabase (tanpa filter order khusus)
-        const { data: guests, error } = await supabaseClient
+        // 3. Panggil objek 'supabase' (bukan supabaseClient)
+        const client = typeof supabase !== "undefined" ? supabase : supabaseClient;
+        
+        const { data: guests, error } = await client
             .from('guests')
             .select('*');
 
         if (error) throw error;
 
-        if (error) throw error;
-
-        // Jika data kosong
+        // Jika data di Supabase masih kosong
         if (!guests || guests.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 20px; color: #888;">
+                    <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
                         Belum ada data tamu terdaftar di database.
                     </td>
                 </tr>
@@ -1405,11 +1408,6 @@ async function loadGuestRecapTable() {
                 ? `<span style="background: #22c55e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">HADIR</span>`
                 : `<span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">BELUM HADIR</span>`;
 
-            // Format Waktu Check-In
-            const waktuHadir = guest.check_in_time 
-                ? new Date(guest.check_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) 
-                : '-';
-
             // Format Status Souvenir
             const statusSouvenir = guest.souvenir_taken
                 ? `<span style="color: #16a34a; font-weight: bold;"><i class="fas fa-check-circle"></i> Sudah</span>`
@@ -1417,12 +1415,12 @@ async function loadGuestRecapTable() {
 
             return `
                 <tr style="border-bottom: 1px solid #eee;">
-                    <td style="text-align: center; padding: 10px;">${index + 1}</td>
-                    <td style="padding: 10px; font-weight: 500;">${guest.qr_code || guest.id || '-'}</td>
+                    <td style="text-align: center; padding: 10px;">
+                        <input type="checkbox" class="chk-select-guest" value="${guest.id}">
+                    </td>
                     <td style="padding: 10px; font-weight: bold;">${guest.nama || '-'}</td>
-                    <td style="padding: 10px;">${guest.kategori || 'Tamu Undangan'}</td>
-                    <td style="text-align: center; padding: 10px;">${statusKehadiran} <br><small style="color:#777;">(${waktuHadir})</small></td>
-                    <td style="text-align: center; padding: 10px;">${statusSouvenir}</td>
+                    <td style="padding: 10px;">${guest.kategori || 'Reguler'}</td>
+                    <td style="text-align: center; padding: 10px;">${statusKehadiran} / ${statusSouvenir}</td>
                     <td style="text-align: center; padding: 10px;">
                         <span style="font-size: 11px; color: #aaa;">-</span>
                     </td>
@@ -1430,14 +1428,14 @@ async function loadGuestRecapTable() {
             `;
         }).join('');
 
-        // Update Kartu Angka Statistik di bagian atas jika ada
+        // Update Kartu Angka Statistik
         updateRekapSummaryCards(guests);
 
     } catch (err) {
         console.error("Gagal memuat rekap tamu:", err);
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 20px; color: #dc2626;">
+                <td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">
                     Gagal mengambil data dari server Supabase.
                 </td>
             </tr>
