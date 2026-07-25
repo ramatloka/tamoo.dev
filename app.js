@@ -1536,12 +1536,53 @@ async function openAddGuestModal() {
 }
 
 // =========================================================================
-// PEMBARUAN: PROSES SIMPAN & GENERATE TIKET INSTAN (MANUAL REKAP)
+// MODUL TAMBAH TAMU MANUAL (DINAMIS DARI TABEL form_settings)
 // =========================================================================
 
-// 1. Fungsi Utama Menampilkan Modal Tambah Tamu (Formulir seperti Gambar 7)
 async function openAddGuestModal() {
-    // Kita gunakan input swal2-select untuk KATEGORI agar sesuai Gambar 7
+    // 1. Tampilkan indicator loading sebentar saat mengambil opsi dari Supabase
+    Swal.fire({ 
+        title: 'Memuat Form...', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
+
+    // Opsi default jika koneksi/data di Supabase belum terbaca
+    let optionsJumlahArray = ['1', '2', '3'];
+
+    try {
+        if (typeof db !== "undefined" && db) {
+            // Tarik data konfigurasi form dari tabel 'form_settings'
+            const { data: formSettings, error } = await db.from('form_settings').select('*').limit(1);
+
+            if (!error && formSettings && formSettings.length > 0) {
+                // Ambil data dari kolom c_jumlah_tamu_termasuk_anda
+                const rawJumlahData = formSettings[0].c_jumlah_tamu_termasuk_anda;
+
+                if (rawJumlahData) {
+                    // Jika datanya berbentuk Array (misal: ['1','2','3'])
+                    if (Array.isArray(rawJumlahData)) {
+                        optionsJumlahArray = rawJumlahData;
+                    } 
+                    // Jika datanya berbentuk Teks/String terpisah koma (misal: "1,2,3" atau "1, 2, 3")
+                    else if (typeof rawJumlahData === 'string') {
+                        optionsJumlahArray = rawJumlahData.split(',').map(item => item.trim());
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.warn("Gagal mengambil form_settings, menggunakan default 1-3:", err);
+    }
+
+    // Buat HTML elemen <option> secara dinamis berdasarkan data Supabase
+    const dynamicOptionsHtml = optionsJumlahArray
+        .map(val => `<option value="${val}">${val}</option>`)
+        .join('');
+
+    // 2. Tutup loading dan Tampilkan Form Tambah Tamu
+    Swal.close();
+
     const { value: formValues } = await Swal.fire({
         title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900;">TAMBAH TAMU MANUAL</h2>',
         html: `
@@ -1560,8 +1601,7 @@ async function openAddGuestModal() {
                 
                 <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Jumlah tamu hadir (termasuk anda)</label>
                 <select id="swal-input-jumlah" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
-                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                    <option value="4">4</option><option value="5">5</option>
+                    ${dynamicOptionsHtml}
                 </select>
 
                 <hr style="border: 0; border-top: 2px dashed #eee; margin: 25px 0 20px 0;">
