@@ -224,17 +224,76 @@ function renderSetupQuestionsTable() {
     });
 }
 
-function addQuestion() {
-    // Cari elemen teks label dengan berbagai kecocokan ID bawaan HTML TAMOO
-    let elTxt = document.getElementById('newQTxt') || 
-                document.getElementById('newQLabel') || 
-                document.getElementById('inputQuestionLabel') ||
-                document.querySelector('.acc-content input[type="text"]'); // Fallback input teks pertama di akordeon
+// =========================================================================
+// SETUP FIELD FORMULIR (POP-UP DIALOG BERSAMA)
+// =========================================================================
 
-    let elType = document.getElementById('newQType') || document.getElementById('selectQuestionType');
-    let elOpt = document.getElementById('newQOpt') || document.getElementById('newQOptions') || document.getElementById('inputQuestionOptions');
-    let elReq = document.getElementById('newQReq') || document.getElementById('checkQuestionRequired');
-    let elTv = document.getElementById('newQTv') || document.getElementById('checkQuestionTv');
+// FUNGSI 1: MEMBUKA POP-UP SEPERTI DI GAMBAR LAMA
+function addQuestion() {
+    // 1. Definisikan Opsi dropdown HTML
+    const typeOptionsHtml = `
+        <option value="text">Teks Singkat</option>
+        <option value="textarea">Kotak Pesan</option>
+        <option value="dropdown">Pilihan (Dropdown)</option>
+        <option value="radio">Pilihan (Radio Button)</option>
+        <option value="checkbox">Centang (Checkbox)</option>
+        <option value="date">Tanggal</option>
+        <option value="number">Angka</option>
+    `;
+
+    // 2. Buat Tampilan HTML Pop-up Dialog (Modal)
+    const modalHtml = `
+        <div id="tamooModalAddField" class="tamoo-modal-backup luxury-popup animate__animated animate__zoomIn" style="display:block;">
+            <div class="tamoo-modal-content-backup">
+                <div class="modal-header-backup">
+                    <h3>Tambah Field</h3>
+                    <span class="close-modal-backup" onclick="closeTamooPopUpModal()">&times;</span>
+                </div>
+                <div class="modal-body-backup">
+                    <div class="form-group-backup">
+                        <label>Label Pertanyaan</label>
+                        <input type="text" id="popUpQLabel" placeholder="..." required>
+                    </div>
+                    <div class="form-group-backup">
+                        <label>Tipe Data</label>
+                        <select id="popUpQType" onchange="togglePopUpOptDisplay()">
+                            ${typeOptionsHtml}
+                        </select>
+                    </div>
+                    <div class="form-group-backup" id="popUpQOptContainer" style="display:none;">
+                        <label>Opsi (pisahkan dgn koma,)</label>
+                        <input type="text" id="popUpQOptions" placeholder="...">
+                    </div>
+                    
+                    <div class="luxury-switches" style="display:flex; justify-content:space-between; margin-top:15px; border-top:1px solid var(--border-color); padding-top:15px;">
+                        <label class=" luxury-switch-label">
+                            <input type="checkbox" id="popUpQTv" checked> <span style="font-weight:600; color:var(--text-main);">Tampil di Layar Sapaan</span>
+                        </label>
+                        <label class=" luxury-switch-label">
+                            <input type="checkbox" id="popUpQReq"> <span style="font-weight:600; color:#c5221f;">Wajib Diisi (Required)</span>
+                        </label>
+                    </div>
+                    
+                </div>
+                <div class="modal-footer-backup">
+                    <button class="btn-action-outline-backup" onclick="closeTamooPopUpModal()">Batal</button>
+                    <button class="btn-action-swal-backup" onclick="handlePopUpSave()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 3. Masukkan HTML modal ke dalam body halaman
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// FUNGSI 2: MENANGKAP DATA SAAT KLIK 'SIMPAN' DI DALAM POP-UP
+function handlePopUpSave() {
+    let elTxt = document.getElementById('popUpQLabel');
+    let elType = document.getElementById('popUpQType');
+    let elOpt = document.getElementById('popUpQOptions');
+    let elReq = document.getElementById('popUpQReq');
+    let elTv = document.getElementById('popUpQTv');
 
     let label = elTxt ? elTxt.value.trim() : "";
     let type = elType ? elType.value : "text";
@@ -242,33 +301,58 @@ function addQuestion() {
     let req = elReq ? elReq.checked : false;
     let tv = elTv ? elTv.checked : true;
 
-    // Jika label tetap kosong, coba intip apakah ada input teks lain di dekat tombol yang diklik
-    if (!label && window.event && window.event.target) {
-        let parentCard = window.event.target.closest('.acc-content') || window.event.target.parentElement;
-        if (parentCard) {
-            let alternativeInput = parentCard.querySelector('input[type="text"]');
-            if (alternativeInput) label = alternativeInput.value.trim();
-        }
-    }
-
     if (!label) { 
         Swal.fire({ title: 'Gagal', text: 'Label pertanyaan wajib diisi!', icon: 'warning', customClass: { popup: 'luxury-popup' } }); 
         return; 
     }
     
+    // Validasi opsi jika tipe data adalah pilihan
+    if ((type === 'dropdown' || type === 'radio' || type === 'checkbox') && !optStr) {
+        Swal.fire({ title: 'Gagal', text: 'Tipe pilihan wajib mengisi kotak Opsi!', icon: 'warning', customClass: { popup: 'luxury-popup' } });
+        return;
+    }
+
+    // Buat ID unik berdasarkan label
     let id = "c_" + label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    // Proteksi duplikasi ID
     if(currentQuestions.some(q => q.id === id)) { id += "_" + Math.floor(Math.random() * 100); }
 
-    currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
+    // Masukkan data ke list sementara
+    currentQuestions.push({ 
+        id, 
+        label, 
+        type, 
+        options: optStr ? optStr.split(",") : [], 
+        showOnTv: tv, 
+        required: req 
+    });
     
-    // Reset Form Input setelah berhasil ditambahkan
-    if(elTxt) elTxt.value = "";
-    if(elOpt) elOpt.value = "";
-    if(elReq) elReq.checked = false;
-    if(elTv) elTv.checked = true;
-
+    // Perbarui tabel di akordeon formulir
     renderSetupQuestionsTable();
-    Swal.fire({ title: 'Ditambahkan', text: 'Pertanyaan berhasil masuk list sementara. Klik Simpan Pengaturan di bawah!', icon: 'success', customClass: { popup: 'luxury-popup' } });
+    
+    // Tutup Pop-up
+    closeTamooPopUpModal();
+    
+    Swal.fire({ title: 'Ditambahkan', text: 'Pertanyaan berhasil masuk list sementara. Klik Simpan Semua Perubahan di bawah!', icon: 'success', customClass: { popup: 'luxury-popup' }, timer: 2000, showConfirmButton: false });
+}
+
+// FUNGSI 3: PENUTUP POP-UP MODAL (MANUAL)
+function closeTamooPopUpModal() {
+    let modal = document.getElementById('tamooModalAddField');
+    if (modal) modal.remove();
+}
+
+// FUNGSI 4: PENGATUR TAMPILAN OPSI DI DALAM POP-UP
+function togglePopUpOptDisplay() {
+    let type = document.getElementById('popUpQType').value;
+    let container = document.getElementById('popUpQOptContainer');
+    if (container) {
+        if (type === 'dropdown' || type === 'radio' || type === 'checkbox') { 
+            container.style.display = 'block'; 
+        } else { 
+            container.style.display = 'none'; 
+        }
+    }
 }
 
 function deleteQuestion(id) {
