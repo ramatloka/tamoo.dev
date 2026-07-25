@@ -1136,13 +1136,11 @@ function resetManualScanInput() {
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (INTEGRATED ORIENTATION MODE)
+// HANDLER KAMERA WEBCAM & HP (AUTO SCANNER + TOGGLE ORIENTASI)
 // =========================================================================
 
-// Deklarasi Variabel Global agar aman dan tidak memicu ReferenceError
-let cameraMediaStream = null;
-let currentHtml5QrScanner = null; 
-let currentFacingMode = "environment"; // Default: Kamera Belakang / Utama
+let html5QrCodeScanner = null;
+let currentFacingMode = "environment"; // Default: Kamera Belakang
 
 async function openCameraModal() {
     Swal.fire({
@@ -1151,14 +1149,12 @@ async function openCameraModal() {
             <div style="text-align:center; padding: 5px;">
                 <div style="margin-bottom: 12px;">
                     <button id="btnSwitchCamera" class="swal2-styled" style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 6px 16px; font-size: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                        📷 Gunakan Kamera Depan
+                        🔄 Ganti Kamera (Depan / Belakang)
                     </button>
                 </div>
 
-                <div style="position: relative; width: 100%; max-width: 300px; height: 260px; margin: 0 auto; background: #000; border-radius: 15px; overflow: hidden; border: 2px solid var(--gold-dark, #846924);">
-                    <video id="webcamPreview" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-                    
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); pointer-events: none;"></div>
+                <div style="position: relative; width: 100%; max-width: 300px; min-height: 250px; margin: 0 auto; background: #000; border-radius: 15px; overflow: hidden; border: 2px solid var(--gold-dark, #846924);">
+                    <div id="reader" style="width: 100%;"></div>
                 </div>
                 
                 <p style="font-size: 11px; color: #777; margin-top: 12px;">Arahkan kamera tepat ke QR Code milik tamu</p>
@@ -1169,60 +1165,48 @@ async function openCameraModal() {
         width: '360px',
         padding: '15px',
         customClass: { popup: 'luxury-popup' },
-        didOpen: async () => {
+        didOpen: () => {
             const btnSwitch = document.getElementById('btnSwitchCamera');
 
-            // Fungsi utama untuk menyalakan aliran kamera berdasarkan Mode Orientasi
-            const startStreamingByFacingMode = async (mode) => {
-                stopCameraStream(); // Matikan stream sebelumnya agar tidak bentrok
-
-                try {
-                    // 1. Dapatkan stream video native berdasarkan orientasi ideal
-                    cameraMediaStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } }
-                    });
+            // Fungsi utama menyalakan Scanner Kamera
+            const startQrScanner = (facingMode) => {
+                stopCameraStream().then(() => {
+                    html5QrCodeScanner = new Html5Qrcode("reader");
                     
-                    const videoEl = document.getElementById('webcamPreview');
-                    if (videoEl) {
-                        videoEl.srcObject = cameraMediaStream;
-                        await videoEl.play();
-                    }
+                    const config = { 
+                        fps: 15, // Peningkatan Frame Per Second agar respon scan lebih cepat & responsif
+                        qrbox: { width: 200, height: 200 } 
+                    };
 
-                    // 2. Tembakkan modul pembaca QR dari library Html5Qrcode
-                    if (typeof Html5Qrcode !== "undefined") {
-                        currentHtml5QrScanner = new Html5Qrcode("webcamPreview");
-                        await currentHtml5QrScanner.start(
-                            { facingMode: mode },
-                            { fps: 10, qrbox: { width: 180, height: 180 } },
-                            (decodedText) => {
-                                stopCameraStream();
+                    html5QrCodeScanner.start(
+                        { facingMode: facingMode },
+                        config,
+                        (decodedText) => {
+                            // BEGITO QR CODE TERBACA:
+                            stopCameraStream().then(() => {
                                 Swal.close();
-                                if (typeof processGuestCheckIn === "function") {
-                                    processGuestCheckIn(decodedText);
-                                }
-                            },
-                            (err) => { /* abaikan log per frame */ }
-                        ).catch(() => {});
-                    }
-                } catch (err) {
-                    console.error("Gagal memuat orientasi kamera:", err);
-                }
+                                processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
+                            });
+                        },
+                        (errorMessage) => {
+                            // Abaikan log kegagalan membaca per frame
+                        }
+                    ).catch(err => {
+                        console.error("Gagal memulai scanner:", err);
+                    });
+                });
             };
 
-            // Jalankan kamera belakang (environment) saat pertama kali dibuka
-            startStreamingByFacingMode(currentFacingMode);
+            // Jalankan kamera pertama kali
+            setTimeout(() => {
+                startQrScanner(currentFacingMode);
+            }, 300);
 
-            // Logic klik tombol ganti kamera depan/belakang
+            // Handler Tombol Tukar Kamera
             if (btnSwitch) {
                 btnSwitch.addEventListener('click', () => {
-                    if (currentFacingMode === "environment") {
-                        currentFacingMode = "user"; // Pindah ke depan
-                        btnSwitch.innerHTML = "📷 Gunakan Kamera Belakang";
-                    } else {
-                        currentFacingMode = "environment"; // Pindah ke belakang
-                        btnSwitch.innerHTML = "🤳 Gunakan Kamera Depan";
-                    }
-                    startStreamingByFacingMode(currentFacingMode);
+                    currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+                    startQrScanner(currentFacingMode);
                 });
             }
         },
@@ -1232,20 +1216,17 @@ async function openCameraModal() {
     });
 }
 
-// Fungsi Pembantu Mematikan Stream Kamera Secara Total & Bersih
-function stopCameraStream() {
-    if (cameraMediaStream) {
+// Fungsi Pembantu Mematikan Kamera secara Async & Bersih
+async function stopCameraStream() {
+    if (html5QrCodeScanner) {
         try {
-            cameraMediaStream.getTracks().forEach(track => track.stop());
-        } catch(e) {}
-        cameraMediaStream = null;
-    }
-    if (currentHtml5QrScanner) {
-        try { currentHtml5QrScanner.stop(); } catch(e) {}
-        currentHtml5QrScanner = null;
+            await html5QrCodeScanner.stop();
+        } catch (e) {
+            // Abaikan error jika kamera sudah dalam kondisi berhenti
+        }
+        html5QrCodeScanner = null;
     }
 }
-
 // 2. FUNGSI UPLOAD FILE GAMBAR QR (DIBERSIHKAN DARI ERROR UNDEFINED)
 async function handleNativeCamera(eventOrElement) {
     let file = null;
