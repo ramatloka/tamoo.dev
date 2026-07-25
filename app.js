@@ -1354,53 +1354,37 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (SAFE SUPABASE CLIENT CHECK)
+// MODUL REKAPITULASI TAMU (FIXED USING 'db' VARIABLE)
 // =========================================================================
 
 async function loadGuestRecapTable() {
-    // 1. Sembunyikan running text saat di rekap
+    // 1. Sembunyikan running text saat di Halaman Rekap
     const ticker = document.getElementById('tickerWrapContainer');
     if (ticker) ticker.style.display = 'none';
 
-    // 2. Cari elemen tabel
+    // 2. Cari elemen tabel rekap
     const tableBody = document.getElementById('guestTableBody') || 
                       document.getElementById('rekapTableBody') || 
                       document.querySelector('#rekapTable tbody');
     
     if (!tableBody) return;
 
+    // Tampilkan status loading
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; color: #777;">
+                <i class="fas fa-spinner fa-spin"></i> Memuat data tamu dari Supabase...
+            </td>
+        </tr>
+    `;
+
     try {
-        // Cari objek Supabase yang benar-benar memiliki fungsi .from()
-        let sbClient = null;
-
-        if (typeof supabase !== "undefined" && typeof supabase.from === "function") {
-            sbClient = supabase;
-        } else if (typeof window.supabase !== "undefined" && typeof window.supabase.from === "function") {
-            sbClient = window.supabase;
-        } else if (typeof supabaseClient !== "undefined" && typeof supabaseClient.from === "function") {
-            sbClient = supabaseClient;
-        } else if (typeof _supabase !== "undefined" && typeof _supabase.from === "function") {
-            sbClient = _supabase;
-        }
-
-        // Jika tidak ditemukan client Supabase yang valid
-        if (!sbClient) {
-            console.warn("Client Supabase belum siap atau nama variabel beda.");
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align: center; padding: 20px; color: #d97706;">
-                        Mencoba menghubungkan ke Supabase...
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        // 3. Ambil data dari Supabase
-        const { data: guests, error } = await sbClient.from('guests').select('*');
+        // 3. Tarik data menggunakan variabel 'db' yang valid
+        const { data: guests, error } = await db.from('guests').select('*');
 
         if (error) throw error;
 
+        // Jika data di Supabase masih kosong
         if (!guests || guests.length === 0) {
             tableBody.innerHTML = `
                 <tr>
@@ -1413,7 +1397,7 @@ async function loadGuestRecapTable() {
             return;
         }
 
-        // 4. Render data ke tabel
+        // 4. Render data tamu ke dalam tabel
         tableBody.innerHTML = guests.map((guest, index) => {
             const statusKehadiran = guest.is_checked_in 
                 ? `<span style="background: #22c55e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">HADIR</span>`
@@ -1436,6 +1420,7 @@ async function loadGuestRecapTable() {
             `;
         }).join('');
 
+        // Update Kartu Angka Statistik
         updateRekapSummaryCards(guests);
 
     } catch (err) {
