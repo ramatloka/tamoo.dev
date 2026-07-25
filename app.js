@@ -1,55 +1,21 @@
 // =========================================================================
-// ENGINE BRIDGE UNTUK MENGHUBUNGKAN STATIC GITHUB PAGES KE WEB APP API (GS)
+// ENGINE BRIDGE BARU: SUPABASE CLIENT (TAMOO DEV)
 // =========================================================================
-const google = {
-  script: {
-    get run() {
-      const url = "https://script.google.com/macros/s/AKfycbwyf9RjqNIoxWqapa32v0X7dK8xEEW7QG6TVYDty8PakY47IdOiP_FAFXYo4xQTJWGE/exec";
-      class Runner {
-        constructor() { this._success = null; this._failure = null; }
-        withSuccessHandler(cb) { this._success = cb; return this; }
-        withFailureHandler(cb) { this._failure = cb; return this; }
-        async _call(action, data = {}) {
-          try {
-            const response = await fetch(url, {
-              redirect: "follow",
-              method: "POST",
-              headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-              },
-              body: JSON.stringify({ action, data })
-            });
-            const result = await response.json();
-            if (result.status === "success") {
-              if (this._success) this._success(result.data);
-            } else {
-              if (this._failure) this._failure(new Error(result.message));
-              else Swal.fire("Error Backend", result.message, "error");
-            }
-          } catch (err) {
-            if (this._failure) this._failure(err);
-            else console.error(err);
-          }
-        }
-        getFormInitData() { this._call('getFormInitData'); }
-        getAppUrl() { if (this._success) this._success(window.location.origin + window.location.pathname); }
-        saveAdminSettings(settings, conf, posterData) { this._call('saveAdminSettings', { settings, conf, posterData }); }
-        simpanPendaftaran(formData) { this._call('simpanPendaftaran', { formData }); }
-        tambahTamuManual(formData, kategoriTamu) { this._call('tambahTamuManual', { formData, kategoriTamu }); }
-        simpanPendaftaranBulk(guestsData) { this._call('simpanPendaftaranBulk', { guestsData }); }
-        toggleGuestKategori(primaryValue) { this._call('toggleGuestKategori', { primaryValue }); }
-        toggleGuestKehadiran(qrData) { return this._call('toggleGuestKehadiran', { qrData }); }
-        getGuestList() { this._call('getGuestList'); }
-        processScan(qrData, forceRecord) { this._call('processScan', { qrData, forceRecord }); }
-        processScanSouvenir(qrData, forceRecord) { this._call('processScanSouvenir', { qrData, forceRecord }); }
-        getAttendanceStats() { this._call('getAttendanceStats'); }
-        getSouvenirStats() { this._call('getSouvenirStats'); }
-        updateJumlahTamu(qrData, newCount) { this._call('updateJumlahTamu', { qrData, newCount }); }
-      }
-      return new Runner();
+const SUPABASE_URL = 'https://pqavtpxnnsavwqrvxlst.supabase.co'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXZ0cHhubnNhdndxcnZ4bHN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTE2NDMsImV4cCI6MjEwMDUyNzY0M30.dkqS29xYf3VzQxZ3SnpFBYRPK4HKAy59S4L6V38KrH4';     
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Tes Koneksi Supabase Otomatis
+(async function testConnection() {
+    try {
+        const { data, error } = await db.from('app_config').select('*');
+        if (error) throw error;
+        console.log('✅ Berhasil terhubung ke Supabase! Data Config:', data);
+    } catch (err) {
+        console.error('❌ Gagal terhubung ke Supabase:', err.message);
     }
-  }
-};
+})();
 
 // =========================================================================
 // INITIALIZATION & CLIENT ROUTING
