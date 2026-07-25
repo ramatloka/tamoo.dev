@@ -467,10 +467,27 @@ function renderGuestForm() {
 }
 
 function toggleQOptDisplay() {
-    let type = document.getElementById('newQType').value;
-    let container = document.getElementById('newQOptContainer');
-    if(type === 'dropdown' || type === 'radio' || type === 'checkbox') { if(container) container.style.display = 'block'; } 
-    else { if(container) container.style.display = 'none'; }
+    let elType = document.getElementById('newQType');
+    let container = document.getElementById('newQOptContainer') || document.getElementById('newQOptionsContainer'); // Fallback multi-ID HTML
+    let type = elType ? elType.value : "text";
+    
+    if (container) {
+        if (type === 'dropdown' || type === 'radio' || type === 'checkbox') { 
+            container.style.display = 'block'; 
+        } else { 
+            container.style.display = 'none'; 
+        }
+    }
 }
 
-function initTvMode() { console.log("Layar TV Extended Aktif."); }
+// =========================================================================
+// SINKRONISASI TOMBOL PENGATURAN GLOBAL
+// =========================================================================
+// Fungsi pembantu jika HTML memanggil nama fungsi lama untuk simpan tema/global
+async function saveGlobalSettings() {
+    await saveAdminSettingsData();
+}
+
+function initTvMode() { 
+    console.log("Layar TV Extended Aktif."); 
+}
