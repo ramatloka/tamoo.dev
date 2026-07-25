@@ -1137,25 +1137,30 @@ function resetManualScanInput() {
 setTimeout(initManualScannerBridge, 1000);
 
 // =========================================================================
-// HANDLER KAMERA WEBCAM & HP (INSTANT SCANNER + FORCE DISPLAY STYLING)
+// HANDLER KAMERA WEBCAM & HP (NATIVE VIDEO CANVAS + jsQR SCANNER)
 // =========================================================================
 
-let html5QrCodeScanner = null;
-let currentFacingMode = "environment"; 
+let cameraMediaStream = null;
+let cameraScanAnimationId = null;
+let currentFacingMode = "environment"; // Default kamera belakang
 
 async function openCameraModal() {
     Swal.fire({
         title: 'Scan QR Code Tamu',
         html: `
             <div style="text-align:center; padding: 5px;">
-                <div style="margin-bottom: 12px;">
+                <div style="margin-bottom: 10px;">
                     <button id="btnSwitchCamera" type="button" style="background: #f4f4f5; color: #333; border: 1px solid #ccc; padding: 6px 14px; font-size: 11px; border-radius: 20px; font-weight: bold; cursor: pointer;">
                         🔄 Ganti Kamera
                     </button>
                 </div>
 
                 <div style="position: relative; width: 100%; max-width: 280px; height: 240px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--gold-dark, #846924); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    <div id="reader" style="width: 100%; height: 240px; background: #000;"></div>
+                    <video id="nativeWebcamVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: block;"></video>
+                    
+                    <canvas id="qrScanCanvas" style="display: none;"></canvas>
+
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 160px; height: 160px; border: 2px solid #fff; border-radius: 10px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); pointer-events: none;"></div>
                 </div>
                 
                 <p style="font-size: 11px; color: #777; margin-top: 10px;">Arahkan kamera tepat ke QR Code milik tamu</p>
@@ -1168,62 +1173,72 @@ async function openCameraModal() {
         customClass: { popup: 'luxury-popup' },
         didOpen: () => {
             const btnSwitch = document.getElementById('btnSwitchCamera');
+            const videoEl = document.getElementById('nativeWebcamVideo');
+            const canvasEl = document.getElementById('qrScanCanvas');
+            const canvasCtx = canvasEl ? canvasEl.getContext('2d') : null;
 
-            const initScanner = (facingMode) => {
-                stopCameraStream().then(() => {
-                    html5QrCodeScanner = new Html5Qrcode("reader");
+            // 1. Fungsi Menyalakan Stream Kamera
+            const startNativeCamera = async (facingMode) => {
+                stopCameraStream(); // Hentikan stream & animasi lama
 
-                    html5QrCodeScanner.start(
-                        { facingMode: facingMode },
-                        { 
-                            fps: 15, 
-                            qrbox: { width: 180, height: 180 },
-                            aspectRatio: 1.0 
-                        },
-                        (decodedText) => {
-                            stopCameraStream().then(() => {
-                                Swal.close();
-                                processGuestCheckIn(decodedText);
-                            });
-                        },
-                        (errorMessage) => {}
-                    ).then(() => {
-                        const videoEl = document.querySelector('#reader video');
-                        if (videoEl) {
-                            videoEl.style.width = '100%';
-                            videoEl.style.height = '100%';
-                            videoEl.style.objectFit = 'cover';
-                            videoEl.style.display = 'block';
-                        }
-                    }).catch(err => {
-                        console.error("Gagal memulai scanner:", err);
+                try {
+                    cameraMediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
                     });
 
-                    const containerObserver = new MutationObserver(() => {
-                        const videoEl = document.querySelector('#reader video');
-                        if (videoEl) {
-                            videoEl.style.width = '100%';
-                            videoEl.style.height = '100%';
-                            videoEl.style.objectFit = 'cover';
-                            videoEl.style.display = 'block';
-                        }
-                    });
+                    if (videoEl && cameraMediaStream) {
+                        videoEl.srcObject = cameraMediaStream;
+                        await videoEl.play();
 
-                    const readerEl = document.getElementById('reader');
-                    if (readerEl) {
-                        containerObserver.observe(readerEl, { childList: true, subtree: true });
+                        // Mulai loop pemindaian QR begitu video aktif
+                        requestAnimationFrame(scanQrFrame);
                     }
-                });
+                } catch (err) {
+                    console.error("Gagal membuka kamera:", err);
+                }
             };
 
-            setTimeout(() => {
-                initScanner(currentFacingMode);
-            }, 400);
+            // 2. Loop Pemindai QR Real-time (Menggunakan jsQR)
+            const scanQrFrame = () => {
+                if (!videoEl || videoEl.paused || videoEl.ended || videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) {
+                    cameraScanAnimationId = requestAnimationFrame(scanQrFrame);
+                    return;
+                }
 
+                if (canvasEl && canvasCtx) {
+                    canvasEl.height = videoEl.videoHeight;
+                    canvasEl.width = videoEl.videoWidth;
+                    canvasCtx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+                    const imageData = canvasCtx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+                    
+                    // Ekstrak QR Code jika jsQR tersedia
+                    if (typeof jsQR !== "undefined") {
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: "dontInvert",
+                        });
+
+                        if (code && code.data) {
+                            // BILA QR CODE TERBACA:
+                            stopCameraStream();
+                            Swal.close();
+                            processGuestCheckIn(code.data); // Eksekusi Check-In Supabase
+                            return;
+                        }
+                    }
+                }
+
+                cameraScanAnimationId = requestAnimationFrame(scanQrFrame);
+            };
+
+            // Jalankan kamera pertama kali
+            startNativeCamera(currentFacingMode);
+
+            // Handler Tombol Switch Kamera
             if (btnSwitch) {
                 btnSwitch.addEventListener('click', () => {
                     currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
-                    initScanner(currentFacingMode);
+                    startNativeCamera(currentFacingMode);
                 });
             }
         },
@@ -1233,13 +1248,17 @@ async function openCameraModal() {
     });
 }
 
-// FUNGSI INI DIBIARKAN / TETAP DIPAKAI:
-async function stopCameraStream() {
-    if (html5QrCodeScanner) {
+// Fungsi Pembantu Mematikan Kamera Secara Total
+function stopCameraStream() {
+    if (cameraScanAnimationId) {
+        cancelAnimationFrame(cameraScanAnimationId);
+        cameraScanAnimationId = null;
+    }
+    if (cameraMediaStream) {
         try {
-            await html5QrCodeScanner.stop();
+            cameraMediaStream.getTracks().forEach(track => track.stop());
         } catch (e) {}
-        html5QrCodeScanner = null;
+        cameraMediaStream = null;
     }
 }
 
