@@ -1,0 +1,21 @@
+{
+  "name": "TAMOO - Buku Tamu Digital",
+  "short_name": "TAMOO",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fdfaf3",
+  "theme_color": "#846924",
+  "description": "Aplikasi rekapitulasi kehadiran tamu untuk event.",
+  "icons": [
+    {
+      "src": "android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

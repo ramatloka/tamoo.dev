@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TAMOO</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Montserrat:wght@700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  
+  <link rel="stylesheet" href="style.css">
+  
+  <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#846924">
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+
+  <div id="layoutTv" style="display:none; width: 100vw;">
+    <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Fullscreen"><i id="btnFullscreenIcon" class="fas fa-expand"></i></button>
+    <img id="tvPosterImage" class="tv-poster-overlay" style="display:none; opacity:0;" alt="Poster Acara" />
+    <div class="tv-header-area animate__animated animate__fadeInDown"><div class="tv-event-title" id="tvDisplayEventTitle">LOADING...</div></div>
+    <div class="tv-center-area">
+      <div id="tvBadgeContainer"></div><div class="tv-greeting-text animate__animated animate__fadeIn" id="tvGreetingText"></div>
+      <div class="tv-guest-name" id="tvGuestName"><span style="font-family:'Montserrat'; font-size:2rem; font-weight:600; color:var(--text-muted); letter-spacing:2px;">- MENUNGGU SCANNER -</span></div>
+    </div>
+    <div class="tv-footer-area animate__animated animate__fadeInUp">
+      <div class="tv-branding">RAMATLOKA</div>
+      <div class="tv-ticker-wrap"><div class="tv-ticker-content" id="tvRunningText">LOADING ANNOUNCEMENT...</div></div>
+    </div>
+  </div>
+
+  <div id="layoutMain" style="display: none; width: 100%; flex-direction: column; align-items: center;">
+    <button class="btn-logout" onclick="logoutSystem()" title="Logout" id="btnLogoutBtn" style="display:none;"><i class="fas fa-sign-out-alt"></i></button>
+    <button class="btn-fullscreen" onclick="toggleFullScreen()" title="Tampilkan Fullscreen"><i id="btnFullscreenIcon" class="fas fa-expand"></i></button>
+    <div class="app-header"><div class="app-title-small">TAMOO</div><div id="displayEventTitle" class="event-title-large">LOADING...</div></div>
+    
+    <div class="main-card animate__animated">
+      
+      <div id="secTamu" class="section active">
+        <div id="publicEventInfo" style="display:none; text-align:center; margin-bottom:30px; padding-bottom:25px; border-bottom:1px dashed var(--border-color);">
+           <div id="pubEventName" style="font-family:'Playfair Display', serif; font-size:2rem; font-weight:900; color:var(--gold-dark); text-transform:uppercase; margin-bottom:8px; line-height:1.2;"></div>
+           <div id="pubEventDateLoc" style="font-family:'Montserrat', sans-serif; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:20px; letter-spacing:1px;"></div>
+           <a id="pubDetailBtn" href="#" target="_blank" style="display:none; background:var(--bg-color); color:var(--gold-dark); border:2px solid var(--gold-light); padding:10px 25px; border-radius:30px; font-size:0.75rem; font-weight:800; text-decoration:none; text-transform:uppercase; letter-spacing:1px; transition:0.3s;"><i class="fas fa-external-link-alt"></i> Lihat Detail Acara</a>
+        </div>
+        <div class="tab-badge" id="regTabBadge"><i class="fas fa-user-edit"></i> REGISTRASI TAMU</div>
+        <div id="dynamicFormContainer" style="margin-top: 10px;">Memuat Formulir...</div>
+        <button class="btn-submit" onclick="confirmTamu()" id="btnSubmitForm">DAPATKAN QR CODE</button>
+        
+        <div id="pesanSuksesPublik" style="display: none; text-align: center; padding: 40px 20px; background: #fdfaf3; border: 2px dashed #b39343; border-radius: 12px; margin-top: 15px;">
+          <i class="fas fa-check-circle" style="font-size: 3rem; color: #107c41; margin-bottom: 15px;"></i>
+          <h2 style="color: #846924; font-family: 'Playfair Display', serif; margin: 0 0 10px 0;">REGISTRASI BERHASIL</h2>
+          <p style="color: #333; font-weight: 600; font-size: 0.95rem; line-height: 1.5; margin-bottom: 5px;">
+            Terima kasih <strong id="teksNamaTamu" style="color: #107c41; font-size: 1.1rem;"></strong>,<br>Anda telah terdaftar di acara:
+          </p>
+          <p id="teksEventSukses" style="color: #666; font-size: 0.85rem; font-weight: 700; margin-bottom: 20px;"></p>
+          <p style="color: #846924; font-size: 0.8rem; font-weight: 700; padding: 10px; background: rgba(179, 147, 67, 0.1); border-radius: 8px;">
+            <i class="fas fa-info-circle"></i> Pastikan Anda sudah mengunduh e-Ticket (QR Code). Silakan tunjukkan kepada petugas di pintu masuk nanti.
+          </p>
+        </div>
+
+        <div class="branding-text">RAMATLOKA</div>
+    </div>
+      <div id="secPetugas" class="section" style="position: relative;">
+        <div class="tab-badge"><i class="fas fa-qrcode"></i> MODE SCAN CHECK-IN</div>
+        <button onclick="openTvWindow()" class="btn-action-icon tv-action-btn" style="position: absolute; top: -35px; right: -15px; font-size: 1.5rem; color: var(--gold-light); transition: 0.3s;" title="Buka Layar TV (Extended)"><i class="fas fa-desktop"></i></button>
+        <div class="stats-container"><div class="counter-box"><div class="counter-label">TERDAFTAR (SCAN)</div><div class="counter-number" id="totalHadirCounter">00</div></div><div class="counter-box"><div class="counter-label">TOTAL PENGUNJUNG</div><div class="counter-number" id="totalPengunjungCounter">00</div></div></div>
+        <div class="divider-line">Arahkan kursor & Tembak QR</div>
+       <div style="position: relative; margin-bottom: 15px; width: 100%;">
+            <input type="text" id="usbScannerInput" placeholder="/// KETIK ATAU SCAN DI SINI ///" style="text-align: center; font-family: 'Montserrat', sans-serif; font-weight: 800; border: none; border-bottom: 2px solid var(--gold-light); border-radius: 0; background: transparent; padding: 10px 40px 10px 10px; color: var(--gold-dark); width: 100%; box-sizing: border-box; outline: none; letter-spacing: 1px;" autocomplete="off">
+            
+            <button type="button" onclick="openCameraModal('checkin')" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.6rem; color: var(--gold-dark); cursor: pointer; padding: 5px; transition: 0.3s;" title="Buka Kamera Scan">
+                <i class="fas fa-qrcode"></i>
+            </button>
+        </div>
+        
+        <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+            <button type="button" onclick="document.getElementById('qrCapture').click()" class="btn-submit" style="margin-top:0; max-width: 200px; padding: 10px 20px; background: var(--bg-color); color: var(--gold-dark); border: 1px solid var(--gold-light); border-radius: 8px; box-shadow: none; font-size: 0.75rem;"><i class="fas fa-folder-open"></i> UPLOAD</button>
+        </div>
+        <button type="button" id="stopCamBtn_reader" onclick="stopLiveCamera('reader')" class="btn-submit" style="display:none; background:#c5221f; margin-top:0; margin-bottom:10px;"><i class="fas fa-stop-circle"></i> TUTUP KAMERA</button>
+        <input type="file" id="qrCapture" accept="image/*" style="display: none;" onchange="handleNativeCamera(event)">
+        <div id="reader" style="display:none; border-radius:12px; overflow:hidden; border:2px solid var(--gold-light); margin-bottom:15px;"></div>
+        <div class="branding-text">RAMATLOKA</div>
+      </div>
+
+      <div id="secSouvenir" class="section" style="position: relative;">
+        <div class="tab-badge"><i class="fas fa-gift"></i> MODE <span class="dyn-souvenir-text">SOUVENIR</span></div>
+        <div class="stats-container">
+          <div class="counter-box"><div class="counter-label"><span class="dyn-souvenir-text">SOUVENIR</span> KELUAR</div><div class="counter-number" id="totalSouvenirCounter" style="color: #1967d2;">00</div></div>
+          <div class="counter-box"><div class="counter-label">TAMU HADIR</div><div class="counter-number" id="totalHadirSouvCounter" style="color: #137333;">00</div></div>
+          <div class="counter-box"><div class="counter-label">BELUM AMBIL</div><div class="counter-number" id="sisaSouvCounter" style="color: #c5221f;">00</div></div>
+        </div>
+        <div class="divider-line">Scan QR untuk Klaim <span class="dyn-souvenir-text">SOUVENIR</span></div>
+        <div style="position: relative; margin-bottom: 15px; width: 100%;">
+            <input type="text" id="usbScannerSouvenirInput" placeholder="/// KETIK ATAU SCAN DI SINI ///" style="text-align: center; font-family: 'Montserrat', sans-serif; font-weight: 800; border: none; border-bottom: 2px solid #1967d2; border-radius: 0; background: transparent; padding: 10px 40px 10px 10px; color: #1967d2; width: 100%; box-sizing: border-box; outline: none; letter-spacing: 1px;" autocomplete="off">
+            
+            <button type="button" onclick="openCameraModal('souvenir')" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.6rem; color: #1967d2; cursor: pointer; padding: 5px; transition: 0.3s;" title="Buka Kamera Scan">
+                <i class="fas fa-qrcode"></i>
+            </button>
+        </div>
+        
+        <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+            <button type="button" onclick="document.getElementById('qrCaptureSouvenir').click()" class="btn-submit" style="margin-top:0; max-width: 200px; padding: 10px 20px; background: #e8f0fe; color: #1967d2; border: 1px solid #4285f4; border-radius: 8px; box-shadow: none; font-size: 0.75rem;"><i class="fas fa-folder-open"></i> UPLOAD</button>
+        </div>
+        <button type="button" id="stopCamBtn_readerSouvenir" onclick="stopLiveCamera('readerSouvenir')" class="btn-submit" style="display:none; background:#c5221f; margin-top:0; margin-bottom:10px;"><i class="fas fa-stop-circle"></i> TUTUP KAMERA</button>
+        <input type="file" id="qrCaptureSouvenir" accept="image/*" style="display: none;" onchange="handleNativeCameraSouvenir(event)">
+        <div id="readerSouvenir" style="display:none; border-radius:12px; overflow:hidden; border:2px solid #1967d2; margin-bottom:15px;"></div>
+        <div class="branding-text">RAMATLOKA</div>
+      </div>
+
+      <div id="secRekap" class="section">
+        <div class="tab-badge"><i class="fas fa-list-alt"></i> REKAPITULASI TAMU</div>
+        <div class="stats-container" style="margin-top: 25px; margin-bottom: 20px;">
+          <div class="counter-box"><div class="counter-label">TOTAL TERDAFTAR (KEPALA)</div><div class="counter-number" id="rekapTotalTerdaftar" style="color: var(--text-main);">00</div></div>
+          <div class="counter-box"><div class="counter-label">TOTAL CHECK-IN</div><div class="counter-number" id="rekapTotalHadir" style="color: #137333;">00</div></div>
+          <div class="counter-box"><div class="counter-label">TOTAL <span class="dyn-souvenir-text">SOUVENIR</span></div><div class="counter-number" id="rekapTotalSouvenir" style="color: #1967d2;">00</div></div>
+        </div>
+
+        <div style="margin-top: 10px;">
+          <div class="action-container" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-end; align-items: center; border-bottom: none; padding-bottom: 5px;">
+            <div style="display: flex;"><button onclick="openAddGuestModal()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem;"><i class="fas fa-user-plus"></i> Tambah Tamu</button></div>
+            <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
+              <button onclick="exportCSV()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#107c41; box-shadow:none;" title="Download Excel"><i class="fas fa-file-excel"></i> CSV</button>
+              <button onclick="exportPDF()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#c5221f; box-shadow:none;" title="Download PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+            </div>
+            <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
+              <button onclick="downloadExcelTemplate()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#f0ad4e; box-shadow:none;" title="Template Excel"><i class="fas fa-download"></i> Template Import</button>
+              <button onclick="document.getElementById('excelUploadInput').click()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#0275d8; box-shadow:none;" title="Upload Excel"><i class="fas fa-upload"></i> Import Excel</button>
+              <input type="file" id="excelUploadInput" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
+            </div>
+            <div style="display: flex;"><button onclick="downloadAllQRZip()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem; background:#6f42c1; box-shadow:none;" title="Cetak QR Terpilih (ZIP)"><i class="fas fa-file-archive"></i> Cetak QR Terpilih</button></div>
+            <div style="display: flex;"><button onclick="openSpreadsheetDatabase()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem; background:var(--bg-color); color:var(--gold-dark); border:1px solid var(--gold-light); box-shadow:none;" title="Buka Database Spreadsheet"><i class="fas fa-table"></i> G-Sheet</button></div>
+          </div>
+          <div class="filter-container">
+            <input type="text" id="searchRekapInput" onkeyup="applyFilters()" placeholder="Cari Nama Tamu..." style="padding: 12px 15px; border-radius: 8px; flex: 2; min-width: 200px;">
+            <select id="filterKategori" class="filter-select" onchange="applyFilters()"><option value="ALL">Semua Kategori</option><option value="VIP">VIP</option><option value="Reguler">Reguler</option></select>
+            <select id="filterStatus" class="filter-select" onchange="applyFilters()"><option value="ALL">Semua Status</option><option value="Hadir">Hadir</option><option value="Belum Hadir">Belum Hadir</option></select>
+            <select id="filterSouvenir" class="filter-select" onchange="applyFilters()"><option value="ALL">Semua Souvenir</option><option value="Sudah Ambil">Sudah Ambil</option><option value="Belum Ambil">Belum Ambil</option></select>
+          </div>
+          
+          <div class="pagination-container" id="paginationControlsTop" style="margin-bottom: 10px; margin-top: 0; padding: 5px 0;"></div>
+          
+          <div class="rekap-table-wrapper">
+            <table class="rekap-table">
+              <thead><tr><th style="width: 30px; text-align: center;"><input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this.checked)" style="transform: scale(1.2); cursor: pointer;" title="Pilih Semua"></th><th>Nama Tamu</th><th>Kategori</th><th>Status / <span class="dyn-souvenir-text">SOUVENIR</span></th><th style="text-align: center;">Aksi</th></tr></thead>
+              <tbody id="rekapTableBody"><tr><td colspan="5" style="text-align:center; opacity:0.5;">Memuat data rekap...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination-container" id="paginationControls"></div>
+        </div><div class="branding-text">RAMATLOKA</div>
+      </div>
+
+      <div id="secAdmin" class="section">
+        <div class="tab-badge"><i class="fas fa-cog"></i> SETUP APLIKASI</div>
+        <div style="margin-top: 15px;">
+          <div class="acc-header" onclick="toggleAcc('accGlobal')"><span><i class="fas fa-globe"></i> Pengaturan Global & Tampilan</span><i id="icon_accGlobal" class="fas fa-chevron-down"></i></div>
+          <div id="accGlobal" class="acc-content">
+              
+              <div class="form-group" style="background:#e6f4ea; padding:15px; border-radius:12px; border:1px solid #137333; margin-bottom:20px;">
+                <label style="color:#137333; font-weight:800; font-size:0.8rem;"><i class="fas fa-share-alt"></i> Link Form Publik & QR Desain Poster</label>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                   <input type="text" id="publicLinkDisplay" readonly style="background:#fff; border-color:#137333; color:#137333; font-weight:700;">
+                   <button onclick="copyPublicLink()" style="background:#137333; color:#fff; border:none; border-radius:8px; padding:0 15px; cursor:pointer; font-weight:bold; transition:0.3s;" title="Salin Link"><i class="fas fa-copy"></i> COPY</button>
+                </div>
+                <div style="display:flex; gap:10px; width:100%;">
+                   <button onclick="showPolosPublicFormQR()" class="btn-submit" style="background:linear-gradient(to right, #137333, #2e7d32); margin:0; padding:12px; font-size:0.75rem; box-shadow:none;"><i class="fas fa-qrcode"></i> LIHAT / DOWNLOAD QR POLOS POSTER</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
+                <label style="color:var(--gold-dark); font-weight:900; font-size:0.75rem; text-transform:uppercase;"><i class="fas fa-toggle-on"></i> Status Pembukaan Registrasi Form</label>
+                <select id="adminFormStatus" style="font-weight:900; background:#fff; margin-top:5px;">
+                   <option value="BUKA" style="color:#137333; font-weight:bold;">🟢 FORM DIBUKA (Tamu Bisa Mendaftar)</option>
+                   <option value="TUTUP" style="color:#c5221f; font-weight:bold;">🔴 FORM DITUTUP KUNCI (Registrasi Mati)</option>
+                </select>
+                <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Gunakan ini untuk menutup form pendaftaran secara manual kapan saja saat dibutuhkan.</div>
+              </div>
+            <div class="form-group" style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
+                <label style="color:var(--gold-dark); font-weight:900; font-size:0.75rem; text-transform:uppercase;"><i class="fas fa-shield-alt"></i> Status Keamanan Akses (Login)</label>
+                <select id="adminRequireLogin" style="font-weight:900; background:#fff; margin-top:5px;">
+                   <option value="true" style="color:#137333; font-weight:bold;">🟢 WAJIB LOGIN (Aman)</option>
+                   <option value="false" style="color:#c5221f; font-weight:bold;">🔴 BEBAS AKSES (Bypass Login, Akses Scanner)</option>
+                </select>
+                <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Jika Bebas Akses, siapa pun yang membuka link utama langsung masuk sebagai Scanner tanpa password. Menu Admin tetap terkunci.</div>
+              </div>
+
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color);">
+                <label style="color:var(--gold-dark);"><i class="fas fa-users"></i> Batas Maksimal Kuota Tamu (Hitungan Kepala)</label>
+                <input type="number" id="adminMaxQuota" placeholder="Isi 0 atau kosongkan jika tanpa batas" style="background:#fff;">
+                <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Form otomatis terkunci jika akumulasi total kepala pendaftar sudah memenuhi angka ini.</div>
+              </div>
+              <div style="background: var(--border-color); border:1px solid var(--border-color); border-radius:12px; padding:15px; margin-bottom:20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 900; font-size: 0.8rem; color: var(--gold-dark); letter-spacing: 1px; text-transform:uppercase;"><i class="fas fa-palette"></i> Tema Tampilan</label>
+                <select id="adminAppTheme" style="font-weight:700;"><option value="classic_gold">Classic Gold (Emas Klasik)</option><option value="royal_navy">Royal Navy (Biru Elegan)</option><option value="midnight">Midnight Monochrome (Hitam Modern)</option><option value="emerald">Emerald Green (Hijau Zamrud)</option></select>
+              </div>
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color);">
+                <label style="color:var(--gold-dark); font-weight:800;"><i class="fas fa-tags"></i> Ubah Nama Mode "Souvenir" (Label)</label>
+                <input type="text" id="adminSouvenirLabel" placeholder="Misal: Konsumsi, Goodie Bag..." style="background:#fff; font-weight:bold;">
+              </div>
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color);">
+                <label style="color:var(--gold-dark); font-weight:800;"><i class="fas fa-calculator"></i> Mode Hitung Pengeluaran</label>
+                <select id="adminSouvenirPerPax" style="background:#fff; font-weight:bold;">
+                   <option value="false">1 Per Nama (Cocok untuk Souvenir Umum)</option>
+                   <option value="true">Ikut Jumlah Tamu Hadir (Cocok untuk Porsi Konsumsi)</option>
+                </select>
+                <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Pilih apakah pengeluaran dihitung 1 per nama atau mengikuti angka rombongan.</div>
+              </div>
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color);">
+                <label style="color:var(--gold-dark);"><i class="fas fa-image"></i> Upload Poster Layar TV (Dari Komputer)</label>
+                <input type="file" id="adminPosterUpload" accept="image/png, image/jpeg, image/jpg" style="background:#fff; padding:10px; cursor:pointer;">
+                <input type="hidden" id="adminPosterUrl">
+                <div id="posterPreviewStatus" style="font-size:0.7rem; color:#107c41; margin-top:5px; font-weight:bold; display:none;"><i class="fas fa-check-circle"></i> Poster Anda saat ini sudah tersimpan & aktif.</div>
+              </div>
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color);"><label style="color:var(--gold-dark);"><i class="fas fa-link"></i> Link Detail Acara / Landing Page (Opsional)</label><input type="text" id="adminDetailUrl" placeholder="https://..." style="background:#fff;"></div>
+              <div class="form-group"><label>Teks Pengumuman Berjalan (Running Text)</label><input type="text" id="adminAnnouncement" placeholder="..."></div>
+              <div style="background: var(--bg-color); border:1px solid var(--border-color); border-radius:12px; padding:15px; margin-bottom:10px; display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1; margin-bottom:0;"><label style="font-weight:900; color:var(--gold-dark); text-transform:uppercase;"><i class="fas fa-volume-up"></i> Suara Sukses</label><select id="adminSoundSuccess" style="font-weight:700;"><option value="true">Aktif (Ting! Nyaring)</option><option value="false">Mati (Senyap)</option></select></div>
+                <div class="form-group" style="flex: 1; margin-bottom:0;"><label style="font-weight:900; color:var(--gold-dark); text-transform:uppercase;"><i class="fas fa-bullhorn"></i> Suara Gagal / Alarm</label><select id="adminSoundError" style="font-weight:700;"><option value="true">Aktif (Teeet! Keras)</option><option value="false">Mati (Senyap)</option></select></div>
+              </div>
+          </div>
+          <div class="acc-header" onclick="toggleAcc('accEvent')"><span><i class="fas fa-calendar-alt"></i> Detail Acara & Identitas</span><i id="icon_accEvent" class="fas fa-chevron-down"></i></div>
+          <div id="accEvent" class="acc-content">
+              <div class="form-group"><label>Nama / Judul Event (Tampil di Web Utama)</label><input type="text" id="adminEventTitle" placeholder="Misal: GENDING KARESMEN"></div>
+              <div style="display:flex; gap:15px; margin-bottom:20px;"><div class="form-group" style="flex:2; margin-bottom:0;"><label>Nama Acara (Khusus di Tiket Digital)</label><input type="text" id="adminEventName" placeholder="Misal: Perpisahan 2026"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Tanggal Acara</label><input type="date" id="adminEventDate"></div></div>
+              <div class="form-group"><label>Lokasi Acara</label><input type="text" id="adminEventLocation" placeholder="Misal: Gedung Budaya Bandung"></div>
+              <div style="display:flex; gap:15px; margin-bottom:10px;"><div class="form-group" style="flex:1; margin-bottom:0;"><label>Awalan Sapaan (Opsional)</label><input type="text" id="adminPrefix" placeholder="Misal: Bapak / Ibu"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Akhiran Nama (Opsional)</label><input type="text" id="adminSuffix" placeholder="Misal: & Partner"></div></div>
+              <div style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:15px;">
+                  <label style="color:var(--gold-dark); font-weight:800;"><i class="fab fa-whatsapp"></i> Template Pesan Teks (Copy-Paste)</label>
+                  <textarea id="adminWaTemplate" style="width:100%; height:120px; padding:10px; border-radius:8px; border:1px solid var(--border-color); font-family:'Montserrat', sans-serif; font-size:0.85rem;" placeholder="Ketik template Anda di sini..."></textarea>
+                  <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Gunakan kode <b>[NAMA]</b> untuk menyisipkan nama tamu, dan <b>[QR_LINK]</b> untuk menyisipkan link QR Code.</div>
+              </div>
+          </div>
+          <div class="acc-header" onclick="toggleAcc('accForm')"><span><i class="fas fa-list-ul"></i> Pengaturan Field Form Formulir</span><i id="icon_accForm" class="fas fa-chevron-up"></i></div>
+          <div id="accForm" class="acc-content active"> 
+              <div id="adminQuestionList"></div>
+              <button onclick="addQuestion()" class="btn-submit" style="background: var(--bg-color); color: var(--gold-dark); border: 1px dashed var(--gold-light); box-shadow:none; margin-top:0;"><i class="fas fa-plus"></i> Tambah Field Form Baru</button>
+          </div>
+          <button onclick="saveAdminSettingsData()" class="btn-submit" style="margin-top:20px;"><i class="fas fa-save"></i> Simpan Semua Perubahan</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-container">
+      <div id="tickerWrapContainer" class="ticker-wrap animate__animated animate__fadeIn"><div class="ticker-content" id="runningTextDisplay">LOADING ANNOUNCEMENT...</div></div>
+      <div class="bottom-nav">
+        <div id="navScan" class="nav-item" onclick="activateTab('petugas')" title="Mode Scan Masuk"><i class="fas fa-qrcode"></i></div>
+        <div id="navSouvenir" class="nav-item" onclick="activateTab('souvenir')" title="Mode Souvenir"><i class="fas fa-gift"></i></div>
+        <div id="navHome" class="nav-item active-icon" onclick="goToHome()" title="Registrasi Tamu"><i class="fas fa-user-friends"></i></div>
+        <div id="navRekap" class="nav-item" onclick="activateTab('rekap')" title="Rekap Tamu"><i class="fas fa-list-alt"></i></div>
+        <div id="navSetup" class="nav-item" onclick="activateTab('admin')" title="Setup Aplikasi"><i class="fas fa-sliders-h"></i></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+
+<div id="cameraModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px);">
+    <div style="background: var(--card-bg, #ffffff); padding: 20px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        
+        <h3 style="margin-top: 0; font-family: 'Montserrat', sans-serif; color: var(--text-main, #333); font-weight: 800; letter-spacing: 1px;">
+            <i class="fas fa-qrcode"></i> SCAN TIKET
+        </h3>
+        
+        <button id="btnToggleCamera" onclick="toggleCameraFacingMode()" style="margin-bottom: 15px; padding: 10px 15px; border: 2px solid var(--border, #e2e8f0); border-radius: 8px; background: var(--bg, #f7fafc); color: var(--text-main, #333); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: bold; width: 100%; transition: all 0.3s ease;">
+            <i class="fas fa-camera-rotate"></i> Gunakan Kamera Depan
+        </button>
+
+        <div id="scannerModalReader" style="width: 100%; border-radius: 12px; overflow: hidden; border: 3px solid var(--light, #b39343); background: #000; min-height: 250px;"></div>
+
+        <button onclick="closeCameraModal()" style="margin-top: 20px; padding: 12px 20px; border: none; border-radius: 8px; background: #e53e3e; color: white; font-weight: bold; cursor: pointer; width: 100%; font-family: 'Inter', sans-serif; font-size: 16px; box-shadow: 0 4px 6px rgba(229, 62, 62, 0.3);">
+            <i class="fas fa-times-circle"></i> BATAL / TUTUP KAMERA
+        </button>
+
+    </div>
+</div>
+  
+</body>
+</html>
