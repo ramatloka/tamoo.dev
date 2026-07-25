@@ -209,42 +209,58 @@ function toggleAcc(headerEl) {
 // =========================================================================
 
 function renderSetupQuestionsTable() {
-    // Cari container list bawaan HTML Anda dengan beberapa target ID/Selector alternatif
+    // 1. Cari container utama berdasarkan ID bawaan yang mungkin ada
     let container = document.getElementById('setupQuestionsList') || 
                     document.getElementById('setupQuestionsTableBody') ||
-                    document.getElementById('questionsContainer') ||
-                    document.querySelector('.acc-content div[style*="border-top"]') ||
-                    document.querySelector('.acc-card:nth-child(2) .acc-content') || // Target akordeon ke-2
-                    document.querySelector('.acc-content'); // Fallback terakhir jika semua gagal
+                    document.getElementById('questionsContainer');
                     
+    // 2. Jika ID di atas tidak ketemu, cari tombol "+ Tambah Field" untuk menemukan letak akordeon Formulir
     if (!container) {
-        console.error("❌ Gagal menemukan container untuk merender list pertanyaan.");
+        // Cari tombol berdasarkan teks "+ Tambah" atau "+ Tambah Field"
+        let allButtons = document.querySelectorAll('button, div');
+        let targetBtn = null;
+        for (let btn of allButtons) {
+            if (btn.innerText && (btn.innerText.includes('+ Tambah') || btn.innerText.includes('Tambah Field'))) {
+                targetBtn = btn;
+                break;
+            }
+        }
+        
+        if (targetBtn) {
+            // Cari pembungkus terdekat (.acc-content atau parent div dari tombol tersebut)
+            container = targetBtn.closest('.acc-content') || targetBtn.parentElement;
+        }
+    }
+
+    if (!container) {
+        console.error("❌ Gagal menemukan lokasi halaman formulir di HTML.");
         return;
     }
 
-    // Jika container berupa tabel, bersihkan isinya
-    container.innerHTML = "";
+    // 3. Buat atau cari elemen khusus agar list kita terisolasi rapi dan tidak merusak tombol bawaan HTML
+    let listWrapper = container.querySelector('.tamoo-dynamic-list-box');
+    if (!listWrapper) {
+        listWrapper = document.createElement('div');
+        listWrapper.className = 'tamoo-dynamic-list-box';
+        listWrapper.style.cssText = "margin-bottom: 20px; width: 100%; display: block;";
+        
+        // Sisipkan di bagian paling atas container (sebelum tombol "+ Tambah Field")
+        container.insertBefore(listWrapper, container.firstChild);
+    }
 
-    // Buat bungkus baru berbentuk list box jika target container adalah elemen akordeon langsung
-    let listWrapper = container;
-    if (container.classList.contains('acc-content')) {
-        // Cek apakah sudah ada wrapper buatan di dalamnya agar tidak menumpuk tombol tambah field
-        let existingWrapper = container.querySelector('.dynamic-questions-wrapper');
-        if (!existingWrapper) {
-            existingWrapper = document.createElement('div');
-            existingWrapper.className = 'dynamic-questions-wrapper';
-            existingWrapper.style.marginBottom = "15px";
-            // Sisipkan di bagian paling atas sebelum tombol "+ Tambah Field" bawaan HTML
-            container.insertBefore(existingWrapper, container.firstChild);
-        }
-        listWrapper = existingWrapper;
-        listWrapper.innerHTML = "";
+    // Bersihkan isi list box lama sebelum merender ulang
+    listWrapper.innerHTML = "";
+
+    // 4. Render seluruh daftar pertanyaan dari database ke dalam list box
+    if (!currentQuestions || currentQuestions.length === 0) {
+        listWrapper.innerHTML = `<div style="text-align:center; padding: 15px; border: 1px dashed var(--border-color); border-radius:12px; color:var(--text-muted); font-size:13px;">Belum ada field pertanyaan. Klik tombol di bawah untuk menambah.</div>`;
+        return;
     }
 
     currentQuestions.forEach((q, index) => {
         let box = document.createElement('div');
         box.className = "setup-question-item";
-        box.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left;";
+        box.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left; width: 100%; box-sizing: border-box;";
         
         let badges = "";
         if (q.showOnTv || q.show_on_tv) badges += `<span style="background: #e6f4ea; color: #137333; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold;">TV</span>`;
