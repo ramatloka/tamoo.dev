@@ -644,3 +644,43 @@ async function saveGlobalSettings() {
 function initTvMode() { 
     console.log("Layar TV Extended Aktif."); 
 }
+// =========================================================================
+// AUDIO SOUND GENERATOR (WEB AUDIO API)
+// =========================================================================
+function playBeepSound(type) {
+    // Cek dulu apakah suara diaktifkan di menu Setup Admin
+    if (type === 'success' && !enableSoundSuccess) return;
+    if (type === 'error' && !enableSoundError) return;
+
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'success') {
+            // Suara BEEP Tinggi (Tanda Berhasil Scan)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada A5
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'error') {
+            // Suara BEEP Rendah/Ganda (Tanda Gagal / Sudah Scan)
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, ctx.currentTime); // Nada A3
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.4);
+        }
+    } catch (e) {
+        console.log("Audio not supported or blocked by user gesture:", e);
+    }
+}
