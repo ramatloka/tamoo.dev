@@ -1535,31 +1535,248 @@ async function openAddGuestModal() {
     if (formValues) saveNewGuestManual(formValues);
 }
 
-async function saveNewGuestManual(data) {
-    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+// =========================================================================
+// PEMBARUAN: PROSES SIMPAN & GENERATE TIKET INSTAN (MANUAL REKAP)
+// =========================================================================
+
+// 1. Fungsi Utama Menampilkan Modal Tambah Tamu (Formulir seperti Gambar 7)
+async function openAddGuestModal() {
+    // Kita gunakan input swal2-select untuk KATEGORI agar sesuai Gambar 7
+    const { value: formValues } = await Swal.fire({
+        title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900;">TAMBAH TAMU MANUAL</h2>',
+        html: `
+            <div style="text-align: left; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; padding-top: 10px;">
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Nama Tamu</label>
+                <input id="swal-input-nama" class="swal2-input" placeholder="Masukkan nama..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Institusi</label>
+                <select id="swal-input-institusi" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
+                    <option value="Civitas SMKN 10 Bandung">Civitas SMKN 10 Bandung</option>
+                    <option value="Umum">Umum</option>
+                </select>
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Asal (bila anda memilih umum diatas)</label>
+                <input id="swal-input-asal" class="swal2-input" placeholder="Kota/Instansi..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
+                
+                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Jumlah tamu hadir (termasuk anda)</label>
+                <select id="swal-input-jumlah" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
+                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                    <option value="4">4</option><option value="5">5</option>
+                </select>
+
+                <hr style="border: 0; border-top: 2px dashed #eee; margin: 25px 0 20px 0;">
+
+                <label style="font-weight: 900; color: #846924; display: block; margin-bottom: 5px;">KATEGORI TAMU</label>
+                <select id="swal-input-kategori" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 2px solid #846924; font-weight: bold; color: #846924; border-radius: 6px; box-sizing: border-box;">
+                    <option value="Reguler">Tamu Reguler</option>
+                    <option value="VIP">Tamu VIP</option>
+                </select>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Buat & Tampilkan QR',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#b39343',
+        cancelButtonColor: '#b39343',
+        width: '450px',
+        preConfirm: () => {
+            const nama = document.getElementById('swal-input-nama').value;
+            const institusi = document.getElementById('swal-input-institusi').value;
+            const asal = document.getElementById('swal-input-asal').value;
+            const jumlah = document.getElementById('swal-input-jumlah').value;
+            const kategori = document.getElementById('swal-input-kategori').value;
+            
+            if (!nama) {
+                Swal.showValidationMessage('Nama tamu wajib diisi!');
+                return false;
+            }
+            return { nama, institusi, asal, jumlah, kategori };
+        }
+    });
+
+    if (formValues) saveAndGenerateTicketManual(formValues);
+}
+
+// 2. Fungsi Utama Eksekusi Simpan & Langsung Generate Tiket
+async function saveAndGenerateTicketManual(data) {
+    // Tampilkan loading screen sementara
+    Swal.fire({ title: 'Menyimpan & Membuat Tiket...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
     try {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terkoneksi.");
-        const newId = "TMO-" + Date.now();
+
+        // A. Generate ID unik untuk QR Code (Contoh: TMO-169800000)
+        const newIdForQr = "TMO-" + Date.now();
         
-        const { error } = await db.from('data_tamu').insert([{
-            id: newId,
+        // B. Buat objek data baru yang akan dikirim ke Supabase tabel data_tamu
+        const guestDataToSave = {
+            id: newIdForQr,
             nama_tamu: data.nama,
-            kategori_tamu: data.kategori,
+            kategori_tamu: data.kategori, // VIP atau Reguler
             jumlah_aktual: parseInt(data.jumlah),
             status_kehadiran: 'BELUM_HADIR',
             status_souvenir: 'BELUM_AMBIL',
+            // Kita simpan institusi/asal di kolom keterangan_tambahan sebagai JSON
             keterangan_tambahan: JSON.stringify({ institusi: data.institusi, asal: data.asal })
-        }]);
+        };
+
+        // C. Eksekusi simpan ke database tabel data_tamu
+        const { error } = await db.from('data_tamu').insert([guestDataToSave]);
         
         if (error) throw error;
         
-        Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Tamu manual berhasil ditambahkan ke database.', confirmButtonColor: '#137333' }).then(() => {
-            loadGuestRecapTable();
-        });
+        // D. SUKSES SIMPAN: Langsung generate tiket dan tampilkan modal hasil (Persis alur Versi Awal)
+        // Kita tutup modal loading, lalu panggil modal sukses
+        Swal.close();
+        showGeneratedQrCard(guestDataToSave);
+        
     } catch (err) {
-        console.error("Gagal simpan tamu manual:", err);
-        Swal.fire('Gagal!', 'Terjadi kesalahan saat menyimpan data ke server.', 'error');
+        console.error("Gagal simpan/generate manual:", err);
+        Swal.fire('Gagal!', 'Terjadi kesalahan saat menyimpan data atau membuat tiket.', 'error');
     }
+}
+
+// 3. Fungsi Menampilkan Modal "QR Code Anda" (Tampilan seperti Gambar 8)
+async function showGeneratedQrCard(guestData) {
+    // Tentukan Judul Dinamis: Poin 2 Wajib Tercantum "(VIP)" jika kategori VIP
+    const isVip = guestData.kategori_tamu.toUpperCase() === 'VIP';
+    const dynamicTitleName = guestData.nama_tamu + (isVip ? ' (VIP)' : '');
+    
+    // Gunakan SweetAlert2 untuk membuat kartu UI mengambang (seperti Gambar 8)
+    Swal.fire({
+        html: `
+            <div id="swalGeneratedQrCard" style="text-align: center; font-family: 'Playfair Display', serif; background: #fff; padding: 10px; position: relative;">
+                
+                <i class="fas fa-times" onclick="Swal.close()" style="position: absolute; top: 10px; right: 10px; color: #ccc; cursor: pointer; font-size: 1.2rem;"></i>
+
+                <h2 style="color: #846924; font-weight: 900; margin-top: 15px; margin-bottom: 5px;">QR CODE ANDA</h2>
+                <h1 style="color: #846924; font-weight: 900; margin-top: 0; margin-bottom: 25px; font-size: 1.8rem;">${dynamicTitleName}</h1>
+
+                <div id="swalQrCanvasWrapper" style="display: inline-block; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);"></div>
+                
+                <br>
+
+                <button id="btnDownloadTicket" class="swal2-confirm swal2-styled" style="background-color: #b39343; color: white; border-radius: 25px; padding: 12px 25px; font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; border: none;">
+                    <i class="fas fa-download"></i> DOWNLOAD E-TICKET
+                </button>
+            </div>
+        `,
+        showConfirmButton: false, // Kita buat tombol confirm sendiri agar mirip Gambar 8
+        width: '400px',
+        background: '#fff',
+        padding: '15px',
+        didOpen: () => {
+            // A. Generate Gambar QR ke dalam wrapper modal menggunakan library qrcodejs yang baru ditambahkan
+            const qrWrapper = document.getElementById('swalQrCanvasWrapper');
+            new QRCode(qrWrapper, {
+                text: guestData.id, // Isi QR adalah ID unik tamu (misal: TMO-169800000)
+                width: 180,
+                height: 180,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            // B. Event Listener untuk Tombol Download
+            document.getElementById('btnDownloadTicket').addEventListener('click', () => {
+                generateAndDownloadTicket(guestData);
+            });
+        },
+        willClose: () => {
+            // Refresh ulang tabel rekap di latar belakang agar data baru VIP terlihat
+            if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
+        }
+    });
+}
+
+// 4. Fungsi Utama Membuat File PNG E-Ticket Utuh (Tampilan seperti Gambar 9 + Poin 3)
+function generateAndDownloadTicket(guestData) {
+    // Kita gunakan teknik menggambar di <canvas> untuk membuat hasil akhir beresolusi tinggi (Poin 3)
+    // Desain kanvas harus mirip Gambar 9 berbingkai emas.
+
+    // Tentukan Judul Berstatus VIP (Poin 3 wajib tercantum di gambar akhir)
+    const isVip = guestData.kategori_tamu.toUpperCase() === 'VIP';
+    const nameOnTicket = guestData.nama_tamu + (isVip ? ' (VIP)' : '');
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Resolusi tinggi untuk e-ticket PNG yang tajam (contoh rasio A4 vertikal)
+    canvas.width = 600;
+    canvas.height = 800;
+
+    // A. Gambar Background Putih & Bingkai Emas (Mirip Gambar 9)
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    // B. Gambar Header Teks Emas (Mirip Gambar 9)
+    ctx.fillStyle = "#846924"; 
+    
+    // Gunakan font Playfair Display ( serif elegan ) dari index.html
+    ctx.font = "900 40px 'Playfair Display'"; ctx.textAlign = "center";
+    ctx.fillText("DRAMA TARI - RAMA SHINTA", canvas.width/2, 100);
+
+    ctx.fillStyle = "#333";
+    ctx.font = "600 18px 'Montserrat'";
+    ctx.fillText("2026-07-04 | GEDUNG HARIRING SMKN 10 BANDUNG", canvas.width/2, 160);
+
+    ctx.fillStyle = "#777";
+    ctx.font = "800 24px 'Montserrat'";
+    ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
+
+    // C. Gambar Nama Dinamis Berstatus VIP (Poin 3 Terpenuhi)
+    ctx.fillStyle = "#333";
+    ctx.font = "900 42px 'Montserrat'";
+    ctx.fillText(nameOnTicket, canvas.width/2, 300);
+
+    // D. Gambar QR Code (Kita ambil dari modal yang sudah tergenerate)
+    const qrWrapper = document.getElementById('swalQrCanvasWrapper');
+    const qrImageSource = qrWrapper.querySelector('img'); // qrcodejs membuat elemen img
+
+    // Pastikan QR sudah siap di modal, jika belum kita gunakan placeholder sementara
+    if (qrImageSource && qrImageSource.complete && qrImageSource.src) {
+        // Gambar QR code ke tengah canvas
+        ctx.drawImage(qrImageSource, canvas.width/2 - 100, 360, 200, 200);
+    } else {
+        // Fallback jika gambar belum complete, buat wrapper baru untuk qrcodejs (aman untuk client-side cepat)
+        const tempDiv = document.createElement('div');
+        new QRCode(tempDiv, { text: guestData.id, width: 200, height: 200 });
+        const tempImg = tempDiv.querySelector('img');
+        if (tempImg.src) {
+             ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
+        }
+    }
+
+    // E. Gambar Footer Teks (Mirip Gambar 9)
+    ctx.fillStyle = "#777";
+    ctx.font = "600 14px 'Montserrat'"; ctx.textAlign = "center";
+    ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
+
+    ctx.fillStyle = "#846924";
+    ctx.font = "800 22px 'Montserrat'";
+    ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
+
+    // F. SUKSES: Konversi Kanvas ke File PNG & Unduh (Poin 1 Tercapai)
+    canvas.toBlob((blob) => {
+        // Buat link download palsu di browser
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        // Tentukan nama file unduhan dinamis berstatus (VIP)
+        const safeName = guestData.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase(); // Ganti karakter aneh ke _
+        const vipSuffix = isVip ? '_VIP' : '';
+        a.download = `tamoo_ticket_${safeName}${vipSuffix}.png`;
+        
+        a.href = url; document.body.appendChild(a);
+        
+        // Trigger klik unduh secara otomatis
+        a.click();
+        
+        // Bersihkan link palsu
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+    }, 'image/png');
 }
 
 // =========================================================================
