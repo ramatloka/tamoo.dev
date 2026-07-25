@@ -1006,3 +1006,117 @@ async function downloadETicket(id, name, title, date, loc) {
         btn.disabled = false;
     }
 }
+    // =========================================================================
+// ENGINE PROCESSOR CHECK-IN TAMU (SUPABASE)
+// =========================================================================
+
+// FUNGSI 1: Eksekusi Utama Check-in ke Supabase (Dipakai oleh Kamera, File, & Manual)
+async function processGuestCheckIn(guestId) {
+    if (!guestId || guestId.trim() === "") return;
+    
+    // Bersihkan format input (menghilangkan spasi tak sengaja)
+    const cleanId = guestId.trim();
+    
+    try {
+        // Tampilkan loading indikator scan
+        Swal.fire({ title: 'Memverifikasi...', text: 'Mengecek kode QR tamu...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // 1. Ambil data tamu berdasarkan ID dari Supabase
+        const { data: guest, error: fetchError } = await db.from('data_tamu').select('*').eq('id', cleanId).maybeSingle();
+        
+        if (fetchError) throw fetchError;
+        
+        // JIKA TAMU TIDAK DITEMUKAN
+        if (!guest) {
+            if (typeof playBeepSound === "function") playBeepSound('error');
+            Swal.fire({ title: 'Scan Gagal', text: `ID Tamu (${cleanId}) tidak terdaftar di sistem!`, icon: 'error', customClass: { popup: 'luxury-popup' } });
+            resetManualScanInput();
+            return;
+        }
+
+        // JIKA TAMU SUDAH PERNAH CHECK-IN
+        if (guest.status_kehadiran === 'HADIR') {
+            if (typeof playBeepSound === "function") playBeepSound('error');
+            Swal.fire({ 
+                title: 'Sudah Hadir', 
+                html: `<b style="font-size:18px; color:var(--gold-dark);">${guest.nama_tamu}</b><br><br>Telah melakukan check-in pada:<br><b>${new Date(guest.waktu_hadir).toLocaleString('id-ID')}</b>`, 
+                icon: 'warning', 
+                customClass: { popup: 'luxury-popup' } 
+            });
+            resetManualScanInput();
+            return;
+        }
+
+        // 2. Update Status Kehadiran Tamu menjadi HADIR di Supabase
+        const timestamp = new Date().toISOString();
+        const { error: updateError } = await db.from('data_tamu').update({
+            status_kehadiran: 'HADIR',
+            waktu_hadir: timestamp
+        }).eq('id', cleanId);
+
+        if (updateError) throw updateError;
+
+        // Bunyikan Bell Sukses Check-in!
+        if (typeof playBeepSound === "function") playBeepSound('success');
+
+        // 3. Tampilkan Pop-Up Selamat Datang yang Mewah
+        Swal.fire({
+            title: 'BERHASIL CHECK-IN',
+            html: `
+                <div style="text-align:center; padding:5px;">
+                    <h1 style="margin:10px 0; font-family:'Playfair Display', serif; color:var(--gold-dark); font-size:28px;">Selamat Datang</h1>
+                    <h2 style="margin:0 0 10px 0; font-weight:800; text-transform:uppercase; color:#222;">${guest.nama_tamu}</h2>
+                    <span style="background:#e6f4ea; color:#137333; font-weight:bold; padding:5px 15px; border-radius:50px; font-size:13px;">
+                        ${guest.kategori_tamu || 'Tamu Undangan'}
+                    </span>
+                </div>
+            `,
+            icon: 'success',
+            timer: 3000,
+            showConfirmButton: false,
+            customClass: { popup: 'luxury-popup' }
+        });
+
+        // Reset kolom input manual agar siap menerima scan berikutnya
+        resetManualScanInput();
+        
+        // Refresh daftar rekap jika sedang terbuka di belakang layar
+        if (typeof loadForm === "function") loadForm();
+
+    } catch (err) {
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({ title: 'Sistem Error', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
+        resetManualScanInput();
+    }
+}
+
+// FUNGSI 2: Jembatan Input Ketik Manual / USB Barcode Scanner
+// (Mencari elemen input manual bawaan HTML Anda dan mendengarkan tombol Enter)
+function initManualScannerBridge() {
+    let inputManual = document.getElementById('manualScanInput') || 
+                       document.getElementById('inputQrCode') || 
+                       document.querySelector('input[placeholder*="Ketik ID"], input[placeholder*="Scan manual"]');
+                       
+    if (inputManual) {
+        // Jika petugas menekan Enter (atau USB Scanner menembak kode)
+        inputManual.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                processGuestCheckIn(this.value);
+            }
+        });
+    }
+}
+
+function resetManualScanInput() {
+    let inputManual = document.getElementById('manualScanInput') || 
+                       document.getElementById('inputQrCode') || 
+                       document.querySelector('input[placeholder*="Ketik ID"], input[placeholder*="Scan manual"]');
+    if (inputManual) {
+        inputManual.value = "";
+        inputManual.focus(); // Selalu fokuskan kembali agar USB scanner stand-by
+    }
+}
+
+// Jalankan bridge pencarian input manual saat script termuat
+setTimeout(initManualScannerBridge, 1000);
