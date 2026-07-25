@@ -1120,3 +1120,81 @@ function resetManualScanInput() {
 
 // Jalankan bridge pencarian input manual saat script termuat
 setTimeout(initManualScannerBridge, 1000);
+// =========================================================================
+// HANDLER KAMERA, UPLOAD QR, & SCANNER (HTML5-QRCODE / INSTASCAN)
+// =========================================================================
+
+let html5QrCodeScanner = null;
+
+// 1. FUNGSI UNTUK MEMBUA MODAL KAMERA (openCameraModal)
+function openCameraModal() {
+    Swal.fire({
+        title: 'Scan QR Code Tamu',
+        html: `
+            <div style="text-align:center;">
+                <div id="reader" style="width: 100%; max-width: 320px; margin: 0 auto; border-radius: 12px; overflow: hidden; background:#000;"></div>
+                <p style="font-size:12px; color:#777; margin-top:10px;">Arahkan kamera ke QR Code milik tamu</p>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '360px',
+        customClass: { popup: 'luxury-popup' },
+        didOpen: () => {
+            // Inisialisasi Scanner Kamera dengan Library Html5Qrcode
+            if (typeof Html5Qrcode !== "undefined") {
+                html5QrCodeScanner = new Html5Qrcode("reader");
+                html5QrCodeScanner.start(
+                    { facingMode: "environment" }, // Gunakan kamera belakang
+                    { fps: 10, qrbox: { width: 220, height: 220 } },
+                    (decodedText) => {
+                        // Jika QR Berhasil Terbaca oleh Kamera:
+                        html5QrCodeScanner.stop().then(() => {
+                            Swal.close();
+                            processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
+                        });
+                    },
+                    (errorMessage) => {
+                        // Abaikan error pembacaan per frame
+                    }
+                ).catch(err => {
+                    console.error("Gagal membuka kamera:", err);
+                    Swal.fire('Kamera Error', 'Tidak dapat mengakses kamera perangkat.', 'error');
+                });
+            } else {
+                Swal.fire('Library Belum Siap', 'Library Html5Qrcode belum terload di halaman.', 'warning');
+            }
+        },
+        willClose: () => {
+            // Hentikan streaming kamera saat pop-up ditutup
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.stop().catch(() => {});
+            }
+        }
+    });
+}
+
+// 2. FUNGSI UNTUK UPLOAD FILE GAMBAR QR (handleNativeCamera / File Input)
+async function handleNativeCamera(inputElement) {
+    let file = inputElement ? inputElement.files[0] : null;
+    if (!file) return;
+
+    Swal.fire({ title: 'Membaca Gambar...', text: 'Mengecek kode QR dari file...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        if (typeof Html5Qrcode !== "undefined") {
+            const html5QrCode = new Html5Qrcode("reader" || "temp-reader");
+            const decodedText = await html5QrCode.scanFile(file, true);
+            
+            Swal.close();
+            processGuestCheckIn(decodedText); // Eksekusi Check-in Supabase
+        } else {
+            throw new Error("Library Html5Qrcode tidak ditemukan.");
+        }
+    } catch (err) {
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({ title: 'Gagal Membaca QR', text: 'Tidak dapat menemukan QR Code yang valid pada gambar tersebut.', icon: 'error', customClass: { popup: 'luxury-popup' } });
+    } finally {
+        if (inputElement) inputElement.value = ""; // Reset input file
+    }
+}
