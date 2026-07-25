@@ -204,96 +204,106 @@ function toggleAcc(headerEl) {
     }
 }
 
+// =========================================================================
+// SETUP FIELD FORMULIR (MENGIKUTI UI ASLI TAMOO)
+// =========================================================================
+
 function renderSetupQuestionsTable() {
-    let tbody = document.getElementById('setupQuestionsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = "";
+    // Cari container list bawaan HTML Anda (biasanya ID: setupQuestionsList atau sejenisnya)
+    let container = document.getElementById('setupQuestionsList') || 
+                    document.getElementById('setupQuestionsTableBody') || 
+                    document.querySelector('.acc-content div[style*="border"]')?.parentElement;
+                    
+    if (!container) return;
+    container.innerHTML = "";
+
     currentQuestions.forEach((q, index) => {
-        let tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${q.label}</strong><br><small style="color:gray;">ID: ${q.id} | Tipe: ${q.type}</small></td>
-            <td style="text-align:center;">${q.required ? '✅ Ya' : '❌ Tidak'}</td>
-            <td style="text-align:center;">${q.showOnTv ? '✅ Ya' : '❌ Tidak'}</td>
-            <td style="text-align:center;">
-                <button type="button" class="btn-action-outline" onclick="deleteQuestion('${q.id}')" style="color:red; border-color:red; padding:4px 8px; font-size:11px;">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
+        // Buat komponen box list mewah sesuai dengan Gambar 2 Anda
+        let box = document.createElement('div');
+        box.className = "setup-question-item"; // Sesuai class CSS TAMOO
+        box.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);";
+        
+        // Label info badge TV / Wajib
+        let badges = "";
+        if (q.showOnTv || q.show_on_tv) badges += `<span style="background: #e6f4ea; color: #137333; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold;">TV</span>`;
+        if (q.required) badges += `<span style="background: #fce8e6; color: #c5221f; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold;">Wajib</span>`;
+
+        box.innerHTML = `
+            <div style="text-align: left;">
+                <span style="font-weight: 600; color: var(--text-main); font-size: 14px;">${q.label}</span>
+                ${badges}
+            </div>
+            <button type="button" onclick="deleteQuestion('${q.id}')" style="background: #fce8e6; color: #c5221f; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;">
+                <i class="fas fa-times" style="font-size: 14px;"></i>
+            </button>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(box);
     });
 }
 
-// =========================================================================
-// SETUP FIELD FORMULIR (POP-UP DIALOG BERSAMA)
-// =========================================================================
-
-// FUNGSI 1: MEMBUKA POP-UP SEPERTI DI GAMBAR LAMA
+// BUKA MODAL POP-UP BAWAAN HTML ASLI
 function addQuestion() {
-    // 1. Definisikan Opsi dropdown HTML
-    const typeOptionsHtml = `
-        <option value="text">Teks Singkat</option>
-        <option value="textarea">Kotak Pesan</option>
-        <option value="dropdown">Pilihan (Dropdown)</option>
-        <option value="radio">Pilihan (Radio Button)</option>
-        <option value="checkbox">Centang (Checkbox)</option>
-        <option value="date">Tanggal</option>
-        <option value="number">Angka</option>
-    `;
+    // Cek apakah HTML memiliki modal bawaan dengan ID standar
+    let nativeModal = document.getElementById('modalAddField') || document.getElementById('addFieldModal');
+    
+    if (nativeModal) {
+        // Jika ada modal bawaan asli di HTML, langsung buka modal tersebut!
+        nativeModal.style.display = 'flex';
+        nativeModal.classList.add('active');
+    } else {
+        // Fallback jika tidak ditemukan, kita perbaiki posisi CSS modal cadangan agar berada di tengah layar (Z-Index tinggi)
+        let oldModal = document.getElementById('tamooModalAddField');
+        if (oldModal) oldModal.remove();
 
-    // 2. Buat Tampilan HTML Pop-up Dialog (Modal)
-    const modalHtml = `
-        <div id="tamooModalAddField" class="tamoo-modal-backup luxury-popup animate__animated animate__zoomIn" style="display:block;">
-            <div class="tamoo-modal-content-backup">
-                <div class="modal-header-backup">
-                    <h3>Tambah Field</h3>
-                    <span class="close-modal-backup" onclick="closeTamooPopUpModal()">&times;</span>
-                </div>
-                <div class="modal-body-backup">
-                    <div class="form-group-backup">
-                        <label>Label Pertanyaan</label>
-                        <input type="text" id="popUpQLabel" placeholder="..." required>
+        const typeOptionsHtml = `
+            <option value="text">Teks Singkat</option>
+            <option value="textarea">Kotak Pesan</option>
+            <option value="dropdown">Pilihan (Dropdown)</option>
+            <option value="radio">Pilihan (Radio Button)</option>
+            <option value="checkbox">Centang (Checkbox)</option>
+            <option value="date">Tanggal</option>
+            <option value="number">Angka</option>
+        `;
+
+        const modalHtml = `
+            <div id="tamooModalAddField" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px;">
+                <div class="luxury-popup" style="background: #ffffff; width: 100%; max-width: 450px; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); position: relative; text-align: left;">
+                    <h3 style="margin-top: 0; font-family: 'Playfair Display', serif; color: var(--gold-dark); border-bottom: 1px solid #f0e6d2; padding-bottom: 10px;">Tambah Field</h3>
+                    <div style="margin-top: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:600;">Label Pertanyaan</label>
+                        <input type="text" id="popUpQLabel" class="form-control-custom" placeholder="..." style="width:100%; padding:10px; border:1px solid #f0e6d2; border-radius:8px;" required>
                     </div>
-                    <div class="form-group-backup">
-                        <label>Tipe Data</label>
-                        <select id="popUpQType" onchange="togglePopUpOptDisplay()">
+                    <div style="margin-top: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:600;">Tipe Data</label>
+                        <select id="popUpQType" class="form-control-custom" style="width:100%; padding:10px; border:1px solid #f0e6d2; border-radius:8px;" onchange="togglePopUpOptDisplay()">
                             ${typeOptionsHtml}
                         </select>
                     </div>
-                    <div class="form-group-backup" id="popUpQOptContainer" style="display:none;">
-                        <label>Opsi (pisahkan dgn koma,)</label>
-                        <input type="text" id="popUpQOptions" placeholder="...">
+                    <div style="margin-top: 15px; display:none;" id="popUpQOptContainer">
+                        <label style="display:block; margin-bottom:5px; font-weight:600;">Opsi (pisahkan dgn koma,)</label>
+                        <input type="text" id="popUpQOptions" class="form-control-custom" style="width:100%; padding:10px; border:1px solid #f0e6d2; border-radius:8px;" placeholder="Contoh: VIP, Regular, VVIP">
                     </div>
-                    
-                    <div class="luxury-switches" style="display:flex; justify-content:space-between; margin-top:15px; border-top:1px solid var(--border-color); padding-top:15px;">
-                        <label class=" luxury-switch-label">
-                            <input type="checkbox" id="popUpQTv" checked> <span style="font-weight:600; color:var(--text-main);">Tampil di Layar Sapaan</span>
-                        </label>
-                        <label class=" luxury-switch-label">
-                            <input type="checkbox" id="popUpQReq"> <span style="font-weight:600; color:#c5221f;">Wajib Diisi (Required)</span>
-                        </label>
+                    <div style="display:flex; justify-content:space-between; margin-top:20px; border-top:1px solid #f0e6d2; padding-top:15px;">
+                        <label><input type="checkbox" id="popUpQTv" checked> Tampil di Layar TV</label>
+                        <label><input type="checkbox" id="popUpQReq"> Wajib Diisi</label>
                     </div>
-                    
-                </div>
-                <div class="modal-footer-backup">
-                    <button class="btn-action-outline-backup" onclick="closeTamooPopUpModal()">Batal</button>
-                    <button class="btn-action-swal-backup" onclick="handlePopUpSave()">Simpan</button>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                        <button onclick="closeTamooPopUpModal()" style="padding:10px 20px; background:#eee; border:none; border-radius:8px; cursor:pointer;">Batal</button>
+                        <button onclick="handlePopUpSave()" style="padding:10px 20px; background:var(--gold-dark, #846924); color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Simpan</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-
-    // 3. Masukkan HTML modal ke dalam body halaman
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
 }
 
-// FUNGSI 2: MENANGKAP DATA SAAT KLIK 'SIMPAN' DI DALAM POP-UP
 function handlePopUpSave() {
-    let elTxt = document.getElementById('popUpQLabel');
-    let elType = document.getElementById('popUpQType');
-    let elOpt = document.getElementById('popUpQOptions');
-    let elReq = document.getElementById('popUpQReq');
-    let elTv = document.getElementById('popUpQTv');
+    let elTxt = document.getElementById('popUpQLabel') || document.getElementById('modalQLabel'); 
+    let elType = document.getElementById('popUpQType') || document.getElementById('modalQType');
+    let elOpt = document.getElementById('popUpQOptions') || document.getElementById('modalQOptions');
+    let elReq = document.getElementById('popUpQReq') || document.getElementById('modalQReq');
+    let elTv = document.getElementById('popUpQTv') || document.getElementById('modalQTv');
 
     let label = elTxt ? elTxt.value.trim() : "";
     let type = elType ? elType.value : "text";
@@ -302,51 +312,41 @@ function handlePopUpSave() {
     let tv = elTv ? elTv.checked : true;
 
     if (!label) { 
-        Swal.fire({ title: 'Gagal', text: 'Label pertanyaan wajib diisi!', icon: 'warning', customClass: { popup: 'luxury-popup' } }); 
+        Swal.fire({ title: 'Gagal', text: 'Label pertanyaan wajib diisi!', icon: 'warning' }); 
         return; 
     }
     
-    // Validasi opsi jika tipe data adalah pilihan
     if ((type === 'dropdown' || type === 'radio' || type === 'checkbox') && !optStr) {
-        Swal.fire({ title: 'Gagal', text: 'Tipe pilihan wajib mengisi kotak Opsi!', icon: 'warning', customClass: { popup: 'luxury-popup' } });
+        Swal.fire({ title: 'Gagal', text: 'Tipe pilihan wajib mengisi kotak Opsi!', icon: 'warning' });
         return;
     }
 
-    // Buat ID unik berdasarkan label
     let id = "c_" + label.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    // Proteksi duplikasi ID
     if(currentQuestions.some(q => q.id === id)) { id += "_" + Math.floor(Math.random() * 100); }
 
-    // Masukkan data ke list sementara
-    currentQuestions.push({ 
-        id, 
-        label, 
-        type, 
-        options: optStr ? optStr.split(",") : [], 
-        showOnTv: tv, 
-        required: req 
-    });
+    currentQuestions.push({ id, label, type, options: optStr ? optStr.split(",") : [], showOnTv: tv, required: req });
     
-    // Perbarui tabel di akordeon formulir
     renderSetupQuestionsTable();
-    
-    // Tutup Pop-up
     closeTamooPopUpModal();
     
-    Swal.fire({ title: 'Ditambahkan', text: 'Pertanyaan berhasil masuk list sementara. Klik Simpan Semua Perubahan di bawah!', icon: 'success', customClass: { popup: 'luxury-popup' }, timer: 2000, showConfirmButton: false });
+    Swal.fire({ title: 'Ditambahkan', text: 'Berhasil masuk list sementara! Jangan lupa klik Simpan Semua Perubahan.', icon: 'success', timer: 2000, showConfirmButton: false });
 }
 
-// FUNGSI 3: PENUTUP POP-UP MODAL (MANUAL)
 function closeTamooPopUpModal() {
-    let modal = document.getElementById('tamooModalAddField');
-    if (modal) modal.remove();
+    let nativeModal = document.getElementById('modalAddField') || document.getElementById('addFieldModal');
+    if (nativeModal) {
+        nativeModal.style.display = 'none';
+        nativeModal.classList.remove('active');
+    }
+    let fallbackModal = document.getElementById('tamooModalAddField');
+    if (fallbackModal) fallbackModal.remove();
 }
 
-// FUNGSI 4: PENGATUR TAMPILAN OPSI DI DALAM POP-UP
 function togglePopUpOptDisplay() {
-    let type = document.getElementById('popUpQType').value;
-    let container = document.getElementById('popUpQOptContainer');
-    if (container) {
+    let elType = document.getElementById('popUpQType') || document.getElementById('modalQType');
+    let container = document.getElementById('popUpQOptContainer') || document.getElementById('modalQOptContainer');
+    if (container && elType) {
+        let type = elType.value;
         if (type === 'dropdown' || type === 'radio' || type === 'checkbox') { 
             container.style.display = 'block'; 
         } else { 
