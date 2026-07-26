@@ -636,16 +636,12 @@ function toggleQOptDisplay() {
 // =========================================================================
 // SINKRONISASI TOMBOL PENGATURAN GLOBAL & TV MONITOR
 // =========================================================================
-// Fungsi pembantu jika HTML memanggil nama fungsi lama untuk simpan tema/global
-async function saveGlobalSettings() {
-    await saveAdminSettingsData();
-}
 
 // Inisialisasi Jalur Komunikasi Radio (Broadcast) ke Layar TV
 const tvBroadcast = new BroadcastChannel('tamoo_tv_broadcast');
 
-// Fungsi Pemicu Tombol TV di Halaman Scanner
-function initTvMode() { 
+// Fungsi Utama Membuka TV Monitor (Disesuaikan dengan onclick di HTML: openTvWindow)
+function openTvWindow() { 
     console.log("Membuka Layar TV Extended..."); 
     
     // 1. Tarik Data Event Resmi dari elemen input setup halaman admin
@@ -656,7 +652,7 @@ function initTvMode() {
     localStorage.setItem('currentEventName', eventName);
     localStorage.setItem('currentEventTicker', tickerText);
 
-    // 2. Buka tab baru bernama monitor.html (Pastikan file monitor.html sudah dibuat)
+    // 2. Buka tab baru monitor.html
     const monitorWindow = window.open('monitor.html', '_blank');
 
     // 3. Beri jeda 1 detik agar tab baru selesai memuat halaman, lalu tembakkan data
@@ -666,6 +662,11 @@ function initTvMode() {
             data: { eventName, tickerText }
         });
     }, 1000);
+}
+
+// Alias pendukung jika ada bagian lain yang memanggil initTvMode
+function initTvMode() {
+    openTvWindow();
 }
 // =========================================================================
 // AUDIO SOUND GENERATOR (WEB AUDIO API)
