@@ -1408,7 +1408,10 @@ async function loadGuestRecapTable() {
                 : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
 
             const aksiHtml = `
-                <i class="fas fa-user-edit" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Edit Tamu"></i>
+                <i class="fas fa-user-edit" 
+                   onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
+                   style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+                   title="Ubah Status Kehadiran"></i>
                 <i class="fas fa-qrcode" style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Lihat QR"></i>
                 <i class="fas fa-print" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Cetak QR"></i>
                 <i class="fas fa-crown" style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Jadikan VIP"></i>
@@ -1845,3 +1848,69 @@ document.addEventListener('click', function(e) {
 
 // Panggil sekali saat script pertama kali termuat
 setTimeout(loadGuestRecapTable, 1000);
+// =========================================================================
+// FUNGSI AKSI: TOGGLE STATUS KEHADIRAN TAMU (TOMBOL BIRU PALING KIRI)
+// =========================================================================
+
+async function toggleGuestAttendance(guestId, currentStatus) {
+    if (!guestId) return;
+
+    // Tentukan status baru dan waktu hadirnya
+    const isCurrentlyHadir = currentStatus === 'HADIR';
+    const newStatus = isCurrentlyHadir ? 'BELUM_HADIR' : 'HADIR';
+    const newWaktuHadir = isCurrentlyHadir ? null : new Date().toISOString();
+
+    const statusTextAlert = isCurrentlyHadir ? 'BELUM HADIR' : 'HADIR';
+
+    // Konfirmasi dari pengguna menggunakan SweetAlert2
+    const result = await Swal.fire({
+        title: 'Ubah Status Kehadiran?',
+        text: `Status tamu akan diubah menjadi "${statusTextAlert}"`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#b39343',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Ya, Ubah!',
+        cancelButtonText: 'Batal'
+    });
+
+    if (!result.isConfirmed) return;
+
+    // Tampilkan indikator loading saat update ke Supabase
+    Swal.fire({
+        title: 'Updating...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
+
+        // Update data di tabel 'data_tamu' Supabase
+        const { error } = await db
+            .from('data_tamu')
+            .update({
+                status_kehadiran: newStatus,
+                waktu_hadir: newWaktuHadir
+            })
+            .eq('id', guestId);
+
+        if (error) throw error;
+
+        // Notifikasi Sukses Singkat
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: `Status kehadiran diperbarui menjadi ${statusTextAlert}`,
+            timer: 1200,
+            showConfirmButton: false
+        });
+
+        // Muat ulang data tabel & kartu statistik rekap
+        loadGuestRecapTable();
+
+    } catch (err) {
+        console.error("Gagal update status kehadiran:", err);
+        Swal.fire('Gagal!', 'Terjadi kesalahan saat mengupdate status di database.', 'error');
+    }
+}
