@@ -2600,3 +2600,216 @@ function exportToPdf() {
 function safeFileName(str) {
     return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
 }
+// =========================================================================
+// FITUR IMPORT EXCEL & BULK DOWNLOAD E-TICKET (ZIP)
+// =========================================================================
+
+// 1. Fungsi Download Template Excel
+function downloadExcelTemplate() {
+    // Kita buatkan header standar + Kategori sesuai request
+    // Jika Anda punya kolom custom lain di database, Anda cukup menambahkannya di array ini
+    const wsData = [
+        ["Nama Lengkap", "Institusi", "Asal / Kota", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
+        // Baris ke-2 ini adalah contoh pengisian agar user tidak bingung
+        ["Fafa", "SMKN 10 Bandung", "Bandung", 1, "VIP"],
+        ["Budi Santoso", "Umum", "Jakarta", 2, "Reguler"]
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Sesuaikan lebar kolom agar rapi
+    ws['!cols'] = [{wch: 25}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 20}];
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
+    XLSX.writeFile(wb, "Template_Import_Tamu_TAMOO.xlsx");
+}
+
+// 2. Fungsi Pemicu Jendela Pilih File
+function triggerExcelImport() {
+    document.getElementById('importExcelInput').click();
+}
+
+// 3. Fungsi Pemroses File Import Excel -> Supabase
+async function processExcelImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    Swal.fire({
+        title: 'Membaca File...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert isi excel ke format JSON (melewati baris header pertama)
+            const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            
+            if (rawJson.length === 0) throw new Error("File Excel kosong atau format tidak sesuai.");
+
+            // Hapus contoh data pertama jika itu adalah "Fafa" (baris contoh dari template)
+            if (rawJson[0]["Nama Lengkap"] === "Fafa" && rawJson[0]["Institusi"] === "SMKN 10 Bandung") {
+                rawJson.shift(); 
+            }
+
+            // Mapping data Excel ke nama kolom Supabase (data_tamu)
+            const payload = rawJson.map(row => {
+                let kat = (row["Kategori (Reguler / VIP)"] || 'Reguler').toString().trim();
+                if (kat.toLowerCase() === 'umum') kat = 'Reguler';
+                
+                return {
+                    nama_tamu: row["Nama Lengkap"] || 'Tamu Tanpa Nama',
+                    institusi: row["Institusi"] || 'Umum',
+                    asal: row["Asal / Kota"] || '-',
+                    jumlah_aktual: parseInt(row["Jumlah Tamu"]) || 1,
+                    kategori_tamu: kat,
+                    status_kehadiran: 'BELUM_HADIR',
+                    status_souvenir: 'BELUM_AMBIL'
+                };
+            });
+
+            if (payload.length === 0) {
+                Swal.fire('Info', 'Tidak ada data valid untuk diimport.', 'info');
+                return;
+            }
+
+            Swal.fire({ title: 'Menyimpan ke Database...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            // Insert massal ke Supabase
+            const { error } = await db.from('data_tamu').insert(payload);
+            if (error) throw error;
+
+            // Reset input file agar bisa import file yang sama lagi jika perlu
+            document.getElementById('importExcelInput').value = "";
+
+            Swal.fire('Berhasil!', `${payload.length} tamu berhasil diimport.`, 'success');
+            
+            // Reload tabel rekap
+            loadGuestRecapTable();
+
+        } catch (err) {
+            console.error("Gagal import Excel:", err);
+            Swal.fire('Gagal!', 'Terjadi kesalahan saat memproses file Excel. Pastikan format kolom sesuai template.', 'error');
+            document.getElementById('importExcelInput').value = "";
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// 4. Fungsi Cetak QR Terpilih (Batch Download ke dalam ZIP)
+async function downloadSelectedQRCodes() {
+    // Cari semua checkbox yang dicentang
+    const checkedBoxes = document.querySelectorAll('.chk-select-guest:checked');
+    if (checkedBoxes.length === 0) {
+        Swal.fire('Pilih Tamu!', 'Silakan centang minimal satu nama tamu pada tabel terlebih dahulu.', 'warning');
+        return;
+    }
+
+    const eventNameText = (document.getElementById('adminEventName')?.value || 'NAMA ACARA').toUpperCase();
+    const eventSubText = `${document.getElementById('adminEventDate')?.value || 'TANGGAL'} | ${document.getElementById('adminEventLocation')?.value || 'LOKASI'}`.toUpperCase();
+
+    Swal.fire({
+        title: 'Mengekstrak E-Ticket...',
+        html: `Memproses <b>0</b> dari ${checkedBoxes.length} tiket...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const zip = new JSZip();
+        let processedCount = 0;
+
+        // Looping untuk merender masing-masing tiket yang dicentang
+        for (const checkbox of checkedBoxes) {
+            const guestId = checkbox.value;
+            // Cari data tamu dari cache
+            const guest = rawGuestDataCache.find(g => g.id === guestId);
+            if (!guest) continue;
+
+            const isVip = (guest.kategori_tamu || '').toUpperCase() === 'VIP';
+            const nameOnTicket = guest.nama_tamu + (isVip ? ' (VIP)' : '');
+
+            // --- PROSES RENDER KANVAS (Sama seperti cetak satuan) ---
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 600; canvas.height = 800;
+
+            ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
+            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+            ctx.fillStyle = "#846924"; ctx.textAlign = "center";
+            let fontSizeTitle = 45; ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+            while (ctx.measureText(eventNameText).width > 520 && fontSizeTitle > 16) {
+                fontSizeTitle -= 2; ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+            }
+            ctx.fillText(eventNameText, canvas.width/2, 100);
+
+            ctx.fillStyle = "#333";
+            let fontSizeSub = 18; ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+            while (ctx.measureText(eventSubText).width > 520 && fontSizeSub > 10) {
+                fontSizeSub -= 1; ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+            }
+            ctx.fillText(eventSubText, canvas.width/2, 160);
+
+            ctx.fillStyle = "#777"; ctx.font = "800 24px 'Montserrat'";
+            ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
+
+            ctx.fillStyle = "#333";
+            let fontSizeName = 42; ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+            while (ctx.measureText(nameOnTicket).width > 520 && fontSizeName > 20) {
+                fontSizeName -= 2; ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+            }
+            ctx.fillText(nameOnTicket, canvas.width/2, 300);
+
+            // Generate QR secara dinamis
+            const tempDiv = document.createElement('div');
+            new QRCode(tempDiv, { text: guest.id, width: 200, height: 200 });
+            await new Promise(resolve => setTimeout(resolve, 150)); // Jeda agar QR selesai di-render
+            const tempImg = tempDiv.querySelector('img');
+            if (tempImg && tempImg.src) {
+                ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
+            }
+
+            ctx.fillStyle = "#777"; ctx.font = "600 14px 'Montserrat'";
+            ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
+            ctx.fillStyle = "#846924"; ctx.font = "800 22px 'Montserrat'";
+            ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
+
+            // Ubah Kanvas ke Blob, lalu masukkan ke ZIP
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            
+            // Penamaan File: nama_eticket_VIP.png
+            const safeName = guest.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const vipSuffix = isVip ? '_VIP' : '';
+            const fileName = `${safeName}_eticket${vipSuffix}.png`;
+            
+            zip.file(fileName, blob);
+
+            processedCount++;
+            Swal.getHtmlContainer().innerHTML = `Memproses <b>${processedCount}</b> dari ${checkedBoxes.length} tiket...`;
+        }
+
+        Swal.fire({ title: 'Membungkus ZIP...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // Generate file ZIP dan trigger download
+        const zipContent = await zip.generateAsync({ type: "blob" });
+        saveAs(zipContent, `E-Tickets_TAMOO_${new Date().toISOString().slice(0,10)}.zip`);
+        
+        Swal.fire('Berhasil!', `${processedCount} e-ticket berhasil didownload dalam format ZIP.`, 'success');
+
+        // Opsional: Uncheck semua checkbox setelah download
+        checkedBoxes.forEach(cb => cb.checked = false);
+
+    } catch (err) {
+        console.error("Gagal memproses ZIP tiket:", err);
+        Swal.fire('Gagal!', 'Terjadi kesalahan saat mengekstrak tiket.', 'error');
+    }
+}
