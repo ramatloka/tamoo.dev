@@ -115,11 +115,11 @@
             border: 1px solid #dcdcd0;
         }
 
-        /* BARIS BRANDING RAMATLOKA (Di atas Ticker & Berwarna Emas) */
+        /* Baris Branding RAMATLOKA (Di atas Ticker & Berwarna Emas) */
         .brand-header {
             width: 100%;
             text-align: right;
-            padding: 10px 40px;
+            padding: 10px 40px 15px 40px; /* Jarak bawah sedikit renggang sebelum ticker */
             font-size: 1.3rem;
             font-weight: 900;
             letter-spacing: 4px;
@@ -127,23 +127,26 @@
             text-transform: uppercase;
         }
 
-        /* SATU-SATUNYA TICKER BERJALAN BERWARNA EMAS */
+        /* PERUBAHAN: TICKER EMAS LEBIH TINGGI & TEBAL */
         .ticker-wrap {
             width: 100%;
             background: var(--gold-bg);
             color: #ffffff;
-            padding: 14px 0;
+            padding: 24px 0; /* Dipertebal dari 14px ke 24px agar lebih tinggi */
             overflow: hidden;
             border-top: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.05); /* Sedikit shadow halus di atas ticker */
         }
+        
+        /* PERUBAHAN: UKURAN HURUF TICKER DIPERBESAR */
         .ticker-move {
             display: inline-block;
             white-space: nowrap;
             padding-left: 100%;
-            animation: tickerGo 22s linear infinite;
-            font-size: 1.25rem;
+            animation: tickerGo 24s linear infinite;
+            font-size: 1.6rem; /* Diperbesar dari 1.25rem agar teksnya tegas dan terlihat jelas */
             font-weight: 800;
-            letter-spacing: 2px;
+            letter-spacing: 2.5px;
             text-transform: uppercase;
         }
 
