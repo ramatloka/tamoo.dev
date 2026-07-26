@@ -2601,10 +2601,10 @@ function safeFileName(str) {
     return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
 }
 // =========================================================================
-// FITUR IMPORT EXCEL & BULK DOWNLOAD E-TICKET (DINAMIS FORM SETTINGS)
+// PENGATURAN TEMPLATE & IMPORT EXCEL PREMIUM (ADAPTIF & ANTI GAGAL)
 // =========================================================================
 
-// 1. FUNGSI DOWNLOAD TEMPLATE EXCEL (DINAMIS SESUAI FORM SETTINGS)
+// 1. FUNGSI DOWNLOAD TEMPLATE EXCEL (OTOMATIS MENGIKUTI STRUKTUR FORM ACTIVE)
 async function downloadExcelTemplate() {
     Swal.fire({
         title: 'Menyiapkan Template...',
@@ -2613,52 +2613,58 @@ async function downloadExcelTemplate() {
     });
 
     try {
-        // Header wajib paling depan
+        // Jalur standar awal
         let headers = ["Nama Lengkap"];
         let sampleRow = ["Budi Santoso"];
 
         if (typeof db !== "undefined" && db) {
+            // Ambil data konfigurasi pertanyaan aktif dari form_settings
             const { data: formSettings } = await db.from('form_settings').select('*').limit(1);
 
             if (formSettings && formSettings.length > 0) {
                 const setting = formSettings[0];
-
-                // Cek kolom-kolom pertanyaan dinamis yang aktif di form_settings
-                if (setting.label_institusi || setting.c_institusi) {
-                    headers.push(setting.label_institusi || "Institusi / Asal");
-                    sampleRow.push("SMKN 10 Bandung");
-                }
                 
-                if (setting.label_jumlah_tamu || setting.c_jumlah_tamu_termasuk_anda) {
-                    headers.push("Jumlah Tamu");
-                    sampleRow.push(1);
-                }
+                // Ambil semua key kolom di form_settings untuk mendeteksi pertanyaan kustom
+                Object.keys(setting).forEach(key => {
+                    // Jika kolom tersebut berisi text label pertanyaan dan statusnya aktif/true
+                    if (key.startsWith('label_') && setting[key]) {
+                        const namaPertanyaan = setting[key];
+                        // Hindari duplikasi jika labelnya bertuliskan nama
+                        if (!namaPertanyaan.toLowerCase().includes('nama lengkap') && !namaPertanyaan.toLowerCase().includes('nama tamu')) {
+                            headers.push(namaPertanyaan);
+                            sampleRow.push(key.includes('jumlah') ? 1 : "Contoh Jawaban");
+                        }
+                    }
+                });
             }
         }
 
-        // Header wajib paling akhir
+        // Tambahkan kolom Kategori & Jumlah Tamu secara opsional di akhir jika belum ada
+        if (!headers.includes("Jumlah Tamu")) {
+            headers.push("Jumlah Tamu");
+            sampleRow.push(1);
+        }
         headers.push("Kategori (Reguler / VIP)");
         sampleRow.push("Reguler");
 
-        // Buat file Excel
+        // Proses pembuatan dokumen Excel
         const wsData = [headers, sampleRow];
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-        // Atur lebar kolom otomatis
-        ws['!cols'] = headers.map(() => ({ wch: 22 }));
+        // Atur lebar kolom yang ideal
+        ws['!cols'] = headers.map(() => ({ wch: 25 }));
 
         XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
-        
         Swal.close();
         XLSX.writeFile(wb, "Template_Import_Tamu_TAMOO.xlsx");
 
     } catch (err) {
-        console.error("Gagal generate template:", err);
+        console.error("Gagal membuat template dinamis:", err);
         Swal.close();
-        // Fallback jika error, buatkan template standar
+        // Fallback aman jika koneksi gagal
         const fallbackWs = XLSX.utils.aoa_to_sheet([
-            ["Nama Lengkap", "Institusi", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
+            ["Nama Lengkap", "Institusi / Asal", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
             ["Budi Santoso", "Umum", 1, "Reguler"]
         ]);
         const wb = XLSX.utils.book_new();
@@ -2667,13 +2673,13 @@ async function downloadExcelTemplate() {
     }
 }
 
-// 2. FUNGSI PEMROSES FILE IMPORT EXCEL -> SUPABASE (AMAN SCHEMA)
+// 2. FUNGSI PEMROSES FILE IMPORT EXCEL (ANTI-GAGAL SCHEMA VALIDATION)
 async function processExcelImport(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     Swal.fire({
-        title: 'Membaca File...',
+        title: 'Membaca File Excel...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
     });
@@ -2686,78 +2692,82 @@ async function processExcelImport(event) {
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
             
+            // Konversi ke JSON data
             const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-            if (rawJson.length === 0) throw new Error("File Excel kosong.");
+            if (rawJson.length === 0) throw new Error("File Excel tidak memiliki data.");
 
-            // Hapus baris contoh jika ada
+            // Bersihkan baris contoh jika user lupa menghapusnya
             if (rawJson[0]["Nama Lengkap"] === "Budi Santoso") {
                 rawJson.shift(); 
             }
 
-            // Mapping fleksibel mencari kunci header yang mendekati nama kolom
+            if (rawJson.length === 0) {
+                Swal.fire('Info', 'Tidak ada data tamu baru untuk diimport.', 'info');
+                return;
+            }
+
+            // Pemetaan data adaptif ke kolom Database Supabase (data_tamu)
             const payload = rawJson.map(row => {
-                // Cari value untuk nama
-                const namaVal = row["Nama Lengkap"] || row["Nama"] || row["NAMA"] || 'Tamu Tanpa Nama';
-                
-                // Cari value untuk institusi/asal
-                let instVal = 'Umum';
-                Object.keys(row).forEach(key => {
-                    if (key.toLowerCase().includes('institusi') || key.toLowerCase().includes('asal')) {
-                        if (row[key]) instVal = row[key];
-                    }
-                });
-
-                // Cari value untuk jumlah
+                let namaTamuVal = 'Tamu Tanpa Nama';
                 let jumlahVal = 1;
-                Object.keys(row).forEach(key => {
-                    if (key.toLowerCase().includes('jumlah')) {
-                        if (row[key]) jumlahVal = parseInt(row[key]) || 1;
+                let kategoriVal = 'Reguler';
+                let kustomJawabanArr = [];
+
+                // Looping baris data secara dinamis untuk mencocokkan kolom secara cerdas
+                Object.keys(row).forEach(headerKey => {
+                    const cleanHeader = headerKey.trim().toLowerCase();
+                    const valueStr = row[headerKey].toString().trim();
+
+                    if (cleanHeader.includes('nama lengkap') || cleanHeader === 'nama') {
+                        namaTamuVal = valueStr || namaTamuVal;
+                    } 
+                    else if (cleanHeader.includes('jumlah tamu') || cleanHeader.includes('jumlah_aktual') || cleanHeader.includes('pax')) {
+                        jumlahVal = parseInt(valueStr, 10) || 1;
+                    } 
+                    else if (cleanHeader.includes('kategori')) {
+                        kategoriVal = valueStr || kategoriVal;
+                        if (kategoriVal.toLowerCase() === 'umum') kategoriVal = 'Reguler';
+                    } 
+                    else {
+                        // Jika merupakan kolom kustom/pertanyaan form, kumpulkan jawabannya di sini
+                        if (valueStr && valueStr !== '-') {
+                            kustomJawabanArr.push(`${headerKey}: ${valueStr}`);
+                        }
                     }
                 });
 
-                // Cari value untuk kategori
-                let katVal = 'Reguler';
-                Object.keys(row).forEach(key => {
-                    if (key.toLowerCase().includes('kategori')) {
-                        if (row[key]) katVal = row[key].toString().trim();
-                    }
-                });
-                if (katVal.toLowerCase() === 'umum') katVal = 'Reguler';
+                // Gabungkan seluruh jawaban pertanyaan form kustom ke kolom institusi
+                // Ini adalah kunci sukses agar Supabase tidak menolak data terlepas dari apapun pertanyaannya
+                let gabunganCatatan = kustomJawabanArr.join(' | ') || 'Umum';
 
-                // Payload HANYA mengirimkan kolom yang terdaftar resmi di Supabase
                 return {
-                    nama_tamu: namaVal,
-                    institusi: instVal,
+                    nama_tamu: namaTamuVal,
+                    institusi: gabunganCatatan,
                     jumlah_aktual: jumlahVal,
-                    kategori_tamu: katVal,
+                    kategori_tamu: kategoriVal,
                     status_kehadiran: 'BELUM_HADIR',
                     status_souvenir: 'BELUM_AMBIL'
                 };
             });
 
-            if (payload.length === 0) {
-                Swal.fire('Info', 'Tidak ada data valid untuk diimport.', 'info');
-                return;
-            }
+            Swal.fire({ title: 'Menyimpan ke Supabase...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-            Swal.fire({ title: 'Menyimpan ke Database...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            // Insert massal ke Supabase
+            // Kirim data massal ke Supabase
             const { error } = await db.from('data_tamu').insert(payload);
             if (error) throw error;
 
-            // Reset input file
+            // Reset komponen input file
             const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
             if (inputEl) inputEl.value = "";
 
-            Swal.fire('Berhasil!', `${payload.length} tamu berhasil diimport.`, 'success');
+            Swal.fire('Berhasil!', `${payload.length} data tamu sukses dimasukkan ke database.`, 'success');
             
-            // Reload tabel rekap
+            // Perbarui visual tabel rekap secara instan
             loadGuestRecapTable();
 
         } catch (err) {
-            console.error("Gagal import Excel:", err);
-            Swal.fire('Gagal!', 'Terjadi kesalahan saat mengimport Excel. Pastikan file menggunakan template resmi.', 'error');
+            console.error("Gagal Eksekusi Impor Excel:", err);
+            Swal.fire('Gagal Impor!', 'Terjadi kendala sistem saat membaca format berkas. Pastikan file Anda bersih.', 'error');
             
             const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
             if (inputEl) inputEl.value = "";
