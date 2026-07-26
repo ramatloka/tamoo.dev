@@ -1354,8 +1354,9 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (UI VERSI AWAL + KARTU STATISTIK + MODAL)
+// MODUL REKAPITULASI TAMU (UI VERSI AWAL + LIVE FILTERING SECARA A-Z)
 // =========================================================================
+
 // Variable Global untuk menyimpan cache data tamu agar filter cepat tanpa request ulang ke server
 let rawGuestDataCache = [];
 
@@ -1383,7 +1384,7 @@ async function loadGuestRecapTable() {
         // Simpan ke cache global
         rawGuestDataCache = guests || [];
 
-        // Jalankan filter pertama kali
+        // Jalankan filter pertama kali untuk merender data ke tabel
         applyFilters();
 
     } catch (err) {
@@ -1394,85 +1395,183 @@ async function loadGuestRecapTable() {
     }
 }
 
-        // Render Baris Tabel
-        tableBody.innerHTML = guests.map((guest) => {
-            const namaTamu = guest.nama_tamu || '-';
-            const jumlahOrang = guest.jumlah_aktual || 1;
-            
-            let rawKategori = guest.kategori_tamu || 'Reguler';
-            if (rawKategori.toLowerCase() === 'umum') rawKategori = 'Reguler';
-            const kategoriTamu = rawKategori.toUpperCase();
+// =========================================================================
+// MODUL REKAPITULASI TAMU (UI VERSI AWAL + LIVE FILTERING SECARA A-Z)
+// =========================================================================
 
-            const isHadir = guest.status_kehadiran === 'HADIR';
-            const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
+// Variable Global untuk menyimpan cache data tamu agar filter cepat tanpa request ulang ke server
+let rawGuestDataCache = [];
 
-            let katBadge = `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">${kategoriTamu}</span>`;
-            if (kategoriTamu === 'VIP' || kategoriTamu === 'TAMU VIP') {
-                katBadge = `<span style="background: #fef08a; color: #854d0e; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"><i class="fas fa-crown"></i> VIP</span>`;
-            }
+async function loadGuestRecapTable() {
+    const ticker = document.getElementById('tickerWrapContainer');
+    if (ticker) ticker.style.display = 'none';
 
-            const hadirBadge = isHadir 
-                ? `<span style="background: #e6f4ea; color: #137333; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">HADIR</span>`
-                : `<span style="background: #fce8e6; color: #c5221f; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">BELUM HADIR</span>`;
+    const tableBody = document.getElementById('guestTableBody') || 
+                      document.getElementById('rekapTableBody') || 
+                      document.querySelector('#rekapTable tbody');
+    
+    if (!tableBody) return;
 
-            const souvBadge = isSouvenir
-                ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
-                : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
+    try {
+        if (typeof db === "undefined" || !db) return;
 
-            // Ikon Aksi di Tabel Rekap
-            // Ikon Aksi di Tabel Rekap (Update Ikon Print & VIP)
-            const aksiHtml = `
-                <i class="fas fa-user-edit" 
-                   onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
-                   style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-                   title="Ubah Status Kehadiran"></i>
-                <i class="fas fa-qrcode" 
-                   onclick="viewGuestQr('${guest.id}')" 
-                   style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-                   title="Lihat & Download QR Code"></i>
-                <i class="fas fa-print" 
-                   onclick="printGuestTicket('${guest.id}')" 
-                   style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-                   title="Cetak E-Ticket"></i>
-                <i class="fas fa-crown" 
-                   onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
-                   style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-                   title="Ubah Kategori (VIP/Reguler)"></i>
-                <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
-            `;
+        // Tarik seluruh data dari tabel Supabase (diurutkan A-Z)
+        const { data: guests, error } = await db
+            .from('data_tamu')
+            .select('*')
+            .order('nama_tamu', { ascending: true });
 
-            return `
-                <tr style="border-bottom: 1px solid #f0f0f0;">
-                    <td style="text-align: center; padding: 15px 10px;">
-                        <input type="checkbox" class="chk-select-guest" value="${guest.id}" style="transform: scale(1.2); cursor: pointer;">
-                    </td>
-                    <td style="padding: 15px 10px;">
-                        <div style="font-weight: 800; color: #333; font-size: 0.95rem; margin-bottom: 4px;">${namaTamu}</div>
-                        <div style="color: #b39343; font-weight: 800; font-size: 0.75rem;">
-                            <i class="fas fa-user-friends"></i> ${jumlahOrang} Orang
-                        </div>
-                    </td>
-                    <td style="padding: 15px 10px; vertical-align: middle;">
-                        ${katBadge}
-                    </td>
-                    <td style="padding: 15px 10px;">
-                        <div style="margin-bottom: 6px;">${hadirBadge}</div>
-                        <div>${souvBadge}</div>
-                    </td>
-                    <td style="text-align: center; padding: 15px 10px; vertical-align: middle; white-space: nowrap;">
-                        ${aksiHtml}
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        if (error) throw error;
 
-        updateRekapSummaryCards(guests);
+        // Simpan ke cache global
+        rawGuestDataCache = guests || [];
+
+        // Jalankan filter pertama kali untuk merender data ke tabel
+        applyFilters();
 
     } catch (err) {
         console.error("Gagal memuat rekap data_tamu:", err);
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Gagal mengambil data dari server.</td></tr>`;
+        }
     }
 }
 
+// =========================================================================
+// FUNGSI LOGIKA FILTER & PENCARIAN REKAPITULASI TAMU (REAL-TIME RENDERING)
+// =========================================================================
+function applyFilters() {
+    const tableBody = document.getElementById('guestTableBody') || 
+                      document.getElementById('rekapTableBody') || 
+                      document.querySelector('#rekapTable tbody');
+
+    if (!tableBody) return;
+
+    // 1. Ambil nilai dari input pencarian & dropdown filter
+    const searchVal = (document.getElementById('searchRekapInput')?.value || '').toLowerCase().trim();
+    const filterKatVal = document.getElementById('filterKategori')?.value || 'ALL';
+    const filterStatVal = document.getElementById('filterStatus')?.value || 'ALL';
+    const filterSouvVal = document.getElementById('filterSouvenir')?.value || 'ALL';
+
+    // 2. Terapkan Logika Penyaringan pada Data Cache
+    const filteredGuests = rawGuestDataCache.filter(guest => {
+        // A. Filter Nama Tamu
+        const namaTamu = (guest.nama_tamu || '').toLowerCase();
+        const matchNama = !searchVal || namaTamu.includes(searchVal);
+
+        // B. Filter Kategori (VIP / Reguler)
+        let rawKategori = (guest.kategori_tamu || 'Reguler').toUpperCase();
+        if (rawKategori === 'UMUM') rawKategori = 'REGULER';
+        
+        let matchKategori = true;
+        if (filterKatVal !== 'ALL') {
+            const targetKat = filterKatVal.toUpperCase();
+            matchKategori = rawKategori.includes(targetKat);
+        }
+
+        // C. Filter Status Kehadiran (Hadir / Belum Hadir)
+        const isHadir = guest.status_kehadiran === 'HADIR';
+        let matchStatus = true;
+        if (filterStatVal === 'Hadir') matchStatus = isHadir;
+        else if (filterStatVal === 'Belum Hadir') matchStatus = !isHadir;
+
+        // D. Filter Souvenir (Sudah Ambil / Belum Ambil)
+        const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
+        let matchSouvenir = true;
+        if (filterSouvVal === 'Sudah Ambil') matchSouvenir = isSouvenir;
+        else if (filterSouvVal === 'Belum Ambil') matchSouvenir = !isSouvenir;
+
+        return matchNama && matchKategori && matchStatus && matchSouvenir;
+    });
+
+    // 3. Update Kartu Ringkasan Statistik berdasarkan data yang terfilter
+    if (typeof updateRekapSummaryCards === "function") {
+        updateRekapSummaryCards(filteredGuests);
+    }
+
+    // 4. Jika Data Tidak Ditemukan setelah difilter
+    if (filteredGuests.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 25px; color: #888; font-weight: 600;">
+                    <i class="fas fa-search" style="margin-right: 8px; color: #b39343;"></i>
+                    Tidak ada data tamu yang cocok dengan filter.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // 5. Render Baris Tabel Hasil Filter
+    tableBody.innerHTML = filteredGuests.map((guest) => {
+        const namaTamu = guest.nama_tamu || '-';
+        const jumlahOrang = guest.jumlah_aktual || 1;
+        
+        let rawKategori = guest.kategori_tamu || 'Reguler';
+        if (rawKategori.toLowerCase() === 'umum') rawKategori = 'Reguler';
+        const kategoriTamu = rawKategori.toUpperCase();
+
+        const isHadir = guest.status_kehadiran === 'HADIR';
+        const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
+
+        let katBadge = `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">${kategoriTamu}</span>`;
+        if (kategoriTamu === 'VIP' || kategoriTamu === 'TAMU VIP') {
+            katBadge = `<span style="background: #fef08a; color: #854d0e; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"><i class="fas fa-crown"></i> VIP</span>`;
+        }
+
+        const hadirBadge = isHadir 
+            ? `<span style="background: #e6f4ea; color: #137333; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">HADIR</span>`
+            : `<span style="background: #fce8e6; color: #c5221f; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">BELUM HADIR</span>`;
+
+        const souvBadge = isSouvenir
+            ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
+            : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
+
+        const aksiHtml = `
+            <i class="fas fa-user-edit" 
+               onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
+               style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+               title="Ubah Status Kehadiran"></i>
+            <i class="fas fa-qrcode" 
+               onclick="viewGuestQr('${guest.id}')" 
+               style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+               title="Lihat & Download QR Code"></i>
+            <i class="fas fa-print" 
+               onclick="printGuestTicket('${guest.id}')" 
+               style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+               title="Cetak E-Ticket"></i>
+            <i class="fas fa-crown" 
+               onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
+               style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+               title="Ubah Kategori (VIP/Reguler)"></i>
+            <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
+        `;
+
+        return `
+            <tr style="border-bottom: 1px solid #f0f0f0;">
+                <td style="text-align: center; padding: 15px 10px;">
+                    <input type="checkbox" class="chk-select-guest" value="${guest.id}" style="transform: scale(1.2); cursor: pointer;">
+                </td>
+                <td style="padding: 15px 10px;">
+                    <div style="font-weight: 800; color: #333; font-size: 0.95rem; margin-bottom: 4px;">${namaTamu}</div>
+                    <div style="color: #b39343; font-weight: 800; font-size: 0.75rem;">
+                        <i class="fas fa-user-friends"></i> ${jumlahOrang} Orang
+                    </div>
+                </td>
+                <td style="padding: 15px 10px; vertical-align: middle;">
+                    ${katBadge}
+                </td>
+                <td style="padding: 15px 10px;">
+                    <div style="margin-bottom: 6px;">${hadirBadge}</div>
+                    <div>${souvBadge}</div>
+                </td>
+                <td style="text-align: center; padding: 15px 10px; vertical-align: middle; white-space: nowrap;">
+                    ${aksiHtml}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
 // =========================================================================
 // FUNGSI PEMBANTU: UPDATE ANGKA KARTU STATISTIK (DIPERBAIKI)
 // =========================================================================
