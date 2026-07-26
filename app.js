@@ -1202,7 +1202,7 @@ async function openCameraModal(type = 'checkin') { // <-- Baru
     
            // Panggil router pintar dengan mendeteksi parameter type modal (jika ada 'souvenir')
            // Di HTML Anda, tombol memanggil openCameraModal('souvenir')
-            routeScannerResult(code.data, (typeof type !== 'undefined' && type === 'souvenir') ? 'souvenir' : 'auto');
+            routeScannerResult(code.data, (typeof type !== 'undefined') ? type : 'auto');
             return;
                         }
                     }
@@ -1323,44 +1323,41 @@ function submitManualCheckIn() {
 }
 
 // =========================================================================
-// ROUTER PINTAR SCANNER (MEMISAHKAN ALUR CHECK-IN & SOUVENIR)
+// ROUTER PINTAR: MEMASTIKAN HASIL SCAN TIDAK SALAH SASARAN
 // =========================================================================
 
-function routeScannerResult(qrData, sourceMode = 'auto') {
-    if (!qrData || qrData.trim() === "") return;
-    const cleanData = qrData.trim();
+function routeScannerResult(scannedData, dynamicType = 'auto') {
+    console.log(`TAMOO ROUTER: Data masuk [${scannedData}], Mode [${dynamicType}]`);
 
-    // Tentukan mode berdasarkan parameter atau deteksi elemen aktif
-    let currentMode = sourceMode;
-    
-    if (currentMode === 'auto') {
-        const activeEl = document.activeElement;
-        // Jika kursor sedang aktif di input souvenir, atau jika input checkin tidak ada/tidak aktif saat di halaman souvenir
-        if (activeEl && activeEl.id === 'usbScannerSouvenirInput') {
-            currentMode = 'souvenir';
-        } else {
-            // Cek apakah section Souvenir sedang tampil di layar
-            const secSouvenir = document.getElementById('secSouvenir');
-            if (secSouvenir && secSouvenir.style.display !== 'none') {
-                currentMode = 'souvenir';
-            } else {
-                currentMode = 'checkin';
-            }
-        }
+    if (!scannedData) return;
+
+    // 1. Validasi Presisi: Cek halaman mana yang BENAR-BENAR sedang aktif di layar ponsel
+    const isSouvenirSectionActive = document.getElementById('secSouvenir')?.classList.contains('active') || false;
+    const isCheckinSectionActive = document.getElementById('secTamu')?.classList.contains('active') || false;
+
+    // 2. Tentukan Jalur Berdasarkan Halaman Aktif (Prioritas Utama)
+    let finalTarget = 'checkin'; // Default fallback
+
+    if (dynamicType === 'souvenir' || isSouvenirSectionActive) {
+        finalTarget = 'souvenir';
+    } else if (dynamicType === 'checkin' || isCheckinSectionActive) {
+        finalTarget = 'checkin';
     }
 
-    // Alirkan data ke fungsi eksekusi yang tepat
-    if (currentMode === 'souvenir') {
-        console.log("TAMOO ROUTER: Mengalirkan data ke SCAN SOUVENIR ->", cleanData);
+    // 3. Eksekusi Pengiriman Data ke Fungsi Masing-Masing
+    if (finalTarget === 'souvenir') {
+        console.log("TAMOO ROUTER: Mengarahkan ke Modul SOUVENIR...");
         if (typeof processIndependentSouvenir === "function") {
-            processIndependentSouvenir(cleanData);
+            processIndependentSouvenir(scannedData);
         } else {
-            console.error("Fungsi processIndependentSouvenir belum terpasang!");
+            Swal.fire('Error', 'Fungsi processIndependentSouvenir tidak ditemukan!', 'error');
         }
     } else {
-        console.log("TAMOO ROUTER: Mengalirkan data ke SCAN CHECK-IN ->", cleanData);
+        console.log("TAMOO ROUTER: Mengarahkan ke Modul CHECK-IN TAMU...");
         if (typeof processGuestCheckIn === "function") {
-            processGuestCheckIn(cleanData);
+            processGuestCheckIn(scannedData);
+        } else {
+            Swal.fire('Error', 'Fungsi processGuestCheckIn tidak ditemukan!', 'error');
         }
     }
 }
