@@ -1411,6 +1411,7 @@ async function loadGuestRecapTable() {
                 : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
 
             // Ikon Aksi di Tabel Rekap
+            // Ikon Aksi di Tabel Rekap (Update Ikon Print & VIP)
             const aksiHtml = `
                 <i class="fas fa-user-edit" 
                    onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
@@ -1420,8 +1421,14 @@ async function loadGuestRecapTable() {
                    onclick="viewGuestQr('${guest.id}')" 
                    style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
                    title="Lihat & Download QR Code"></i>
-                <i class="fas fa-print" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Cetak QR"></i>
-                <i class="fas fa-crown" style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Jadikan VIP"></i>
+                <i class="fas fa-print" 
+                   onclick="printGuestTicket('${guest.id}')" 
+                   style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+                   title="Cetak E-Ticket"></i>
+                <i class="fas fa-crown" 
+                   onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
+                   style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+                   title="Ubah Kategori (VIP/Reguler)"></i>
                 <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
             `;
 
@@ -1963,5 +1970,176 @@ async function viewGuestQr(guestId) {
     } catch (err) {
         console.error("Gagal memuat QR Code tamu:", err);
         Swal.fire('Gagal!', 'Tidak dapat menampilkan QR Code tamu.', 'error');
+    }
+}
+// =========================================================================
+// FUNGSI AKSI: CETAK E-TICKET TAMU (TOMBOL PRINT DI TABEL)
+// =========================================================================
+async function printGuestTicket(guestId) {
+    if (!guestId) return;
+
+    Swal.fire({
+        title: 'Menyiapkan Tiket...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
+
+        // 1. Ambil data tamu dari Supabase
+        const { data: guest, error } = await db.from('data_tamu').select('*').eq('id', guestId).single();
+        if (error || !guest) throw new Error("Data tamu tidak ditemukan.");
+
+        // 2. Tarik setup info untuk data e-ticket
+        const rawEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA';
+        const rawEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
+        const rawEventLocation = document.getElementById('adminEventLocation')?.value || 'LOKASI';
+        
+        const eventNameText = rawEventName.toUpperCase();
+        const eventSubText = `${rawEventDate} | ${rawEventLocation}`.toUpperCase();
+        const isVip = (guest.kategori_tamu || '').toUpperCase() === 'VIP';
+        const nameOnTicket = guest.nama_tamu + (isVip ? ' (VIP)' : '');
+
+        // 3. Buat Offscreen Canvas untuk merender Tiket
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 600;
+        canvas.height = 800;
+
+        // Render Background & Bingkai
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Render Header & Judul Acara (Auto-Resize)
+        ctx.fillStyle = "#846924"; ctx.textAlign = "center";
+        let fontSizeTitle = 45; ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+        while (ctx.measureText(eventNameText).width > 520 && fontSizeTitle > 16) {
+            fontSizeTitle -= 2; ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
+        }
+        ctx.fillText(eventNameText, canvas.width/2, 100);
+
+        // Render Subtitle
+        ctx.fillStyle = "#333";
+        let fontSizeSub = 18; ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+        while (ctx.measureText(eventSubText).width > 520 && fontSizeSub > 10) {
+            fontSizeSub -= 1; ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
+        }
+        ctx.fillText(eventSubText, canvas.width/2, 160);
+
+        // E-Ticket Pass Banner
+        ctx.fillStyle = "#777"; ctx.font = "800 24px 'Montserrat'";
+        ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
+
+        // Render Nama Tamu (Auto-Resize)
+        ctx.fillStyle = "#333";
+        let fontSizeName = 42; ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+        while (ctx.measureText(nameOnTicket).width > 520 && fontSizeName > 20) {
+            fontSizeName -= 2; ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
+        }
+        ctx.fillText(nameOnTicket, canvas.width/2, 300);
+
+        // Render QR Code secara independen via library QRCode
+        const tempDiv = document.createElement('div');
+        new QRCode(tempDiv, { text: guest.id, width: 200, height: 200 });
+        
+        // Beri jeda micro-task agar image source QR ter-generate sempurna
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const tempImg = tempDiv.querySelector('img');
+        
+        if (tempImg && tempImg.src) {
+            ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
+        }
+
+        // Render Footer Teks
+        ctx.fillStyle = "#777"; ctx.font = "600 14px 'Montserrat'";
+        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
+        ctx.fillStyle = "#846924"; ctx.font = "800 22px 'Montserrat'";
+        ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
+
+        Swal.close();
+
+        // 4. Proses memicu print browser jendela baru khusus gambar tiket
+        const dataUrl = canvas.toDataURL('image/png');
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Print E-Ticket - ${guest.nama_tamu}</title>
+                <style>
+                    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #fff; }
+                    img { max-width: 100%; max-height: 100%; object-fit: contain; }
+                    @page { size: auto; margin: 0mm; }
+                </style>
+            </head>
+            <body>
+                <img src="${dataUrl}" onload="window.print(); window.close();" />
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+
+    } catch (err) {
+        console.error("Gagal print tiket:", err);
+        Swal.fire('Gagal!', 'Tidak dapat memproses cetak tiket.', 'error');
+    }
+}
+
+// =========================================================================
+// FUNGSI AKSI: TOGGLE KATEGORI TAMU VIP / REGULER (TOMBOL MAHKOTA)
+// =========================================================================
+async function toggleGuestVipStatus(guestId, currentKategori) {
+    if (!guestId) return;
+
+    // Tentukan kategori baru berdasarkan status saat ini
+    const isCurrentlyVip = currentKategori.toUpperCase() === 'VIP';
+    const newKategori = isCurrentlyVip ? 'Reguler' : 'VIP';
+    const kategoriTextAlert = isCurrentlyVip ? 'REGULER' : 'VIP';
+
+    const result = await Swal.fire({
+        title: 'Ubah Kategori Tamu?',
+        text: `Kategori tamu akan diubah menjadi "${kategoriTextAlert}"`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#b39343',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Ya, Ubah!',
+        cancelButtonText: 'Batal'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Memproses...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
+
+        // Update kategori_tamu di database Supabase
+        const { error } = await db
+            .from('data_tamu')
+            .update({ kategori_tamu: newKategori })
+            .eq('id', guestId);
+
+        if (error) throw error;
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: `Kategori tamu kini menjadi ${kategoriTextAlert}`,
+            timer: 1200,
+            showConfirmButton: false
+        });
+
+        // Refresh tabel agar perubahan langsung kelihatan
+        loadGuestRecapTable();
+
+    } catch (err) {
+        console.error("Gagal update kategori tamu:", err);
+        Swal.fire('Gagal!', 'Terjadi kesalahan saat memperbarui database.', 'error');
     }
 }
