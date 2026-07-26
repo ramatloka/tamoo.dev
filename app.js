@@ -3095,3 +3095,148 @@ document.addEventListener('DOMContentLoaded', checkAndApplyPublicMode);
 if (document.readyState === "complete" || document.readyState === "interactive") {
     checkAndApplyPublicMode();
 }
+// =========================================================================
+// LOGIKA SCAN SOUVENIR INDEPENDEN (ANTI-BLOCKING CHECK-IN)
+// =========================================================================
+
+// 1. PENDENGAR INPUT USB SCANNER / KETIK MANUAL KHUSUS SOUVENIR
+document.addEventListener('DOMContentLoaded', () => {
+    const souvenirInput = document.getElementById('usbScannerSouvenirInput');
+    if (souvenirInput) {
+        souvenirInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const guestId = this.value.trim();
+                if (guestId !== "") {
+                    processIndependentSouvenir(guestId);
+                }
+            }
+        });
+    }
+});
+
+// 2. FUNGSI UTAMA: Eksekusi Klaim Souvenir Secara Mandiri
+async function processIndependentSouvenir(guestId) {
+    if (!guestId || guestId.trim() === "") return;
+    const cleanId = guestId.trim();
+
+    // Reset kolom input souvenir agar stand-by untuk scan selanjutnya
+    const souvenirInput = document.getElementById('usbScannerSouvenirInput');
+    if (souvenirInput) souvenirInput.value = "";
+
+    try {
+        Swal.fire({ title: 'Memverifikasi...', text: 'Mengecek jatah souvenir...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // Tarik data tamu berdasarkan ID dari Supabase
+        const { data: guest, error: fetchError } = await db.from('data_tamu').select('*').eq('id', cleanId).maybeSingle();
+        
+        if (fetchError) throw fetchError;
+        
+        // JIKA TAMU TIDAK DITEMUKAN
+        if (!guest) {
+            if (typeof playBeepSound === "function") playBeepSound('error');
+            Swal.fire({ title: 'Scan Gagal', text: `ID Tamu (${cleanId}) tidak terdaftar di sistem!`, icon: 'error', customClass: { popup: 'luxury-popup' } });
+            return;
+        }
+
+        // JIKA SOUVENIR SUDAH PERNAH DIAMBIL
+        if (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') {
+            if (typeof playBeepSound === "function") playBeepSound('error');
+            Swal.fire({ 
+                title: 'Sudah Diambil', 
+                html: `<b style="font-size:18px; color:#c5221f;">${guest.nama_tamu}</b><br><br>Tamu ini sudah mengambil jatah souvenir sebelumnya!`, 
+                icon: 'warning', 
+                customClass: { popup: 'luxury-popup' } 
+            });
+            return;
+        }
+
+        // UPDATE STATUS HANYA PADA KOLOM SOUVENIR (Tanpa memedulikan status_kehadiran)
+        const { error: updateError } = await db.from('data_tamu').update({
+            status_souvenir: 'SUDAH_AMBIL'
+        }).eq('id', cleanId);
+
+        if (updateError) throw updateError;
+
+        // Bunyikan Bell Sukses
+        if (typeof playBeepSound === "function") playBeepSound('success');
+
+        // Tampilkan Pop-Up Klaim Souvenir Berhasil
+        Swal.fire({
+            title: 'SOUVENIR BERHASIL KLAIM',
+            html: `
+                <div style="text-align:center; padding:5px;">
+                    <i class="fas fa-gift" style="font-size:48px; color:#1967d2; margin-bottom:15px;"></i>
+                    <h2 style="margin:0 0 10px 0; font-weight:800; text-transform:uppercase; color:#222;">${guest.nama_tamu}</h2>
+                    <span style="background:#e8f0fe; color:#1967d2; font-weight:bold; padding:6px 20px; border-radius:50px; font-size:14px;">
+                        Berikan Jatah: ${guest.jumlah_aktual || 1} Pcs
+                    </span>
+                    <p style="margin-top: 10px; font-size: 11px; color: #777;">
+                        Status Kehadiran: ${guest.status_kehadiran === 'HADIR' ? '🟢 Sudah Check-in' : '⚪ Belum Check-in'}
+                    </p>
+                </div>
+            `,
+            icon: 'success',
+            timer: 3000,
+            showConfirmButton: false,
+            customClass: { popup: 'luxury-popup' }
+        });
+
+        // Hubungkan kembali untuk merefresh visual counter di box atas souvenir & tabel rekap
+        if (typeof loadSouvenirStats === "function") loadSouvenirStats();
+        if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
+        if (typeof loadForm === "function") loadForm(); // Jika ada refresh form global
+
+    } catch (err) {
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({ title: 'Sistem Error', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
+    }
+}
+// =========================================================================
+// HANDLER UPLOAD FILE GAMBAR QR UNTUK SOUVENIR (INDEPENDEN)
+// =========================================================================
+
+async function handleNativeCameraSouvenir(event) {
+    let file = null;
+
+    // Menangkap file dari event upload HTML
+    if (event && event.target && event.target.files) {
+        file = event.target.files[0];
+    } else if (event && event.files) {
+        file = event.files[0];
+    }
+
+    if (!file) return;
+
+    Swal.fire({ 
+        title: 'Membaca Gambar...', 
+        text: 'Mengecek QR Souvenir dari file...', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
+
+    try {
+        // Pemindaian menggunakan library Html5Qrcode jika tersedia
+        if (typeof Html5Qrcode !== "undefined") {
+            const html5QrCode = new Html5Qrcode("readerSouvenir" || "reader");
+            const decodedText = await html5QrCode.scanFile(file, true);
+            
+            Swal.close();
+            // Eksekusi klaim souvenir independen
+            processIndependentSouvenir(decodedText);
+        } else {
+            throw new Error("Library Html5Qrcode tidak ditemukan di halaman.");
+        }
+    } catch (err) {
+        if (typeof playBeepSound === "function") playBeepSound('error');
+        Swal.fire({ 
+            title: 'Gagal Membaca QR', 
+            text: 'Tidak dapat menemukan Kode QR yang valid pada gambar tersebut.', 
+            icon: 'error',
+            customClass: { popup: 'luxury-popup' }
+        });
+    } finally {
+        // Reset input file agar gambar yang sama bisa di-upload ulang jika diperlukan
+        if (event && event.target) event.target.value = "";
+    }
+}
