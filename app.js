@@ -634,15 +634,38 @@ function toggleQOptDisplay() {
 }
 
 // =========================================================================
-// SINKRONISASI TOMBOL PENGATURAN GLOBAL
+// SINKRONISASI TOMBOL PENGATURAN GLOBAL & TV MONITOR
 // =========================================================================
 // Fungsi pembantu jika HTML memanggil nama fungsi lama untuk simpan tema/global
 async function saveGlobalSettings() {
     await saveAdminSettingsData();
 }
 
+// Inisialisasi Jalur Komunikasi Radio (Broadcast) ke Layar TV
+const tvBroadcast = new BroadcastChannel('tamoo_tv_broadcast');
+
+// Fungsi Pemicu Tombol TV di Halaman Scanner
 function initTvMode() { 
-    console.log("Layar TV Extended Aktif."); 
+    console.log("Membuka Layar TV Extended..."); 
+    
+    // 1. Tarik Data Event Resmi dari elemen input setup halaman admin
+    const eventName = document.getElementById('adminEventName')?.value || 'DRAMA TARI';
+    const tickerText = document.getElementById('adminRunningText')?.value || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
+
+    // Simpan ke localstorage sebagai cache cadangan untuk monitor
+    localStorage.setItem('currentEventName', eventName);
+    localStorage.setItem('currentEventTicker', tickerText);
+
+    // 2. Buka tab baru bernama monitor.html (Pastikan file monitor.html sudah dibuat)
+    const monitorWindow = window.open('monitor.html', '_blank');
+
+    // 3. Beri jeda 1 detik agar tab baru selesai memuat halaman, lalu tembakkan data
+    setTimeout(() => {
+        tvBroadcast.postMessage({
+            type: 'INIT_DISPLAY',
+            data: { eventName, tickerText }
+        });
+    }, 1000);
 }
 // =========================================================================
 // AUDIO SOUND GENERATOR (WEB AUDIO API)
@@ -1026,7 +1049,7 @@ function clearManualInput() {
     });
 }
 
-// FUNGSI 1: Eksekusi Utama Check-in ke Supabase (Wajib Async)
+// FUNGSI 1: Eksekusi Utama Check-in ke Supabase (Wajib Async) + Real-time TV Broadcast
 async function processGuestCheckIn(guestId) {
     if (!guestId || guestId.trim() === "") return;
     
@@ -1076,7 +1099,37 @@ async function processGuestCheckIn(guestId) {
         // Bunyikan Bell Sukses Check-in!
         if (typeof playBeepSound === "function") playBeepSound('success');
 
-        // 3. Tampilkan Pop-Up Selamat Datang Mewah
+        // =========================================================================
+        // PENGIRIMAN DATA LIVE KE LAYAR MONITOR TV VIA BROADCAST CHANNEL
+        // =========================================================================
+        try {
+            // Deteksi setting centang Form Builder (Gambar 2)
+            // Menggunakan selector checkbox bawaan HTML aplikasi Anda untuk setting TV
+            const isKategoriChecked = document.getElementById('chkShowTvKategori')?.checked ?? true;
+            const isInstitusiChecked = document.getElementById('chkShowTvInstitusi')?.checked ?? true;
+
+            // Inisiasi pengiriman sinyal radio antar-tab browser
+            if (typeof tvBroadcast !== "undefined") {
+                tvBroadcast.postMessage({
+                    type: 'GUEST_CHECKIN',
+                    data: {
+                        nama_tamu: guest.nama_tamu,
+                        jumlah_aktual: guest.jumlah_aktual || 1,
+                        kategori_tamu: guest.kategori_tamu || 'Reguler',
+                        institusi: guest.institusi || 'Umum'
+                    },
+                    config: {
+                        showKategori: isKategoriChecked,
+                        showInstitusi: isInstitusiChecked
+                    }
+                });
+            }
+        } catch (broadcastErr) {
+            console.error("Gagal mengirim data ke layar TV monitor:", broadcastErr);
+        }
+        // =========================================================================
+
+        // 3. Tampilkan Pop-Up Selamat Datang Mewah di Laptop Scanner
         Swal.fire({
             title: 'BERHASIL CHECK-IN',
             html: `
