@@ -2973,7 +2973,7 @@ if (document.readyState === "complete" || document.readyState === "interactive")
     initPublicFormUrl();
 }
 // =========================================================================
-// LOGIKA PENANGANAN MODE LINK PUBLIK (MODE FORM SAJA)
+// LOGIKA PENANGANAN MODE LINK PUBLIK (PERBAIKAN ANTI-BLANK / HALAMAN PUTIH)
 // =========================================================================
 
 function checkAndApplyPublicMode() {
@@ -2981,20 +2981,55 @@ function checkAndApplyPublicMode() {
     
     // Cek apakah URL memiliki parameter ?mode=public
     if (urlParams.get('mode') === 'public') {
-        // 1. Sembunyikan Navigasi Bawah / Bottom Bar Admin
-        const bottomNav = document.querySelector('.bottom-nav') || 
-                            document.querySelector('nav') || 
-                            document.getElementById('bottomNav');
-        if (bottomNav) bottomNav.style.display = 'none';
+        console.log("TAMOO: Mengaktifkan mode formulir publik...");
 
-        // 2. Berpindah ke Tampilan Form Pendaftaran saja
-        if (typeof showSection === 'function') {
-            showSection('secForm');
-        } else {
-            // Fallback manual jika showSection tidak ada
+        // 1. Sembunyikan Navigasi Bawah / Bottom Bar / Header Nav jika ada
+        const selectorsToHide = ['.bottom-nav', 'nav', '#bottomNav', '.nav-bar', '.admin-header'];
+        selectorsToHide.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) el.style.display = 'none';
+        });
+
+        // 2. Tampilkan HANYA section Form Pendaftaran secara akurat
+        // Kita coba cari ID yang paling umum digunakan untuk form pendaftaran Anda
+        const formSectionIds = ['secForm', 'secRegister', 'formPendaftaran', 'sectionForm'];
+        let targetFormElement = null;
+
+        // Cari berdasarkan daftar ID potensial di atas
+        for (let id of formSectionIds) {
+            const el = document.getElementById(id);
+            if (el) {
+                targetFormElement = el;
+                break;
+            }
+        }
+
+        // Jika tidak ketemu berdasarkan ID kaku, cari elemen .section yang punya class/id berkaitan dengan form
+        if (!targetFormElement) {
+            targetFormElement = Array.from(document.querySelectorAll('.section')).find(s => {
+                const identity = (s.id + ' ' + s.className).toLowerCase();
+                return identity.includes('form') || identity.includes('reg');
+            });
+        }
+
+        // 3. Eksekusi pengalihan layar layar
+        if (targetFormElement) {
+            // Sembunyikan SEMUA section terlebih dahulu
             document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-            const secForm = document.getElementById('secForm');
-            if (secForm) secForm.style.display = 'block';
+            
+            // Tampilkan hanya section form target
+            targetFormElement.style.display = 'block';
+            console.log("TAMOO: Berhasil menampilkan section form publik:", targetFormElement.id);
+            
+            // Jika ada fungsi global bawaan app Anda untuk pindah section, panggil juga sebagai backup
+            if (typeof showSection === 'function') {
+                showSection(targetFormElement.id);
+            }
+        } else {
+            console.error("TAMOO Error: Section Form Pendaftaran tidak ditemukan di struktur HTML Anda.");
+            // Fallback darurat: Jika semua gagal, tampilkan section pertama yang ada di HTML agar tidak putih polos
+            const firstSec = document.querySelector('.section');
+            if (firstSec) firstSec.style.display = 'block';
         }
     }
 }
