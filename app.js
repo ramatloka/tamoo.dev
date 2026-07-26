@@ -3303,13 +3303,10 @@ function showPublicSuccessPage(guestName) {
                 <h3 style="font-size: 1.2rem; color: #222; font-weight: 700; text-transform: uppercase; margin-bottom: 15px;">
                     ${guestName ? guestName : 'Data Anda Berhasil Disimpan'}
                 </h3>
-                <p style="font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 25px; font-weight: 500;">
+                <p style="font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 10px; font-weight: 500;">
                     Pendaftaran Anda telah sukses tercatat di sistem.<br>
                     <b>Pastikan Anda telah menyimpan / mengunduh QR Code E-Ticket</b> untuk ditunjukkan kepada petugas saat hadir di event nanti.
                 </p>
-                <div style="background: #fdfaf3; padding: 12px 15px; border-radius: 8px; border: 1px dashed #b39343; font-size: 0.8rem; color: #846924; font-weight: 700;">
-                    <i class="fas fa-lock"></i> Sesi formulir telah dikunci. Silakan refresh halaman jika ingin mendaftar kembali.
-                </div>
             `;
             
             thankYouBox.style.display = 'block';
