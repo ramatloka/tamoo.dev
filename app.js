@@ -1198,7 +1198,7 @@ let cameraMediaStream = null;
 let cameraScanAnimationId = null;
 let currentFacingMode = "environment"; // Default kamera belakang
 
-async function openCameraModal() {
+async function openCameraModal(type = 'checkin') { // <-- Baru
     Swal.fire({
         title: 'Scan QR Code Tamu',
         html: `
@@ -1273,11 +1273,13 @@ async function openCameraModal() {
                         });
 
                         if (code && code.data) {
-                            // BILA QR CODE TERBACA:
-                            stopCameraStream();
-                            Swal.close();
-                            processGuestCheckIn(code.data); // Eksekusi Check-In Supabase
-                            return;
+                stopCameraStream();
+                Swal.close();
+    
+           // Panggil router pintar dengan mendeteksi parameter type modal (jika ada 'souvenir')
+           // Di HTML Anda, tombol memanggil openCameraModal('souvenir')
+            routeScannerResult(code.data, (typeof type !== 'undefined' && type === 'souvenir') ? 'souvenir' : 'auto');
+            return;
                         }
                     }
                 }
