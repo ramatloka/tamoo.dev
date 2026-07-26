@@ -1140,11 +1140,7 @@ async function processGuestCheckIn(guestId) {
         // PEMBARUAN COUNTER BOX HALAMAN SOUVENIR SAAT TAMU BERHASIL CHECK-IN
         if (typeof loadSouvenirStats === "function") loadSouvenirStats();
 
-        // 3. Tampilkan Pop-Up Selamat Datang Mewah
-        Swal.fire({
-            title: 'BERHASIL CHECK-IN',
-        
-        // 3. Tampilkan Pop-Up Selamat Datang Mewah di Laptop Scanner
+        // 3. Tampilkan Pop-Up Selamat Datang Mewah di Laptop Scanner (Sudah Bersih)
         Swal.fire({
             title: 'BERHASIL CHECK-IN',
             html: `
