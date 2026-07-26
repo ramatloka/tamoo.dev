@@ -846,7 +846,7 @@ function showQrCodeModal(guestId, guestName) {
         padding: '20px',
         customClass: { popup: 'luxury-popup' }
     }).then(() => {
-        // Reset Total Seluruh Isian Formulir Tanpa Sisa Teks setelah popup ditutup
+        // 1. Reset Total Seluruh Isian Formulir
         let formContainer = document.getElementById('dynamicFormContainer');
         if (formContainer) {
             let inputs = formContainer.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], input[type="date"], select, textarea');
@@ -854,6 +854,11 @@ function showQrCodeModal(guestId, guestName) {
 
             let checks = formContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]');
             checks.forEach(c => c.checked = false);
+        }
+
+        // 2. KUNCI HALAMAN & TAMPILKAN LAYAR TERIMA KASIH (HANYA AKTIF DI LINK PUBLIK)
+        if (typeof showPublicSuccessPage === "function") {
+            showPublicSuccessPage(guestName);
         }
     });
 }
@@ -870,7 +875,7 @@ async function downloadETicket(id, name, title, date, loc) {
         canvas.width = 600;
         canvas.height = 850;
 
-        // 1. Background & Border Mewah (Gold)
+        // Background & Border Mewah (Gold)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#846924';
@@ -879,7 +884,7 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineWidth = 2;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-        // 2. Judul Acara (Tiket Digital)
+        // Judul Acara
         ctx.textAlign = 'center';
         ctx.fillStyle = '#846924';
         ctx.font = 'bold 32px serif';
@@ -891,24 +896,24 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineTo(450, 135);
         ctx.stroke();
 
-        // 3. Info Tanggal & Lokasi
+        // Info Tanggal & Lokasi
         ctx.fillStyle = '#777';
         ctx.font = '600 18px sans-serif';
         ctx.fillText(`${date}  |  ${loc.toUpperCase()}`, canvas.width / 2, 175);
 
-        // 4. Header Tiket
+        // Header Tiket
         ctx.fillStyle = '#999';
         ctx.font = '500 20px sans-serif';
         ctx.letterSpacing = "4px";
         ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
         ctx.letterSpacing = "0px";
 
-        // 5. Nama Tamu
+        // Nama Tamu
         ctx.fillStyle = '#222';
         ctx.font = 'bold 42px sans-serif';
         ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
 
-        // 6. Gambar QR Code
+        // Gambar QR Code
         const qrImg = new Image();
         qrImg.crossOrigin = "anonymous";
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(id)}`;
@@ -920,7 +925,7 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.fillRect(150, 360, 300, 300);
         ctx.drawImage(qrImg, 175, 385, 250, 250);
 
-        // 7. Footer & Instruksi
+        // Footer & Instruksi
         ctx.fillStyle = '#888';
         ctx.font = 'italic 16px sans-serif';
         ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
@@ -930,98 +935,7 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.letterSpacing = "5px";
         ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
 
-        // 8. Proses Download
-        const link = document.createElement('a');
-        link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
-        link.href = canvas.toDataURL('image/png', 1.0);
-        link.click();
-
-        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1500, showConfirmButton: false });
-
-    } catch (err) {
-        console.error(err);
-        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket.', 'error');
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
-}
-
-async function downloadETicket(id, name, title, date, loc) {
-    const btn = window.event.target.closest('button');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MEMPROSES...';
-    btn.disabled = true;
-
-    try {
-        // Buat Canvas (Ukuran Portrait HD)
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 600;
-        canvas.height = 850;
-
-        // 1. Background & Border Mewah (Gold)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#846924';
-        ctx.lineWidth = 15;
-        ctx.strokeRect(15, 15, canvas.width - 30, canvas.height - 30);
-        ctx.lineWidth = 2;
-        ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
-
-        // 2. Judul Acara (Tiket Digital)
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#846924';
-        ctx.font = 'bold 32px serif';
-        ctx.fillText(title.toUpperCase(), canvas.width / 2, 110);
-
-        // Garis Pemisah
-        ctx.beginPath();
-        ctx.moveTo(150, 135);
-        ctx.lineTo(450, 135);
-        ctx.stroke();
-
-        // 3. Info Tanggal & Lokasi
-        ctx.fillStyle = '#777';
-        ctx.font = '600 18px sans-serif';
-        ctx.fillText(`${date}  |  ${loc.toUpperCase()}`, canvas.width / 2, 175);
-
-        // 4. Header Tiket
-        ctx.fillStyle = '#999';
-        ctx.font = '500 20px sans-serif';
-        ctx.letterSpacing = "4px";
-        ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
-        ctx.letterSpacing = "0px";
-
-        // 5. Nama Tamu
-        ctx.fillStyle = '#222';
-        ctx.font = 'bold 42px sans-serif';
-        ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
-
-        // 6. Gambar QR Code
-        const qrImg = new Image();
-        qrImg.crossOrigin = "anonymous";
-        // Gunakan ukuran lebih besar untuk hasil download yang tajam
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(id)}`;
-        
-        await new Promise((resolve) => { qrImg.onload = resolve; });
-        
-        // Frame putih untuk QR
-        ctx.fillStyle = '#fdfaf3';
-        ctx.fillRect(150, 360, 300, 300);
-        ctx.drawImage(qrImg, 175, 385, 250, 250);
-
-        // 7. Footer & Instruksi
-        ctx.fillStyle = '#888';
-        ctx.font = 'italic 16px sans-serif';
-        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
-
-        ctx.fillStyle = '#846924';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.letterSpacing = "5px";
-        ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
-
-        // 8. Proses Download
+        // Proses Download
         const link = document.createElement('a');
         link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
         link.href = canvas.toDataURL('image/png', 1.0);
@@ -3085,7 +2999,7 @@ if (document.readyState === "complete" || document.readyState === "interactive")
     initPublicFormUrl();
 }
 // =========================================================================
-// LOGIKA PENANGANAN MODE LINK PUBLIK (PERBAIKAN ANTI-BLANK / HALAMAN PUTIH)
+// LOGIKA PENANGANAN MODE LINK PUBLIK (FORM PUBLIK ONLY)
 // =========================================================================
 
 function checkAndApplyPublicMode() {
@@ -3095,19 +3009,23 @@ function checkAndApplyPublicMode() {
     if (urlParams.get('mode') === 'public') {
         console.log("TAMOO: Mengaktifkan mode formulir publik...");
 
-        // 1. Sembunyikan Navigasi Bawah / Bottom Bar / Header Nav jika ada
-        const selectorsToHide = ['.bottom-nav', 'nav', '#bottomNav', '.nav-bar', '.admin-header'];
+        // 1. SEMBUNYIKAN: Navigasi Bawah, Admin Header, DAN TICKER / RUNNING TEXT
+        const selectorsToHide = [
+            '.bottom-nav', 'nav', '#bottomNav', '.nav-bar', 
+            '.admin-header', '.ticker-wrap', '#tickerWrapContainer', 
+            '.ticker-container', '#runningTextNav', '.ticker-move'
+        ];
+        
         selectorsToHide.forEach(selector => {
-            const el = document.querySelector(selector);
-            if (el) el.style.display = 'none';
+            document.querySelectorAll(selector).forEach(el => {
+                el.style.display = 'none';
+            });
         });
 
-        // 2. Tampilkan HANYA section Form Pendaftaran secara akurat
-        // Kita coba cari ID yang paling umum digunakan untuk form pendaftaran Anda
-        const formSectionIds = ['secForm', 'secRegister', 'formPendaftaran', 'sectionForm'];
+        // 2. Cari & Tampilkan HANYA section Form Pendaftaran secara akurat
+        const formSectionIds = ['secForm', 'secRegister', 'formPendaftaran', 'sectionForm', 'secTamu'];
         let targetFormElement = null;
 
-        // Cari berdasarkan daftar ID potensial di atas
         for (let id of formSectionIds) {
             const el = document.getElementById(id);
             if (el) {
@@ -3116,32 +3034,21 @@ function checkAndApplyPublicMode() {
             }
         }
 
-        // Jika tidak ketemu berdasarkan ID kaku, cari elemen .section yang punya class/id berkaitan dengan form
         if (!targetFormElement) {
             targetFormElement = Array.from(document.querySelectorAll('.section')).find(s => {
                 const identity = (s.id + ' ' + s.className).toLowerCase();
-                return identity.includes('form') || identity.includes('reg');
+                return identity.includes('form') || identity.includes('reg') || identity.includes('tamu');
             });
         }
 
-        // 3. Eksekusi pengalihan layar layar
+        // 3. Eksekusi Tampilan Layar Form
         if (targetFormElement) {
-            // Sembunyikan SEMUA section terlebih dahulu
             document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-            
-            // Tampilkan hanya section form target
             targetFormElement.style.display = 'block';
-            console.log("TAMOO: Berhasil menampilkan section form publik:", targetFormElement.id);
             
-            // Jika ada fungsi global bawaan app Anda untuk pindah section, panggil juga sebagai backup
             if (typeof showSection === 'function') {
                 showSection(targetFormElement.id);
             }
-        } else {
-            console.error("TAMOO Error: Section Form Pendaftaran tidak ditemukan di struktur HTML Anda.");
-            // Fallback darurat: Jika semua gagal, tampilkan section pertama yang ada di HTML agar tidak putih polos
-            const firstSec = document.querySelector('.section');
-            if (firstSec) firstSec.style.display = 'block';
         }
     }
 }
@@ -3355,5 +3262,57 @@ async function loadSouvenirStats() {
 
     } catch (err) {
         console.error("TAMOO Error: Gagal menghitung statistik souvenir:", err);
+    }
+}
+// =========================================================================
+// FUNGSI LAYAR TERIMA KASIH (AUTO-LOCK FORM PUBLIK SETELAH REGISTRASI)
+// =========================================================================
+
+function showPublicSuccessPage(guestName) {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Hanya berlaku jika aplikasi dibuka lewat Link Publik (?mode=public)
+    if (urlParams.get('mode') === 'public') {
+        
+        // Cari container form utama Anda
+        const formSec = document.getElementById('secTamu') || 
+                        document.getElementById('secForm') || 
+                        document.querySelector('.section.active');
+
+        if (formSec) {
+            // Sembunyikan isian form pendaftaran agar tidak bisa diisi ulang secara iseng
+            formSec.style.display = 'none';
+
+            // Buat elemen Layar Terima Kasih Mewah
+            let thankYouBox = document.getElementById('publicThankYouBox');
+            if (!thankYouBox) {
+                thankYouBox = document.createElement('div');
+                thankYouBox.id = 'publicThankYouBox';
+                thankYouBox.className = 'section active';
+                thankYouBox.style.cssText = 'text-align: center; padding: 40px 20px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin: 20px auto; max-width: 500px; border: 1px solid #f0e6d2;';
+                formSec.parentNode.insertBefore(thankYouBox, formSec.nextSibling);
+            }
+
+            thankYouBox.innerHTML = `
+                <div style="background: #e6f4ea; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; border: 2px solid #137333;">
+                    <i class="fas fa-check-circle" style="font-size: 45px; color: #137333;"></i>
+                </div>
+                <h2 style="font-family: 'Playfair Display', serif; color: var(--gold-dark, #846924); font-size: 1.8rem; margin-bottom: 10px; font-weight: 800;">
+                    TERIMA KASIH
+                </h2>
+                <h3 style="font-size: 1.2rem; color: #222; font-weight: 700; text-transform: uppercase; margin-bottom: 15px;">
+                    ${guestName ? guestName : 'Data Anda Berhasil Disimpan'}
+                </h3>
+                <p style="font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 25px; font-weight: 500;">
+                    Pendaftaran Anda telah sukses tercatat di sistem.<br>
+                    <b>Pastikan Anda telah menyimpan / mengunduh QR Code E-Ticket</b> untuk ditunjukkan kepada petugas saat hadir di event nanti.
+                </p>
+                <div style="background: #fdfaf3; padding: 12px 15px; border-radius: 8px; border: 1px dashed #b39343; font-size: 0.8rem; color: #846924; font-weight: 700;">
+                    <i class="fas fa-lock"></i> Sesi formulir telah dikunci. Silakan refresh halaman jika ingin mendaftar kembali.
+                </div>
+            `;
+            
+            thankYouBox.style.display = 'block';
+        }
     }
 }
