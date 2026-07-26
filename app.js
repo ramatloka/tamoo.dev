@@ -1372,7 +1372,10 @@ async function loadGuestRecapTable() {
     try {
         if (typeof db === "undefined" || !db) return;
 
-        const { data: guests, error } = await db.from('data_tamu').select('*');
+        const { data: guests, error } = await db
+    .from('data_tamu')
+    .select('*')
+    .order('nama_tamu', { ascending: true }); // Mengunci urutan abjad A-Z
 
         if (error) throw error;
 
