@@ -1410,12 +1410,16 @@ async function loadGuestRecapTable() {
                 ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
                 : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
 
+            // Ikon Aksi di Tabel Rekap
             const aksiHtml = `
                 <i class="fas fa-user-edit" 
                    onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
                    style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
                    title="Ubah Status Kehadiran"></i>
-                <i class="fas fa-qrcode" style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Lihat QR"></i>
+                <i class="fas fa-qrcode" 
+                   onclick="viewGuestQr('${guest.id}')" 
+                   style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+                   title="Lihat & Download QR Code"></i>
                 <i class="fas fa-print" style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Cetak QR"></i>
                 <i class="fas fa-crown" style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Jadikan VIP"></i>
                 <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
@@ -1915,5 +1919,49 @@ async function toggleGuestAttendance(guestId, currentStatus) {
     } catch (err) {
         console.error("Gagal update status kehadiran:", err);
         Swal.fire('Gagal!', 'Terjadi kesalahan saat mengupdate status di database.', 'error');
+    }
+}
+
+// =========================================================================
+// FUNGSI AKSI: LIHAT & DOWNLOAD QR CODE TAMU (TOMBOL QR CODE DI TABEL)
+// =========================================================================
+
+async function viewGuestQr(guestId) {
+    if (!guestId) return;
+
+    // Indikator loading saat mengambil detail tamu
+    Swal.fire({
+        title: 'Memuat QR Code...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
+
+        // Tarik data spesifik tamu dari Supabase
+        const { data: guest, error } = await db
+            .from('data_tamu')
+            .select('*')
+            .eq('id', guestId)
+            .single();
+
+        if (error || !guest) throw new Error("Data tamu tidak ditemukan.");
+
+        Swal.close();
+
+        // Siapkan objek data untuk dimasukkan ke pembuat tiket
+        const guestDataForTicket = {
+            id: guest.id,
+            nama_tamu: guest.nama_tamu,
+            kategori_tamu: guest.kategori_tamu || 'Reguler'
+        };
+
+        // Panggil kembali fungsi modal tampilan QR yang sudah kita buat sebelumnya
+        showGeneratedQrCard(guestDataForTicket);
+
+    } catch (err) {
+        console.error("Gagal memuat QR Code tamu:", err);
+        Swal.fire('Gagal!', 'Tidak dapat menampilkan QR Code tamu.', 'error');
     }
 }
