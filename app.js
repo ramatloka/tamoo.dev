@@ -2878,3 +2878,131 @@ async function downloadSelectedQRCodes() {
         Swal.fire('Gagal!', 'Terjadi kesalahan saat mengekstrak tiket.', 'error');
     }
 }
+// =========================================================================
+// FITUR MODUL: LINK FORM PUBLIK & QR CODE POLOS POSTER
+// =========================================================================
+
+// 1. Inisialisasi Link Publik Otomatis saat Halaman Dimuat
+function initPublicFormUrl() {
+    const inputEl = document.getElementById('publicLinkDisplay');
+    if (!inputEl) return;
+
+    // Deteksi URL domain saat ini lalu tambahkan parameter mode=public
+    const baseUrl = window.location.origin + window.location.pathname;
+    const publicUrl = `${baseUrl}?mode=public`;
+    
+    inputEl.value = publicUrl;
+}
+
+// 2. Fungsi Tombol COPY Link Publik (Sesuai ID & Onclick HTML)
+function copyPublicLink() {
+    const inputEl = document.getElementById('publicLinkDisplay');
+    if (!inputEl || !inputEl.value) return;
+
+    navigator.clipboard.writeText(inputEl.value).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil Disalin!',
+            text: 'Link form publik telah tersimpan di clipboard.',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }).catch(err => {
+        console.error('Gagal menyalin link:', err);
+        // Fallback untuk browser lama
+        inputEl.select();
+        document.execCommand('copy');
+        Swal.fire('Tersalin!', 'Link form publik berhasil disalin.', 'success');
+    });
+}
+
+// 3. Fungsi Pop-up Modal LIHAT / DOWNLOAD QR POLOS POSTER
+function showPolosPublicFormQR() {
+    const inputEl = document.getElementById('publicLinkDisplay');
+    const publicUrl = inputEl ? inputEl.value : `${window.location.origin}${window.location.pathname}?mode=public`;
+
+    // Buat container tersembunyi untuk merender QR Code
+    const tempDiv = document.createElement('div');
+    new QRCode(tempDiv, {
+        text: publicUrl,
+        width: 300,
+        height: 300,
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    setTimeout(() => {
+        const qrImg = tempDiv.querySelector('img');
+        const qrSrc = qrImg ? qrImg.src : '';
+
+        Swal.fire({
+            title: '<strong style="color: #137333; font-size: 1.1rem;"><i class="fas fa-qrcode"></i> QR CODE FORM PUBLIK</strong>',
+            html: `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px;">
+                    <p style="font-size: 0.8rem; color: #666; margin-bottom: 15px;">
+                        Gunakan QR Code polos ini untuk ditempel pada poster venue / standing banner acara.
+                    </p>
+                    <div style="background: #fff; padding: 15px; border-radius: 12px; border: 2px solid #137333; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <img src="${qrSrc}" style="width: 250px; height: 250px; display: block;" alt="QR Code Poster">
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonColor: '#137333',
+            cancelButtonColor: '#888',
+            confirmButtonText: '<i class="fas fa-download"></i> Download QR PNG',
+            cancelButtonText: 'Tutup'
+        }).then((result) => {
+            if (result.isConfirmed && qrSrc) {
+                // Download file PNG QR Code Polos
+                const a = document.createElement('a');
+                a.href = qrSrc;
+                a.download = `QR_Poster_Form_TAMOO.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        });
+    }, 150);
+}
+
+// Jalankan inisialisasi link publik otomatis
+document.addEventListener('DOMContentLoaded', () => {
+    initPublicFormUrl();
+});
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    initPublicFormUrl();
+}
+// =========================================================================
+// LOGIKA PENANGANAN MODE LINK PUBLIK (MODE FORM SAJA)
+// =========================================================================
+
+function checkAndApplyPublicMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Cek apakah URL memiliki parameter ?mode=public
+    if (urlParams.get('mode') === 'public') {
+        // 1. Sembunyikan Navigasi Bawah / Bottom Bar Admin
+        const bottomNav = document.querySelector('.bottom-nav') || 
+                            document.querySelector('nav') || 
+                            document.getElementById('bottomNav');
+        if (bottomNav) bottomNav.style.display = 'none';
+
+        // 2. Berpindah ke Tampilan Form Pendaftaran saja
+        if (typeof showSection === 'function') {
+            showSection('secForm');
+        } else {
+            // Fallback manual jika showSection tidak ada
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+            const secForm = document.getElementById('secForm');
+            if (secForm) secForm.style.display = 'block';
+        }
+    }
+}
+
+// Jalankan otomatis saat seluruh elemen DOM HTML selesai di-load
+document.addEventListener('DOMContentLoaded', checkAndApplyPublicMode);
+
+// Panggil juga secara langsung untuk mengantisipasi script yang dimuat belakangan
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    checkAndApplyPublicMode();
+}
