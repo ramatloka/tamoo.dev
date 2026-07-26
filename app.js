@@ -1396,48 +1396,6 @@ async function loadGuestRecapTable() {
 }
 
 // =========================================================================
-// MODUL REKAPITULASI TAMU (UI VERSI AWAL + LIVE FILTERING SECARA A-Z)
-// =========================================================================
-
-// Variable Global untuk menyimpan cache data tamu agar filter cepat tanpa request ulang ke server
-let rawGuestDataCache = [];
-
-async function loadGuestRecapTable() {
-    const ticker = document.getElementById('tickerWrapContainer');
-    if (ticker) ticker.style.display = 'none';
-
-    const tableBody = document.getElementById('guestTableBody') || 
-                      document.getElementById('rekapTableBody') || 
-                      document.querySelector('#rekapTable tbody');
-    
-    if (!tableBody) return;
-
-    try {
-        if (typeof db === "undefined" || !db) return;
-
-        // Tarik seluruh data dari tabel Supabase (diurutkan A-Z)
-        const { data: guests, error } = await db
-            .from('data_tamu')
-            .select('*')
-            .order('nama_tamu', { ascending: true });
-
-        if (error) throw error;
-
-        // Simpan ke cache global
-        rawGuestDataCache = guests || [];
-
-        // Jalankan filter pertama kali untuk merender data ke tabel
-        applyFilters();
-
-    } catch (err) {
-        console.error("Gagal memuat rekap data_tamu:", err);
-        if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #dc2626;">Gagal mengambil data dari server.</td></tr>`;
-        }
-    }
-}
-
-// =========================================================================
 // FUNGSI LOGIKA FILTER & PENCARIAN REKAPITULASI TAMU (REAL-TIME RENDERING)
 // =========================================================================
 function applyFilters() {
@@ -1525,7 +1483,7 @@ function applyFilters() {
 
         const souvBadge = isSouvenir
             ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
-            : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
+            : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
 
         const aksiHtml = `
             <i class="fas fa-user-edit" 
