@@ -2454,10 +2454,10 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (LANDSCAPE + DINAMIS EVENT + WATERMARK)
+// 2. FUNGSI EXPORT TO PDF (LAYOUT PREMIUM VERSI AWAL + CARD EMAS + TIMESTAMP)
 function exportToPdf() {
     const { jsPDF } = window.jspdf;
-    // Ubah orientasi menjadi 'l' (Landscape), ukuran tetap 'pt', kertas 'a4'
+    // Menggunakan Landscape 'l', ukuran 'pt', kertas 'a4' (Lebar: 842pt, Tinggi: 595pt)
     const doc = new jsPDF('l', 'pt', 'a4');
     
     const targetData = getCurrentlyFilteredData();
@@ -2470,74 +2470,93 @@ function exportToPdf() {
     const currentEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
     const currentEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
 
-    let totalTerdaftar = 0;
+    // 1. KONTROL HITUNG STATISTIK (Nama Terdaftar vs Jumlah Orang/Pax)
+    let totalNamaTerdaftar = targetData.length; // Jumlah baris/nama unik terdaftar
     let totalHadirPax = 0;
     let totalSouvenir = 0;
-    let totalBelumHadir = 0;
-    let vipHadir = 0;
-    let regulerHadir = 0;
+    let totalBelumHadirNama = 0;
+    let vipHadirPax = 0;
+    let regulerHadirPax = 0;
 
     targetData.forEach(g => {
         const pax = parseInt(g.jumlah_aktual || g.jumlah_tamu || 1, 10);
-        totalTerdaftar += pax;
-        
         const isHadir = g.status_kehadiran === 'HADIR';
         const isSouv = g.status_souvenir === 'SUDAH_AMBIL' || g.status_souvenir === 'SUDAH AMBIL';
         let kat = (g.kategori_tamu || 'REGULER').toUpperCase();
 
         if (isHadir) {
             totalHadirPax += pax;
-            if (kat === 'VIP' || kat === 'TAMU VIP') vipHadir += pax;
-            else regulerHadir += pax;
+            if (kat === 'VIP' || kat === 'TAMU VIP') vipHadirPax += pax;
+            else regulerHadirPax += pax;
         } else {
-            totalBelumHadir += pax;
+            totalBelumHadirNama += 1; // Dihitung per nama terdaftar yang belum check-in
         }
 
         if (isSouv) totalSouvenir += 1;
     });
 
-    // Desain Header Laporan (Kertas A4 Landscape lebar = 842pt)
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text("LAPORAN REKAPITULASI DATA TAMU", 40, 50);
+    const pageWidth = doc.internal.pageSize.getWidth(); // 842
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(90, 90, 90);
-    doc.text(`Nama Event : ${currentEventName.toUpperCase()}`, 40, 72);
-    doc.text(`Tanggal    : ${currentEventDate}`, 40, 88);
+    // =========================================================================
+    // HEADER SECTION (CENTER ALIGNED)
+    // =========================================================================
     
-    // Garis pembatas horizontal atas lebar penuh landscape
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(1.5);
-    doc.line(40, 100, 802, 100);
-
-    // Keterangan Total Statistik Ringkasan
+    // Brand TAMOO Emas Mewah
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(28);
+    doc.setTextColor(179, 147, 67); // Warna Emas #b39343
+    doc.text("TAMOO", pageWidth / 2, 45, { align: "center" });
+
+    // Sub-Judul Laporan
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
     doc.setTextColor(50, 50, 50);
-    doc.text("KETERANGAN TOTAL KEHADIRAN & STATISTIK :", 40, 125);
+    doc.text("LAPORAN REKAPITULASI DATA TAMU", pageWidth / 2, 68, { align: "center" });
 
+    // Detail Event & Tanggal
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Nama Event: ${currentEventName.toUpperCase()}   |   Tanggal Pelaksanaan: ${currentEventDate}`, pageWidth / 2, 88, { align: "center" });
+
+    // =========================================================================
+    // STATISTIK SUMMARY CARD BOX (BOX EMAS TIPIS - 3 KIRI, 3 KANAN)
+    // =========================================================================
+    const cardX = 40;
+    const cardY = 105;
+    const cardWidth = pageWidth - 80; // 762pt
+    const cardHeight = 75;
+
+    // Menggambar background & border Emas Tipis untuk Card
+    doc.setDrawColor(218, 192, 123); // Border emas soft
+    doc.setFillColor(254, 253, 247); // Isi card cream sangat soft
+    doc.setLineWidth(1);
+    doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 6, 6, 'FD');
+
+    // Pengaturan teks di dalam card box
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
-    
-    // Tampilkan statistik menyamping (2 Kolom) agar hemat ruang di mode landscape
-    doc.text(`• Total Nama Tamu Terdaftar (Pax)      :  ${totalTerdaftar} Orang`, 50, 145);
-    doc.text(`• Total Kehadiran Tamu Check-in (Pax)  :  ${totalHadirPax} Orang`, 50, 162);
-    doc.text(`• Total Pengambilan Souvenir           :  ${totalSouvenir} Item`, 50, 179);
+    doc.setTextColor(60, 60, 60);
 
-    doc.text(`• Total Belum Hadir (Pax)              :  ${totalBelumHadir} Orang`, 440, 145);
-    doc.text(`• Total Tamu VIP Hadir (Pax)           :  ${vipHadir} Orang`, 440, 162);
-    doc.text(`• Total Tamu Reguler Hadir (Pax)       :  ${regulerHadir} Orang`, 440, 179);
+    // Kolom Kiri
+    doc.text(`• Total Kehadiran Nama Terdaftar :  ${totalNamaTerdaftar} Nama`, cardX + 25, cardY + 22);
+    doc.text(`• Total Kehadiran Tamu (Pax)     :  ${totalHadirPax} Orang`, cardX + 25, cardY + 42);
+    doc.text(`• Total Pengambilan Souvenir     :  ${totalSouvenir} Pcs`, cardX + 25, cardY + 62);
 
-    // Render Tabel Rincian Data (Lebih Lapang di Mode Landscape)
-    const tableHeaders = [["NO", "NAMA TAMU", "KATEGORI TAMU", "JUMLAH (PAX)", "STATUS CHECK-IN", "STATUS SOUVENIR", "WAKTU HADIR"]];
+    // Kolom Kanan
+    doc.text(`• Total Belum Hadir              :  ${totalBelumHadirNama} Nama`, cardX + 410, cardY + 22);
+    doc.text(`• Total Tamu VIP Hadir (Pax)     :  ${vipHadirPax} Orang`, cardX + 410, cardY + 42);
+    doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 62);
+
+    // =========================================================================
+    // DATA TABLE UNDANGAN + COLOMN TIMESTAMP
+    // =========================================================================
+    const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "JUMLAH (PAX)", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR / TIMESTAMP"]];
     const tableRows = targetData.map((guest, idx) => [
         idx + 1,
         guest.nama_tamu || '-',
-        (guest.kategori_tamu || 'Reguler').toUpperCase(),
         guest.jumlah_aktual || 1,
+        (guest.kategori_tamu || 'Reguler').toUpperCase(),
         guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
         (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
         guest.waktu_hadir || '-'
@@ -2546,29 +2565,37 @@ function exportToPdf() {
     doc.autoTable({
         head: tableHeaders,
         body: tableRows,
-        startY: 200,
+        startY: cardY + cardHeight + 20,
         margin: { left: 40, right: 40 },
         theme: 'striped',
-        headStyles: { fillDouble: true, fillColor: [179, 147, 67], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' }, 
-        styles: { fontSize: 9.5, cellPadding: 6 },
+        headStyles: { 
+            fillDouble: true, 
+            fillColor: [179, 147, 67], // Header tabel Emas #b39343 sesuai tema
+            textColor: [255, 255, 255], 
+            fontStyle: 'bold', 
+            halign: 'center',
+            fontSize: 9.5
+        }, 
+        styles: { fontSize: 9, cellPadding: 6, verticalAlign: 'middle' },
         columnStyles: {
             0: { halign: 'center', width: 35 },
-            2: { halign: 'center', width: 100 },
+            1: { halign: 'left' },
+            2: { halign: 'center', width: 75 },
             3: { halign: 'center', width: 90 },
-            4: { halign: 'center', width: 120 },
-            5: { halign: 'center', width: 120 },
-            6: { halign: 'center' }
+            4: { halign: 'center', width: 110 },
+            5: { halign: 'center', width: 110 },
+            6: { halign: 'center', width: 130 } // Kolom timestamp dipertahankan dengan porsi pas
         },
-        // Logika menambahkan Watermark kecil di setiap halaman di posisi kanan bawah
+        // Watermark Organisasi di setiap Halaman Kanan Bawah
         didDrawPage: function (data) {
             doc.setFont("helvetica", "italic");
-            doc.setFontSize(8);
-            doc.setTextColor(160, 160, 160);
-            // Kertas landscape A4 tinggi = 595pt, lebar = 842pt. Letakkan di pojok kanan bawah
-            doc.text("Powered by RAMATLOKA", 700, 575);
+            doc.setFontSize(8.5);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Powered by RAMATLOKA", pageWidth - 145, 575);
         }
     });
 
+    // Jalankan Trigger Unduh File PDF
     doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
 }
 
