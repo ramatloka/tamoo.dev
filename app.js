@@ -1396,14 +1396,60 @@ function submitManualCheckIn() {
     }
 }
 
-// PENDENGAR GLOBAL: Tidak peduli ID-nya apa, selama dia elemen input di halaman scanner dan ditekan Enter
+// =========================================================================
+// ROUTER PINTAR SCANNER (MEMISAHKAN ALUR CHECK-IN & SOUVENIR)
+// =========================================================================
+
+function routeScannerResult(qrData, sourceMode = 'auto') {
+    if (!qrData || qrData.trim() === "") return;
+    const cleanData = qrData.trim();
+
+    // Tentukan mode berdasarkan parameter atau deteksi elemen aktif
+    let currentMode = sourceMode;
+    
+    if (currentMode === 'auto') {
+        const activeEl = document.activeElement;
+        // Jika kursor sedang aktif di input souvenir, atau jika input checkin tidak ada/tidak aktif saat di halaman souvenir
+        if (activeEl && activeEl.id === 'usbScannerSouvenirInput') {
+            currentMode = 'souvenir';
+        } else {
+            // Cek apakah section Souvenir sedang tampil di layar
+            const secSouvenir = document.getElementById('secSouvenir');
+            if (secSouvenir && secSouvenir.style.display !== 'none') {
+                currentMode = 'souvenir';
+            } else {
+                currentMode = 'checkin';
+            }
+        }
+    }
+
+    // Alirkan data ke fungsi eksekusi yang tepat
+    if (currentMode === 'souvenir') {
+        console.log("TAMOO ROUTER: Mengalirkan data ke SCAN SOUVENIR ->", cleanData);
+        if (typeof processIndependentSouvenir === "function") {
+            processIndependentSouvenir(cleanData);
+        } else {
+            console.error("Fungsi processIndependentSouvenir belum terpasang!");
+        }
+    } else {
+        console.log("TAMOO ROUTER: Mengalirkan data ke SCAN CHECK-IN ->", cleanData);
+        if (typeof processGuestCheckIn === "function") {
+            processGuestCheckIn(cleanData);
+        }
+    }
+}
+
+// PENDENGAR GLOBAL BARU (MENDUKUNG MULTI-INPUT USB SCANNER)
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        let activeEl = document.activeElement;
-        // Pastikan kursor memang lagi ada di dalam kotak input teks
+        const activeEl = document.activeElement;
         if (activeEl && activeEl.tagName === 'INPUT' && activeEl.type === 'text') {
-            e.preventDefault(); // Hentikan reload halaman bawaan form browser
-            submitManualCheckIn();
+            e.preventDefault(); // Stop reload form bawaan browser
+            
+            const qrValue = activeEl.value.trim();
+            if (qrValue !== "") {
+                routeScannerResult(qrValue, 'auto');
+            }
         }
     }
 });
