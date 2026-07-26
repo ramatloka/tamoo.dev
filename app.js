@@ -2601,36 +2601,73 @@ function safeFileName(str) {
     return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
 }
 // =========================================================================
-// FITUR IMPORT EXCEL & BULK DOWNLOAD E-TICKET (ZIP)
+// FITUR IMPORT EXCEL & BULK DOWNLOAD E-TICKET (DINAMIS FORM SETTINGS)
 // =========================================================================
 
-// 1. Fungsi Download Template Excel
-function downloadExcelTemplate() {
-    // Kita buatkan header standar + Kategori sesuai request
-    // Jika Anda punya kolom custom lain di database, Anda cukup menambahkannya di array ini
-    const wsData = [
-        ["Nama Lengkap", "Institusi", "Asal / Kota", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
-        // Baris ke-2 ini adalah contoh pengisian agar user tidak bingung
-        ["Fafa", "SMKN 10 Bandung", "Bandung", 1, "VIP"],
-        ["Budi Santoso", "Umum", "Jakarta", 2, "Reguler"]
-    ];
+// 1. FUNGSI DOWNLOAD TEMPLATE EXCEL (DINAMIS SESUAI FORM SETTINGS)
+async function downloadExcelTemplate() {
+    Swal.fire({
+        title: 'Menyiapkan Template...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    // Sesuaikan lebar kolom agar rapi
-    ws['!cols'] = [{wch: 25}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 20}];
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
-    XLSX.writeFile(wb, "Template_Import_Tamu_TAMOO.xlsx");
+    try {
+        // Header wajib paling depan
+        let headers = ["Nama Lengkap"];
+        let sampleRow = ["Budi Santoso"];
+
+        if (typeof db !== "undefined" && db) {
+            const { data: formSettings } = await db.from('form_settings').select('*').limit(1);
+
+            if (formSettings && formSettings.length > 0) {
+                const setting = formSettings[0];
+
+                // Cek kolom-kolom pertanyaan dinamis yang aktif di form_settings
+                if (setting.label_institusi || setting.c_institusi) {
+                    headers.push(setting.label_institusi || "Institusi / Asal");
+                    sampleRow.push("SMKN 10 Bandung");
+                }
+                
+                if (setting.label_jumlah_tamu || setting.c_jumlah_tamu_termasuk_anda) {
+                    headers.push("Jumlah Tamu");
+                    sampleRow.push(1);
+                }
+            }
+        }
+
+        // Header wajib paling akhir
+        headers.push("Kategori (Reguler / VIP)");
+        sampleRow.push("Reguler");
+
+        // Buat file Excel
+        const wsData = [headers, sampleRow];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Atur lebar kolom otomatis
+        ws['!cols'] = headers.map(() => ({ wch: 22 }));
+
+        XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
+        
+        Swal.close();
+        XLSX.writeFile(wb, "Template_Import_Tamu_TAMOO.xlsx");
+
+    } catch (err) {
+        console.error("Gagal generate template:", err);
+        Swal.close();
+        // Fallback jika error, buatkan template standar
+        const fallbackWs = XLSX.utils.aoa_to_sheet([
+            ["Nama Lengkap", "Institusi", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
+            ["Budi Santoso", "Umum", 1, "Reguler"]
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, fallbackWs, "Template_Import");
+        XLSX.writeFile(wb, "Template_Import_Tamu_TAMOO.xlsx");
+    }
 }
 
-// 2. Fungsi Pemicu Jendela Pilih File
-function triggerExcelImport() {
-    document.getElementById('importExcelInput').click();
-}
-
-// 3. Fungsi Pemroses File Import Excel -> Supabase
+// 2. FUNGSI PEMROSES FILE IMPORT EXCEL -> SUPABASE (AMAN SCHEMA)
 async function processExcelImport(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2649,27 +2686,50 @@ async function processExcelImport(event) {
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
             
-            // Convert isi excel ke format JSON (melewati baris header pertama)
             const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-            
-            if (rawJson.length === 0) throw new Error("File Excel kosong atau format tidak sesuai.");
+            if (rawJson.length === 0) throw new Error("File Excel kosong.");
 
-            // Hapus contoh data pertama jika itu adalah "Fafa" (baris contoh dari template)
-            if (rawJson[0]["Nama Lengkap"] === "Fafa" && rawJson[0]["Institusi"] === "SMKN 10 Bandung") {
+            // Hapus baris contoh jika ada
+            if (rawJson[0]["Nama Lengkap"] === "Budi Santoso") {
                 rawJson.shift(); 
             }
 
-            // Mapping data Excel ke nama kolom Supabase (data_tamu)
+            // Mapping fleksibel mencari kunci header yang mendekati nama kolom
             const payload = rawJson.map(row => {
-                let kat = (row["Kategori (Reguler / VIP)"] || 'Reguler').toString().trim();
-                if (kat.toLowerCase() === 'umum') kat = 'Reguler';
+                // Cari value untuk nama
+                const namaVal = row["Nama Lengkap"] || row["Nama"] || row["NAMA"] || 'Tamu Tanpa Nama';
                 
+                // Cari value untuk institusi/asal
+                let instVal = 'Umum';
+                Object.keys(row).forEach(key => {
+                    if (key.toLowerCase().includes('institusi') || key.toLowerCase().includes('asal')) {
+                        if (row[key]) instVal = row[key];
+                    }
+                });
+
+                // Cari value untuk jumlah
+                let jumlahVal = 1;
+                Object.keys(row).forEach(key => {
+                    if (key.toLowerCase().includes('jumlah')) {
+                        if (row[key]) jumlahVal = parseInt(row[key]) || 1;
+                    }
+                });
+
+                // Cari value untuk kategori
+                let katVal = 'Reguler';
+                Object.keys(row).forEach(key => {
+                    if (key.toLowerCase().includes('kategori')) {
+                        if (row[key]) katVal = row[key].toString().trim();
+                    }
+                });
+                if (katVal.toLowerCase() === 'umum') katVal = 'Reguler';
+
+                // Payload HANYA mengirimkan kolom yang terdaftar resmi di Supabase
                 return {
-                    nama_tamu: row["Nama Lengkap"] || 'Tamu Tanpa Nama',
-                    institusi: row["Institusi"] || 'Umum',
-                    asal: row["Asal / Kota"] || '-',
-                    jumlah_aktual: parseInt(row["Jumlah Tamu"]) || 1,
-                    kategori_tamu: kat,
+                    nama_tamu: namaVal,
+                    institusi: instVal,
+                    jumlah_aktual: jumlahVal,
+                    kategori_tamu: katVal,
                     status_kehadiran: 'BELUM_HADIR',
                     status_souvenir: 'BELUM_AMBIL'
                 };
@@ -2686,8 +2746,9 @@ async function processExcelImport(event) {
             const { error } = await db.from('data_tamu').insert(payload);
             if (error) throw error;
 
-            // Reset input file agar bisa import file yang sama lagi jika perlu
-            document.getElementById('importExcelInput').value = "";
+            // Reset input file
+            const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
+            if (inputEl) inputEl.value = "";
 
             Swal.fire('Berhasil!', `${payload.length} tamu berhasil diimport.`, 'success');
             
@@ -2696,16 +2757,17 @@ async function processExcelImport(event) {
 
         } catch (err) {
             console.error("Gagal import Excel:", err);
-            Swal.fire('Gagal!', 'Terjadi kesalahan saat memproses file Excel. Pastikan format kolom sesuai template.', 'error');
-            document.getElementById('importExcelInput').value = "";
+            Swal.fire('Gagal!', 'Terjadi kesalahan saat mengimport Excel. Pastikan file menggunakan template resmi.', 'error');
+            
+            const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
+            if (inputEl) inputEl.value = "";
         }
     };
     reader.readAsArrayBuffer(file);
 }
 
-// 4. Fungsi Cetak QR Terpilih (Batch Download ke dalam ZIP)
+// 3. FUNGSI CETAK QR TERPILIH (BATCH DOWNLOAD KE DALAM ZIP)
 async function downloadSelectedQRCodes() {
-    // Cari semua checkbox yang dicentang
     const checkedBoxes = document.querySelectorAll('.chk-select-guest:checked');
     if (checkedBoxes.length === 0) {
         Swal.fire('Pilih Tamu!', 'Silakan centang minimal satu nama tamu pada tabel terlebih dahulu.', 'warning');
@@ -2726,17 +2788,14 @@ async function downloadSelectedQRCodes() {
         const zip = new JSZip();
         let processedCount = 0;
 
-        // Looping untuk merender masing-masing tiket yang dicentang
         for (const checkbox of checkedBoxes) {
             const guestId = checkbox.value;
-            // Cari data tamu dari cache
             const guest = rawGuestDataCache.find(g => g.id === guestId);
             if (!guest) continue;
 
             const isVip = (guest.kategori_tamu || '').toUpperCase() === 'VIP';
             const nameOnTicket = guest.nama_tamu + (isVip ? ' (VIP)' : '');
 
-            // --- PROSES RENDER KANVAS (Sama seperti cetak satuan) ---
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = 600; canvas.height = 800;
@@ -2769,10 +2828,9 @@ async function downloadSelectedQRCodes() {
             }
             ctx.fillText(nameOnTicket, canvas.width/2, 300);
 
-            // Generate QR secara dinamis
             const tempDiv = document.createElement('div');
             new QRCode(tempDiv, { text: guest.id, width: 200, height: 200 });
-            await new Promise(resolve => setTimeout(resolve, 150)); // Jeda agar QR selesai di-render
+            await new Promise(resolve => setTimeout(resolve, 150));
             const tempImg = tempDiv.querySelector('img');
             if (tempImg && tempImg.src) {
                 ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
@@ -2783,10 +2841,9 @@ async function downloadSelectedQRCodes() {
             ctx.fillStyle = "#846924"; ctx.font = "800 22px 'Montserrat'";
             ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
 
-            // Ubah Kanvas ke Blob, lalu masukkan ke ZIP
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             
-            // Penamaan File: nama_eticket_VIP.png
+            // Format Nama File ZIP: nama_eticket_VIP.png
             const safeName = guest.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const vipSuffix = isVip ? '_VIP' : '';
             const fileName = `${safeName}_eticket${vipSuffix}.png`;
@@ -2799,13 +2856,11 @@ async function downloadSelectedQRCodes() {
 
         Swal.fire({ title: 'Membungkus ZIP...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        // Generate file ZIP dan trigger download
         const zipContent = await zip.generateAsync({ type: "blob" });
         saveAs(zipContent, `E-Tickets_TAMOO_${new Date().toISOString().slice(0,10)}.zip`);
         
         Swal.fire('Berhasil!', `${processedCount} e-ticket berhasil didownload dalam format ZIP.`, 'success');
 
-        // Opsional: Uncheck semua checkbox setelah download
         checkedBoxes.forEach(cb => cb.checked = false);
 
     } catch (err) {
