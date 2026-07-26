@@ -26,7 +26,7 @@
             color: #333;
         }
 
-        /* Top Border Emas Tipis Mewah */
+        /* Top Border Emas Tipis */
         .top-bar { height: 10px; background: var(--gold-main); width: 100%; }
         
         /* Area Konten Utama */
@@ -34,21 +34,21 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* Geser konten agak ke atas */
+            justify-content: flex-start;
             align-items: center;
             text-align: center;
-            padding: 30px 40px 10px 40px;
+            padding: 20px 40px 10px 40px;
         }
         
-        /* 3. NAMA EVENT: Font diperkecil & posisi digeser agak ke atas */
+        /* Nama Event */
         #displayEventName {
             font-family: 'Playfair Display', serif;
-            font-size: 3rem; /* Diperkecil dari 4.5rem agar proporsional */
+            font-size: 3rem;
             font-weight: 900;
             color: var(--gold-dark);
             letter-spacing: 2px;
-            margin-top: 15px;
-            margin-bottom: 25px;
+            margin-top: 10px;
+            margin-bottom: 20px;
             text-transform: uppercase;
         }
 
@@ -71,7 +71,7 @@
             animation: pulse 2.2s infinite;
         }
 
-        /* 2. GREETING TAMU: Blend In (Tanpa Box Card, Tanpa Shadow, Tanpa Love) */
+        /* Greeting Tamu Blend In */
         .welcome-blend {
             display: flex;
             flex-direction: column;
@@ -88,12 +88,11 @@
             text-transform: uppercase;
         }
         
-        /* 3. NAMA TAMU: Ukuran font diperbesar gagah & dominan */
         .guest-name {
-            font-size: 5rem; /* diperbesar sengit agar menonjol */
+            font-size: 5rem;
             font-weight: 900;
             color: #111;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             text-transform: uppercase;
             letter-spacing: 1px;
             line-height: 1.1;
@@ -116,7 +115,19 @@
             border: 1px solid #dcdcd0;
         }
 
-        /* 1. TICKER SINGLE BARIS EMAS (Dua Ticker Hitam Dihapus) */
+        /* BARIS BRANDING RAMATLOKA (Di atas Ticker & Berwarna Emas) */
+        .brand-header {
+            width: 100%;
+            text-align: right;
+            padding: 10px 40px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: var(--gold-dark);
+            text-transform: uppercase;
+        }
+
+        /* SATU-SATUNYA TICKER BERJALAN BERWARNA EMAS */
         .ticker-wrap {
             width: 100%;
             background: var(--gold-bg);
@@ -136,19 +147,6 @@
             text-transform: uppercase;
         }
 
-        /* Footer Bottom Bar */
-        .footer-bar {
-            background: var(--gold-dark);
-            color: #ffffff;
-            padding: 16px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }
-        .welcome-text { font-size: 1.6rem; font-weight: 800; letter-spacing: 2px; }
-        .brand-text { font-size: 1.1rem; font-weight: 800; letter-spacing: 3px; opacity: 0.9; }
-
         /* Keyframe Animations */
         @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
@@ -167,27 +165,23 @@
         </div>
     </div>
 
+    <div class="brand-header">
+        RAMATLOKA
+    </div>
+
     <div class="ticker-wrap">
         <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk</div>
     </div>
 
-    <div class="footer-bar">
-        <div class="welcome-text">SELAMAT DATANG.</div>
-        <div class="brand-text">RAMATLOKA</div>
-    </div>
-
     <script>
-        // Mendengarkan Broadcast Channel Komunikasi Radio dari App Utama
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
 
-        // Tarik Inisialisasi awal jika ada simpanan cache
         const savedEventName = localStorage.getItem('currentEventName') || 'DRAMA TARI - RAMA SHINTA';
         const savedTicker = localStorage.getItem('currentEventTicker') || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
         
         document.getElementById('displayEventName').innerText = savedEventName;
         document.getElementById('displayTickerText').innerText = savedTicker;
 
-        // Listener Penerima Broadcast Data Tamu
         monitorChannel.onmessage = (event) => {
             const { type, data, config } = event.data;
             
@@ -205,7 +199,6 @@
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
             
-            // Evaluasi Badge Keterangan Tambahan
             let badgesHtml = '';
             
             if (guest.jumlah_aktual && guest.jumlah_aktual > 1) {
@@ -218,7 +211,6 @@
                 badgesHtml += `<div class="field-badge"><i class="fas fa-building"></i> ${guest.institusi}</div>`;
             }
 
-            // 2. Render Polos Blend-In (Tanpa Love, Tanpa White Card Box)
             container.innerHTML = `
                 <div class="welcome-blend">
                     <div class="greeting-title">SELAMAT DATANG</div>
@@ -227,7 +219,6 @@
                 </div>
             `;
 
-            // Kembali ke "- MENUNGGU SCANNER -" dalam 7 detik
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
             }, 7000);
