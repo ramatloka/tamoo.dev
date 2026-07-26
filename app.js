@@ -575,6 +575,13 @@ function activateTab(tab) {
       else { mainCard.classList.remove('main-card-wide'); } 
   }
   updateNavHighlight('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
+
+  // =========================================================================
+  // TAMBAHAN: OTOMATIS HITUNG REKAP SOUVENIR SAAT TAB SOUVENIR DIBUKA
+  // =========================================================================
+  if (tab === 'souvenir' && typeof loadSouvenirStats === "function") {
+      loadSouvenirStats();
+  }
 }
 
 function updateNavHighlight(activeId) { 
@@ -1130,6 +1137,13 @@ async function processGuestCheckIn(guestId) {
         }
         // =========================================================================
 
+        // PEMBARUAN COUNTER BOX HALAMAN SOUVENIR SAAT TAMU BERHASIL CHECK-IN
+        if (typeof loadSouvenirStats === "function") loadSouvenirStats();
+
+        // 3. Tampilkan Pop-Up Selamat Datang Mewah
+        Swal.fire({
+            title: 'BERHASIL CHECK-IN',
+        
         // 3. Tampilkan Pop-Up Selamat Datang Mewah di Laptop Scanner
         Swal.fire({
             title: 'BERHASIL CHECK-IN',
@@ -3286,5 +3300,64 @@ async function handleNativeCameraSouvenir(event) {
     } finally {
         // Reset input file agar gambar yang sama bisa di-upload ulang jika diperlukan
         if (event && event.target) event.target.value = "";
+    }
+}
+// =========================================================================
+// REAL-TIME VISUAL KONTROL: REKAP BOX INDIKATOR SOUVENIR
+// =========================================================================
+
+async function loadSouvenirStats() {
+    try {
+        if (typeof db === "undefined" || !db) return;
+
+        // 1. Tarik seluruh data tamu dari Supabase
+        const { data: allGuests, error } = await db
+            .from('data_tamu')
+            .select('jumlah_aktual, status_kehadiran, status_souvenir');
+
+        if (error) throw error;
+
+        let totalSouvenirKeluar = 0;
+        let totalTamuHadir = 0;
+        let totalSeluruhKuotaPendaftar = 0;
+
+        // 2. Akumulasi data secara cepat
+        if (allGuests && allGuests.length > 0) {
+            allGuests.forEach(guest => {
+                const pax = parseInt(guest.jumlah_aktual, 10) || 1;
+                
+                // Hitung total seluruh pendaftar (untuk kalkulasi sisa)
+                totalSeluruhKuotaPendaftar += pax;
+
+                // Hitung total tamu yang sudah Check-In
+                if (guest.status_kehadiran === 'HADIR') {
+                    totalTamuHadir++;
+                }
+
+                // Hitung total Souvenir yang sudah diserahkan (berdasarkan pax/jumlah_aktual)
+                if (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') {
+                    totalSouvenirKeluar += pax; 
+                }
+            });
+        }
+
+        // 3. Hitung Selisih Sisa Belum Ambil
+        let totalBelumAmbil = totalSeluruhKuotaPendaftar - totalSouvenirKeluar;
+        if (totalBelumAmbil < 0) totalBelumAmbil = 0; // Proteksi agar tidak negatif
+
+        // Format angka menjadi 2 digit (misal: 05, 12)
+        const padZero = (num) => num < 10 && num >= 0 ? `0${num}` : num;
+
+        // 4. Inject angka ke elemen HTML
+        const elKeluar = document.getElementById('totalSouvenirCounter');
+        const elHadir = document.getElementById('totalHadirSouvCounter');
+        const elSisa = document.getElementById('sisaSouvCounter');
+
+        if (elKeluar) elKeluar.innerText = padZero(totalSouvenirKeluar);
+        if (elHadir) elHadir.innerText = padZero(totalTamuHadir);
+        if (elSisa) elSisa.innerText = padZero(totalBelumAmbil);
+
+    } catch (err) {
+        console.error("TAMOO Error: Gagal menghitung statistik souvenir:", err);
     }
 }
