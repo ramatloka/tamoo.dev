@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Display - TAMOO</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        :root { --gold-main: #b39343; --gold-dark: #846924; }
+        :root { 
+            --gold-main: #b39343; 
+            --gold-dark: #846924; 
+            --gold-bg: #967728;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             font-family: 'Montserrat', sans-serif;
             background-color: #fbfbfa;
@@ -20,125 +25,133 @@
             overflow: hidden;
             color: #333;
         }
-        /* Top Decor Border Emas Mewah */
-        .top-bar { height: 15px; background: var(--gold-main); width: 100%; }
+
+        /* Top Border Emas Tipis Mewah */
+        .top-bar { height: 10px; background: var(--gold-main); width: 100%; }
         
-        /* Main Container */
+        /* Area Konten Utama */
         .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Geser konten agak ke atas */
+            align-items: center;
+            text-align: center;
+            padding: 30px 40px 10px 40px;
+        }
+        
+        /* 3. NAMA EVENT: Font diperkecil & posisi digeser agak ke atas */
+        #displayEventName {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem; /* Diperkecil dari 4.5rem agar proporsional */
+            font-weight: 900;
+            color: var(--gold-dark);
+            letter-spacing: 2px;
+            margin-top: 15px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+        }
+
+        /* Wadah Status & Greeting */
+        .status-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            text-align: center;
-            padding: 40px;
-        }
-        
-        /* Nama Event Dinamis */
-        #displayEventName {
-            font-family: 'Playfair Display', serif;
-            font-size: 4.5rem;
-            font-weight: 900;
-            color: var(--gold-dark);
-            letter-spacing: 2px;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-        }
-
-        /* Tampilan Utama Status */
-        .status-wrapper {
-            min-height: 250px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            width: 100%;
         }
         
         #displayStatusMessage {
-            font-size: 2rem;
-            color: #777;
+            font-size: 1.8rem;
+            color: #888;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: 4px;
             text-transform: uppercase;
-            animation: pulse 2s infinite;
+            animation: pulse 2.2s infinite;
         }
 
-        /* Animasi Card Tamu Muncul (Greeting) */
-        .welcome-card {
-            background: #ffffff;
-            border: 2px solid rgba(218, 192, 123, 0.4);
-            box-shadow: 0 15px 45px rgba(179, 147, 67, 0.15);
-            padding: 40px 60px;
-            border-radius: 20px;
-            max-width: 850px;
-            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        /* 2. GREETING TAMU: Blend In (Tanpa Box Card, Tanpa Shadow, Tanpa Love) */
+        .welcome-blend {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInScale 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .greeting-title {
             font-size: 2.2rem;
             color: var(--gold-main);
             font-weight: 800;
-            margin-bottom: 15px;
-        }
-        .guest-name {
-            font-size: 3.5rem;
-            font-weight: 800;
-            color: #222;
-            margin-bottom: 20px;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
             text-transform: uppercase;
         }
+        
+        /* 3. NAMA TAMU: Ukuran font diperbesar gagah & dominan */
+        .guest-name {
+            font-size: 5rem; /* diperbesar sengit agar menonjol */
+            font-weight: 900;
+            color: #111;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.1;
+        }
+
         .custom-fields-box {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 12px;
             justify-content: center;
-            margin-top: 15px;
-            border-top: 1px dashed #ddd;
-            padding-top: 20px;
+            align-items: center;
         }
         .field-badge {
-            background: #f4f4f2;
-            padding: 8px 20px;
+            background: rgba(230, 230, 225, 0.6);
+            padding: 8px 24px;
             border-radius: 30px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #555;
-            border: 1px solid #e0e0d8;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #444;
+            border: 1px solid #dcdcd0;
         }
 
-        /* Footer Section */
+        /* 1. TICKER SINGLE BARIS EMAS (Dua Ticker Hitam Dihapus) */
+        .ticker-wrap {
+            width: 100%;
+            background: var(--gold-bg);
+            color: #ffffff;
+            padding: 14px 0;
+            overflow: hidden;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .ticker-move {
+            display: inline-block;
+            white-space: nowrap;
+            padding-left: 100%;
+            animation: tickerGo 22s linear infinite;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Footer Bottom Bar */
         .footer-bar {
             background: var(--gold-dark);
             color: #ffffff;
-            padding: 20px 40px;
+            padding: 16px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
         }
-        .welcome-text { font-size: 1.8rem; font-weight: 800; letter-spacing: 1px; }
-        .brand-text { font-size: 1.1rem; font-weight: 800; letter-spacing: 2px; opacity: 0.9; }
+        .welcome-text { font-size: 1.6rem; font-weight: 800; letter-spacing: 2px; }
+        .brand-text { font-size: 1.1rem; font-weight: 800; letter-spacing: 3px; opacity: 0.9; }
 
-        /* Ticker / Running Text */
-        .ticker-wrap {
-            width: 100%;
-            background: #222;
-            padding: 10px 0;
-            overflow: hidden;
-        }
-        .ticker-move {
-            display: inline-block;
-            white-space: nowrap;
-            padding-right: 100%;
-            animation: tickerGo 25s linear infinite;
-            color: #fff;
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }
-
-        /* Animations */
-        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* Keyframe Animations */
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @keyframes tickerGo { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
     </style>
 </head>
@@ -155,7 +168,7 @@
     </div>
 
     <div class="ticker-wrap">
-        <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk.</div>
+        <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk</div>
     </div>
 
     <div class="footer-bar">
@@ -164,16 +177,17 @@
     </div>
 
     <script>
-        // Mendengarkan Broadcast Komunikasi dari Jendela Scanner Utama via BroadcastChannel API
+        // Mendengarkan Broadcast Channel Komunikasi Radio dari App Utama
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
 
-        // 1. Tangkap Inisialisasi Data Awal (Nama Event & Ticker)
-        const savedEventName = localStorage.getItem('currentEventName') || 'DRAMA TARI';
+        // Tarik Inisialisasi awal jika ada simpanan cache
+        const savedEventName = localStorage.getItem('currentEventName') || 'DRAMA TARI - RAMA SHINTA';
         const savedTicker = localStorage.getItem('currentEventTicker') || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
+        
         document.getElementById('displayEventName').innerText = savedEventName;
         document.getElementById('displayTickerText').innerText = savedTicker;
 
-        // 2. Telinga Penerima Data Tamu Saat Di-Scan
+        // Listener Penerima Broadcast Data Tamu
         monitorChannel.onmessage = (event) => {
             const { type, data, config } = event.data;
             
@@ -191,32 +205,29 @@
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
             
-            // Evaluasi Field Kustom Berdasarkan Centang Gambar 2
+            // Evaluasi Badge Keterangan Tambahan
             let badgesHtml = '';
             
-            // Jumlah Pax selalu ikut jika bernilai lebih dari 1
             if (guest.jumlah_aktual && guest.jumlah_aktual > 1) {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-users"></i> ${guest.jumlah_aktual} Orang</div>`;
+                badgesHtml += `<div class="field-badge"><i class="fas fa-users"></i> ${guest.jumlah_aktual} Pax</div>`;
             }
-            // Jika Kategori diset tampil
             if (config.showKategori && guest.kategori_tamu) {
                 badgesHtml += `<div class="field-badge"><i class="fas fa-crown" style="color:#b39343"></i> ${guest.kategori_tamu.toUpperCase()}</div>`;
             }
-            // Jika Institusi diset tampil
             if (config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
                 badgesHtml += `<div class="field-badge"><i class="fas fa-building"></i> ${guest.institusi}</div>`;
             }
 
-            // Susun Komponen Greeting Card Mewah
+            // 2. Render Polos Blend-In (Tanpa Love, Tanpa White Card Box)
             container.innerHTML = `
-                <div class="welcome-card">
-                    <div class="greeting-title"><i class="fas fa-heart"></i> SELAMAT DATANG</div>
+                <div class="welcome-blend">
+                    <div class="greeting-title">SELAMAT DATANG</div>
                     <div class="guest-name">${guest.nama_tamu}</div>
                     ${badgesHtml ? `<div class="custom-fields-box">${badgesHtml}</div>` : ''}
                 </div>
             `;
 
-            // Setelah 7 Detik, kembalikan layar ke mode "- MENUNGGU SCANNER -"
+            // Kembali ke "- MENUNGGU SCANNER -" dalam 7 detik
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
             }, 7000);
