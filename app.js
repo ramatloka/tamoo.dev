@@ -918,7 +918,7 @@ function showQrCodeModal(guestId, guestName) {
 }
 
 // =========================================================================
-// GENERATOR DOWNLOAD E-TICKET (STABLE MOBILE & HIGH RESOLUTION)
+// GENERATOR DOWNLOAD E-TICKET ELEGAN (MENDUKUNG BADGE MEWAH TAMU VIP)
 // =========================================================================
 
 async function downloadETicket(id, name, title, date, loc) {
@@ -936,60 +936,99 @@ async function downloadETicket(id, name, title, date, loc) {
         canvas.width = 600;
         canvas.height = 850;
 
-        // 1. Background & Border Mewah (Gold)
+        // 1. Cek Apakah Tamu Memiliki Kategori VIP (Dari Cache/Data)
+        let isVip = false;
+        if (typeof rawGuestDataCache !== "undefined" && rawGuestDataCache.length > 0) {
+            const currentGuest = rawGuestDataCache.find(g => g.id === id);
+            if (currentGuest && currentGuest.kategori_tamu && currentGuest.kategori_tamu.toUpperCase().includes('VIP')) {
+                isVip = true;
+            }
+        }
+        // Fallback jika dikirim via parameter nama (misal ada tulisan "(VIP)")
+        if (name.toUpperCase().includes('VIP')) {
+            isVip = true;
+        }
+
+        // 2. Background & Border Mewah (Gold)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Bingkai Luar & Dalam
         ctx.strokeStyle = '#846924';
         ctx.lineWidth = 15;
         ctx.strokeRect(15, 15, canvas.width - 30, canvas.height - 30);
         ctx.lineWidth = 2;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-        // 2. Judul Acara
+        // -----------------------------------------------------------------
+        // BADGE VIP EKSKLUSIF (Pojok Kanan Atas Tiket jika VIP)
+        // -----------------------------------------------------------------
+        if (isVip) {
+            // Pita Emas
+            ctx.fillStyle = '#846924';
+            ctx.beginPath();
+            ctx.roundRect(410, 45, 145, 36, 18);
+            ctx.fill();
+
+            // Teks VIP
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("★ VIP GUEST", 482, 69);
+        }
+
+        // 3. Judul Acara
         ctx.textAlign = 'center';
         ctx.fillStyle = '#846924';
         ctx.font = 'bold 32px serif';
         const displayTitle = (title && title.trim() !== "") ? title.toUpperCase() : "GUEST BOOK TICKET";
         ctx.fillText(displayTitle, canvas.width / 2, 110);
 
-        // Garis Pemisah
+        // Garis Pemisah Emas
         ctx.beginPath();
+        ctx.strokeStyle = '#846924';
+        ctx.lineWidth = 2;
         ctx.moveTo(150, 135);
         ctx.lineTo(450, 135);
         ctx.stroke();
 
-        // 3. Info Tanggal & Lokasi
+        // 4. Info Tanggal & Lokasi
         ctx.fillStyle = '#777';
         ctx.font = '600 18px sans-serif';
         const infoText = `${date || ''} ${date && loc ? '|' : ''} ${(loc || '').toUpperCase()}`.trim() || 'RAMATLOKA EVENT';
         ctx.fillText(infoText, canvas.width / 2, 175);
 
-        // 4. Header Tiket
+        // 5. Header Tiket (E-TICKET PASS)
         ctx.fillStyle = '#999';
         ctx.font = '500 20px sans-serif';
-        ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
+        ctx.fillText(isVip ? "VIP ACCESS PASS" : "E-TICKET PASS", canvas.width / 2, 230);
 
-        // 5. Nama Tamu
-        ctx.fillStyle = '#222';
+        // 6. Nama Tamu
+        ctx.fillStyle = isVip ? '#846924' : '#222222'; // Nama warna Emas jika VIP
+        let cleanName = name.replace(/\(VIP\)/gi, '').trim().toUpperCase();
         let fontSizeName = 40;
         ctx.font = `bold ${fontSizeName}px sans-serif`;
-        while (ctx.measureText(name.toUpperCase()).width > 500 && fontSizeName > 18) {
+        while (ctx.measureText(cleanName).width > 480 && fontSizeName > 18) {
             fontSizeName -= 2;
             ctx.font = `bold ${fontSizeName}px sans-serif`;
         }
-        ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
+        ctx.fillText(cleanName, canvas.width / 2, 300);
 
-        // 6. Gambar QR Code (Metode Fallback Lokal Anti-CORS)
+        // Sub-text Penanda VIP di Bawah Nama
+        if (isVip) {
+            ctx.fillStyle = '#b39343';
+            ctx.font = 'italic bold 15px serif';
+            ctx.fillText("• Tamu Kehormatan VIP •", canvas.width / 2, 330);
+        }
+
+        // 7. Gambar QR Code (Anti-CORS Safe)
         let qrDataUrl = "";
-        
-        // Coba ambil dari gambar QR yang sudah ter-render di modal HTML (jika ada)
         const existingQrImg = document.querySelector('#qrcodeDisplay img') || document.querySelector('#swalQrCanvasWrapper img');
         if (existingQrImg && existingQrImg.src && existingQrImg.src.startsWith('data:image')) {
             qrDataUrl = existingQrImg.src;
         }
 
         const qrImg = new Image();
-        
         if (qrDataUrl) {
             qrImg.src = qrDataUrl;
         } else {
@@ -997,10 +1036,9 @@ async function downloadETicket(id, name, title, date, loc) {
             qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(id)}`;
         }
 
-        // Tunggu load dengan timeout pengaman 4 detik
         await new Promise((resolve) => {
             qrImg.onload = resolve;
-            qrImg.onerror = resolve; // Tetap lanjut walau error agar tidak stuck
+            qrImg.onerror = resolve;
             setTimeout(resolve, 4000); 
         });
 
@@ -1011,13 +1049,12 @@ async function downloadETicket(id, name, title, date, loc) {
         if (qrImg.complete && qrImg.naturalWidth !== 0) {
             ctx.drawImage(qrImg, 175, 385, 250, 250);
         } else {
-            // Jika gambar gagal dimuat, tuliskan ID Tamu dalam teks tebal
             ctx.fillStyle = '#846924';
             ctx.font = 'bold 22px sans-serif';
             ctx.fillText(id, canvas.width / 2, 510);
         }
 
-        // 7. Footer & Instruksi
+        // 8. Footer & Instruksi
         ctx.fillStyle = '#888';
         ctx.font = 'italic 16px sans-serif';
         ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
@@ -1026,23 +1063,27 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.font = 'bold 24px sans-serif';
         ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
 
-        // 8. Ekspor & Unduh File PNG (Kompatibel Browser Mobile)
+        // 9. Ekspor & Unduh File PNG
+        const safeFileName = cleanName.replace(/\s+/g, '-');
+        const vipSuffix = isVip ? '_VIP' : '';
+        const downloadName = `Tiket-${safeFileName}${vipSuffix}.png`;
+
         if (navigator.msSaveBlob) {
-            canvas.toBlob((blob) => navigator.msSaveBlob(blob, `Tiket-${name.replace(/\s+/g, '-')}.png`));
+            canvas.toBlob((blob) => navigator.msSaveBlob(blob, downloadName));
         } else {
             const link = document.createElement('a');
-            link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
+            link.download = downloadName;
             link.href = canvas.toDataURL('image/png', 1.0);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
 
-        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1800, showConfirmButton: false });
+        Swal.fire({ title: 'Tersimpan!', text: `Tiket ${isVip ? 'VIP ' : ''}berhasil diunduh ke perangkat Anda.`, icon: 'success', timer: 1800, showConfirmButton: false });
 
     } catch (err) {
         console.error("Gagal Download E-Ticket:", err);
-        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket. Silakan coba screenshot QR Code.', 'error');
+        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket.', 'error');
     } finally {
         if (btn) {
             btn.innerHTML = originalText;
