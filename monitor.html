@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Display - TAMOO</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -12,22 +12,51 @@
             --gold-main: #b39343; 
             --gold-dark: #846924; 
             --gold-bg: #967728;
+            --gold-gradient: linear-gradient(135deg, #dfc16d 0%, #846924 100%);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Montserrat', sans-serif;
-            background-color: #fbfbfa;
+            background: radial-gradient(circle at center, #ffffff 0%, #fdfaf3 100%);
             height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             overflow: hidden;
             color: #333;
+            position: relative;
         }
 
         /* Top Border Emas Tipis */
-        .top-bar { height: 10px; background: var(--gold-main); width: 100%; }
+        .top-bar { height: 8px; background: var(--gold-gradient); width: 100%; }
+        
+        /* TOMBOL FULLSCREEN TV (POJOK KANAN ATAS) */
+        .btn-tv-fullscreen {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e0d5be;
+            color: var(--gold-dark);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+            z-index: 9999;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        .btn-tv-fullscreen:hover {
+            transform: scale(1.1);
+            background: var(--gold-dark);
+            color: #fff;
+        }
         
         /* Area Konten Utama */
         .content-area {
@@ -37,19 +66,20 @@
             justify-content: flex-start;
             align-items: center;
             text-align: center;
-            padding: 20px 40px 10px 40px;
+            padding: 30px 40px 10px 40px;
         }
         
         /* Nama Event */
         #displayEventName {
             font-family: 'Playfair Display', serif;
-            font-size: 3rem;
+            font-size: 3.2rem;
             font-weight: 900;
             color: var(--gold-dark);
             letter-spacing: 2px;
             margin-top: 10px;
             margin-bottom: 20px;
             text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(132, 105, 36, 0.1);
         }
 
         /* Wadah Status & Greeting */
@@ -64,9 +94,9 @@
         
         #displayStatusMessage {
             font-size: 1.8rem;
-            color: #888;
-            font-weight: 700;
-            letter-spacing: 4px;
+            color: #a39575;
+            font-weight: 800;
+            letter-spacing: 5px;
             text-transform: uppercase;
             animation: pulse 2.2s infinite;
         }
@@ -77,86 +107,122 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            animation: fadeInScale 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: fadeInScale 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
+        /* BADGE VIP MEWAH */
+        .vip-badge-banner {
+            background: var(--gold-gradient);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 900;
+            padding: 6px 22px;
+            border-radius: 30px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            box-shadow: 0 6px 18px rgba(132, 105, 36, 0.25);
+            margin-bottom: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.4);
+            animation: pulseVip 2s infinite;
+        }
+
         .greeting-title {
             font-size: 2.2rem;
             color: var(--gold-main);
             font-weight: 800;
-            letter-spacing: 3px;
+            letter-spacing: 4px;
             margin-bottom: 10px;
             text-transform: uppercase;
         }
         
+        /* NAMA TAMU WARNA EMAS ELEGANT */
         .guest-name {
-            font-size: 5rem;
+            font-family: 'Playfair Display', serif;
+            font-size: 5.2rem;
             font-weight: 900;
-            color: #111;
+            color: var(--gold-dark);
             margin-bottom: 20px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             line-height: 1.1;
+            text-shadow: 0 4px 20px rgba(132, 105, 36, 0.15);
         }
 
         .custom-fields-box {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 15px;
             justify-content: center;
             align-items: center;
         }
+
+        /* BADGE KETERANGAN JUMLAH TAMU & INSTITUSI */
         .field-badge {
-            background: rgba(230, 230, 225, 0.6);
-            padding: 8px 24px;
+            background: #ffffff;
+            padding: 10px 28px;
             border-radius: 30px;
-            font-size: 1.2rem;
+            font-size: 1.25rem;
             font-weight: 800;
-            color: #444;
-            border: 1px solid #dcdcd0;
+            color: #222222;
+            border: 1.5px solid #e0d5be;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* Baris Branding RAMATLOKA (Di atas Ticker & Berwarna Emas) */
+        /* Baris Branding RAMATLOKA */
         .brand-header {
             width: 100%;
             text-align: right;
-            padding: 10px 40px 15px 40px; /* Jarak bawah sedikit renggang sebelum ticker */
+            padding: 10px 40px 15px 40px;
             font-size: 1.3rem;
             font-weight: 900;
             letter-spacing: 4px;
             color: var(--gold-dark);
             text-transform: uppercase;
+            opacity: 0.9;
         }
 
-        /* PERUBAHAN: TICKER EMAS LEBIH TINGGI & TEBAL */
+        /* TICKER EMAS */
         .ticker-wrap {
             width: 100%;
-            background: var(--gold-bg);
+            background: var(--gold-gradient);
             color: #ffffff;
-            padding: 24px 0; /* Dipertebal dari 14px ke 24px agar lebih tinggi */
+            padding: 22px 0;
             overflow: hidden;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.05); /* Sedikit shadow halus di atas ticker */
+            border-top: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.08);
         }
         
-        /* PERUBAHAN: UKURAN HURUF TICKER DIPERBESAR */
         .ticker-move {
             display: inline-block;
             white-space: nowrap;
             padding-left: 100%;
             animation: tickerGo 24s linear infinite;
-            font-size: 1.6rem; /* Diperbesar dari 1.25rem agar teksnya tegas dan terlihat jelas */
+            font-size: 1.6rem;
             font-weight: 800;
             letter-spacing: 2.5px;
             text-transform: uppercase;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
         }
 
         /* Keyframe Animations */
         @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+        @keyframes pulseVip { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @keyframes tickerGo { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
     </style>
 </head>
 <body>
+
+    <!-- Tombol Fullscreen TV Kecil Pojok Kanan Atas -->
+    <button class="btn-tv-fullscreen" onclick="toggleTvFullScreen()" title="Full Screen Display">
+        <i id="btnTvFsIcon" class="fas fa-expand"></i>
+    </button>
 
     <div class="top-bar"></div>
 
@@ -179,7 +245,7 @@
     <script>
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
 
-        const savedEventName = localStorage.getItem('currentEventName') || 'DRAMA TARI - RAMA SHINTA';
+        const savedEventName = localStorage.getItem('currentEventName') || 'GUEST BOOK EVENT';
         const savedTicker = localStorage.getItem('currentEventTicker') || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
         
         document.getElementById('displayEventName').innerText = savedEventName;
@@ -189,8 +255,8 @@
             const { type, data, config } = event.data;
             
             if (type === 'INIT_DISPLAY') {
-                document.getElementById('displayEventName').innerText = data.eventName;
-                document.getElementById('displayTickerText').innerText = data.tickerText;
+                if (data.eventName) document.getElementById('displayEventName').innerText = data.eventName;
+                if (data.tickerText) document.getElementById('displayTickerText').innerText = data.tickerText;
             } 
             else if (type === 'GUEST_CHECKIN') {
                 renderGuestGreeting(data, config);
@@ -202,30 +268,60 @@
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
             
+            let vipBadgeHtml = '';
             let badgesHtml = '';
-            
-            if (guest.jumlah_aktual && guest.jumlah_aktual > 1) {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-users"></i> ${guest.jumlah_aktual} Pax</div>`;
+
+            // 1. FILTER KATEGORI: HANYA TAMPILKAN BADGE JIKA VIP (Kategori umum / reguler disembunyikan)
+            const isVip = guest.kategori_tamu && guest.kategori_tamu.toUpperCase().includes('VIP');
+            if (isVip) {
+                vipBadgeHtml = `<div class="vip-badge-banner"><i class="fas fa-crown"></i> TAMU VIP</div>`;
             }
-            if (config.showKategori && guest.kategori_tamu) {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-crown" style="color:#b39343"></i> ${guest.kategori_tamu.toUpperCase()}</div>`;
+
+            // 2. KETERANGAN JUMLAH TAMU DENGAN TULISAN LEBIH PROFESIONAL
+            if (guest.jumlah_aktual && parseInt(guest.jumlah_aktual) > 1) {
+                badgesHtml += `<div class="field-badge"><i class="fas fa-users" style="color:var(--gold-dark);"></i> Hadir Bersama: ${guest.jumlah_aktual} Pax</div>`;
             }
+
+            // 3. INSTITUSI (BILA ADA & AKTIF)
             if (config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-building"></i> ${guest.institusi}</div>`;
+                badgesHtml += `<div class="field-badge"><i class="fas fa-building" style="color:var(--gold-dark);"></i> ${guest.institusi}</div>`;
             }
 
             container.innerHTML = `
                 <div class="welcome-blend">
+                    ${vipBadgeHtml}
                     <div class="greeting-title">SELAMAT DATANG</div>
                     <div class="guest-name">${guest.nama_tamu}</div>
                     ${badgesHtml ? `<div class="custom-fields-box">${badgesHtml}</div>` : ''}
                 </div>
             `;
 
+            // Reset tampilan ke status stand-by setelah 7 detik
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
             }, 7000);
         }
+
+        // FUNGSI FULLSCREEN UTILITY KECIL
+        function toggleTvFullScreen() {
+            const icon = document.getElementById('btnTvFsIcon');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+                if (icon) icon.className = 'fas fa-compress';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    if (icon) icon.className = 'fas fa-expand';
+                }
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('btnTvFsIcon');
+            if (!document.fullscreenElement && icon) {
+                icon.className = 'fas fa-expand';
+            }
+        });
     </script>
 </body>
 </html>
