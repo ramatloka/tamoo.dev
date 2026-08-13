@@ -242,19 +242,44 @@
         <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk</div>
     </div>
 
+    <!-- Library Supabase JS agar Layar TV bisa baca Announcement langsung dari Database -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
+        // Configuration Client Supabase
+        const SUPABASE_URL = 'https://pqavtpxnnsavwqrvxlst.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXZ0cHhubnNhdndxcnZ4bHN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTE2NDMsImV4cCI6MjEwMDUyNzY0M30.dkqS29xYf3VzQxZ3SnpFBYRPK4HKAy59S4L6V38KrH4';     
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
 
-        const savedEventName = localStorage.getItem('currentEventName') || 'GUEST BOOK EVENT';
-        const savedTicker = localStorage.getItem('currentEventTicker') || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
-        
-        document.getElementById('displayEventName').innerText = savedEventName;
-        document.getElementById('displayTickerText').innerText = savedTicker;
+        // 1. TARIK DATA ANNOUNCEMENT & EVENT TITLE LANGSUNG DARI SUPABASE
+        async function loadTvConfigFromSupabase() {
+            try {
+                const { data: configData, error } = await db.from('app_config').select('*');
+                if (!error && configData) {
+                    let configMap = {};
+                    configData.forEach(row => { configMap[row.key] = row.value; });
 
+                    const eventTitle = configMap['EventTitle'] || configMap['EventName'] || 'GUEST BOOK EVENT';
+                    const announcement = configMap['Announcement'] || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
+
+                    document.getElementById('displayEventName').innerText = eventTitle;
+                    document.getElementById('displayTickerText').innerText = announcement;
+                }
+            } catch (err) {
+                console.error("Gagal memuat config TV dari Supabase:", err);
+            }
+        }
+
+        // Jalankan saat monitor.html pertama kali dibuka
+        loadTvConfigFromSupabase();
+
+        // 2. DENGAR BROADCAST CHANNEL (JIKA ADA SIARAN DARI BROADCAST ADMIN)
         monitorChannel.onmessage = (event) => {
             const { type, data, config } = event.data;
             
-            if (type === 'INIT_DISPLAY') {
+            if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER') {
                 if (data.eventName) document.getElementById('displayEventName').innerText = data.eventName;
                 if (data.tickerText) document.getElementById('displayTickerText').innerText = data.tickerText;
             } 
@@ -271,18 +296,15 @@
             let vipBadgeHtml = '';
             let badgesHtml = '';
 
-            // 1. FILTER KATEGORI: HANYA TAMPILKAN BADGE JIKA VIP (Kategori umum / reguler disembunyikan)
             const isVip = guest.kategori_tamu && guest.kategori_tamu.toUpperCase().includes('VIP');
             if (isVip) {
                 vipBadgeHtml = `<div class="vip-badge-banner"><i class="fas fa-crown"></i> TAMU VIP</div>`;
             }
 
-            // 2. KETERANGAN JUMLAH TAMU DENGAN TULISAN LEBIH PROFESIONAL
             if (guest.jumlah_aktual && parseInt(guest.jumlah_aktual) > 1) {
                 badgesHtml += `<div class="field-badge"><i class="fas fa-users" style="color:var(--gold-dark);"></i> Hadir Bersama: ${guest.jumlah_aktual} Pax</div>`;
             }
 
-            // 3. INSTITUSI (BILA ADA & AKTIF)
             if (config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
                 badgesHtml += `<div class="field-badge"><i class="fas fa-building" style="color:var(--gold-dark);"></i> ${guest.institusi}</div>`;
             }
@@ -296,13 +318,11 @@
                 </div>
             `;
 
-            // Reset tampilan ke status stand-by setelah 7 detik
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
             }, 7000);
         }
 
-        // FUNGSI FULLSCREEN UTILITY KECIL
         function toggleTvFullScreen() {
             const icon = document.getElementById('btnTvFsIcon');
             if (!document.fullscreenElement) {
