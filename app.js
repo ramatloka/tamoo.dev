@@ -917,11 +917,18 @@ function showQrCodeModal(guestId, guestName) {
     });
 }
 
+// =========================================================================
+// GENERATOR DOWNLOAD E-TICKET (STABLE MOBILE & HIGH RESOLUTION)
+// =========================================================================
+
 async function downloadETicket(id, name, title, date, loc) {
-    const btn = window.event.target.closest('button');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MEMPROSES...';
-    btn.disabled = true;
+    const btn = window.event ? window.event.target.closest('button') : null;
+    let originalText = "";
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MEMPROSES...';
+        btn.disabled = true;
+    }
 
     try {
         const canvas = document.createElement('canvas');
@@ -929,7 +936,7 @@ async function downloadETicket(id, name, title, date, loc) {
         canvas.width = 600;
         canvas.height = 850;
 
-        // Background & Border Mewah (Gold)
+        // 1. Background & Border Mewah (Gold)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#846924';
@@ -938,11 +945,12 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineWidth = 2;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-        // Judul Acara
+        // 2. Judul Acara
         ctx.textAlign = 'center';
         ctx.fillStyle = '#846924';
         ctx.font = 'bold 32px serif';
-        ctx.fillText(title.toUpperCase(), canvas.width / 2, 110);
+        const displayTitle = (title && title.trim() !== "") ? title.toUpperCase() : "GUEST BOOK TICKET";
+        ctx.fillText(displayTitle, canvas.width / 2, 110);
 
         // Garis Pemisah
         ctx.beginPath();
@@ -950,59 +958,96 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineTo(450, 135);
         ctx.stroke();
 
-        // Info Tanggal & Lokasi
+        // 3. Info Tanggal & Lokasi
         ctx.fillStyle = '#777';
         ctx.font = '600 18px sans-serif';
-        ctx.fillText(`${date}  |  ${loc.toUpperCase()}`, canvas.width / 2, 175);
+        const infoText = `${date || ''} ${date && loc ? '|' : ''} ${(loc || '').toUpperCase()}`.trim() || 'RAMATLOKA EVENT';
+        ctx.fillText(infoText, canvas.width / 2, 175);
 
-        // Header Tiket
+        // 4. Header Tiket
         ctx.fillStyle = '#999';
         ctx.font = '500 20px sans-serif';
-        ctx.letterSpacing = "4px";
         ctx.fillText("E-TICKET PASS", canvas.width / 2, 230);
-        ctx.letterSpacing = "0px";
 
-        // Nama Tamu
+        // 5. Nama Tamu
         ctx.fillStyle = '#222';
-        ctx.font = 'bold 42px sans-serif';
+        let fontSizeName = 40;
+        ctx.font = `bold ${fontSizeName}px sans-serif`;
+        while (ctx.measureText(name.toUpperCase()).width > 500 && fontSizeName > 18) {
+            fontSizeName -= 2;
+            ctx.font = `bold ${fontSizeName}px sans-serif`;
+        }
         ctx.fillText(name.toUpperCase(), canvas.width / 2, 300);
 
-        // Gambar QR Code
+        // 6. Gambar QR Code (Metode Fallback Lokal Anti-CORS)
+        let qrDataUrl = "";
+        
+        // Coba ambil dari gambar QR yang sudah ter-render di modal HTML (jika ada)
+        const existingQrImg = document.querySelector('#qrcodeDisplay img') || document.querySelector('#swalQrCanvasWrapper img');
+        if (existingQrImg && existingQrImg.src && existingQrImg.src.startsWith('data:image')) {
+            qrDataUrl = existingQrImg.src;
+        }
+
         const qrImg = new Image();
-        qrImg.crossOrigin = "anonymous";
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(id)}`;
         
-        await new Promise((resolve) => { qrImg.onload = resolve; });
-        
-        // Frame putih untuk QR
+        if (qrDataUrl) {
+            qrImg.src = qrDataUrl;
+        } else {
+            qrImg.crossOrigin = "anonymous";
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(id)}`;
+        }
+
+        // Tunggu load dengan timeout pengaman 4 detik
+        await new Promise((resolve) => {
+            qrImg.onload = resolve;
+            qrImg.onerror = resolve; // Tetap lanjut walau error agar tidak stuck
+            setTimeout(resolve, 4000); 
+        });
+
+        // Frame Putih untuk QR
         ctx.fillStyle = '#fdfaf3';
         ctx.fillRect(150, 360, 300, 300);
-        ctx.drawImage(qrImg, 175, 385, 250, 250);
+        
+        if (qrImg.complete && qrImg.naturalWidth !== 0) {
+            ctx.drawImage(qrImg, 175, 385, 250, 250);
+        } else {
+            // Jika gambar gagal dimuat, tuliskan ID Tamu dalam teks tebal
+            ctx.fillStyle = '#846924';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText(id, canvas.width / 2, 510);
+        }
 
-        // Footer & Instruksi
+        // 7. Footer & Instruksi
         ctx.fillStyle = '#888';
         ctx.font = 'italic 16px sans-serif';
         ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
 
         ctx.fillStyle = '#846924';
         ctx.font = 'bold 24px sans-serif';
-        ctx.letterSpacing = "5px";
         ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
 
-        // Proses Download
-        const link = document.createElement('a');
-        link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
-        link.href = canvas.toDataURL('image/png', 1.0);
-        link.click();
+        // 8. Ekspor & Unduh File PNG (Kompatibel Browser Mobile)
+        if (navigator.msSaveBlob) {
+            canvas.toBlob((blob) => navigator.msSaveBlob(blob, `Tiket-${name.replace(/\s+/g, '-')}.png`));
+        } else {
+            const link = document.createElement('a');
+            link.download = `Tiket-${name.replace(/\s+/g, '-')}.png`;
+            link.href = canvas.toDataURL('image/png', 1.0);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
-        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Tersimpan!', text: 'Tiket berhasil diunduh ke perangkat Anda.', icon: 'success', timer: 1800, showConfirmButton: false });
 
     } catch (err) {
-        console.error(err);
-        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket.', 'error');
+        console.error("Gagal Download E-Ticket:", err);
+        Swal.fire('Gagal Download', 'Terjadi kesalahan saat membuat gambar tiket. Silakan coba screenshot QR Code.', 'error');
     } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     }
 }
     // =========================================================================
@@ -1696,144 +1741,128 @@ async function openAddGuestModal() {
 }
 
 // =========================================================================
-// MODUL TAMBAH TAMU MANUAL (DINAMIS DARI TABEL form_settings)
+// MODUL TAMBAH TAMU MANUAL (DINAMIS MENGIKUTI FORM ACTIVE SUPABASE)
 // =========================================================================
 
 async function openAddGuestModal() {
-    // 1. Tampilkan indicator loading sebentar saat mengambil opsi dari Supabase
-    Swal.fire({ 
-        title: 'Memuat Form...', 
-        allowOutsideClick: false, 
-        didOpen: () => Swal.showLoading() 
+    const questionsToRender = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0) 
+        ? currentQuestions 
+        : [
+            { id: 'nama_tamu', label: 'Nama Tamu', type: 'text', required: true },
+            { id: 'institusi', label: 'Institusi', type: 'text', required: false },
+            { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda', type: 'dropdown', options: ['1', '2', '3'], required: true }
+          ];
+
+    // Generate HTML Form Dinamis untuk Pop-up
+    let formFieldsHtml = '';
+    questionsToRender.forEach(q => {
+        let isReq = q.required ? 'required' : '';
+        let reqMark = q.required ? '<span style="color:red;">*</span>' : '';
+        
+        formFieldsHtml += `<div style="margin-bottom: 12px; text-align: left;">`;
+        formFieldsHtml += `<label style="font-weight: 800; color: #555; display: block; margin-bottom: 4px; font-size: 0.8rem;">${q.label} ${reqMark}</label>`;
+        
+        if (q.type === 'dropdown') {
+            formFieldsHtml += `<select id="swal_field_${q.id}" class="swal2-select" style="width: 100%; margin: 0; height: 40px; font-size: 0.85rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">`;
+            formFieldsHtml += `<option value="">-- Pilih ${q.label} --</option>`;
+            (q.options || []).forEach(opt => {
+                formFieldsHtml += `<option value="${opt}">${opt}</option>`;
+            });
+            formFieldsHtml += `</select>`;
+        } else {
+            formFieldsHtml += `<input id="swal_field_${q.id}" class="swal2-input" placeholder="Isi ${q.label}..." style="width: 100%; margin: 0; height: 40px; font-size: 0.85rem; box-sizing: border-box;">`;
+        }
+        formFieldsHtml += `</div>`;
     });
 
-    // Opsi default jika koneksi/data di Supabase belum terbaca
-    let optionsJumlahArray = ['1', '2', '3'];
-
-    try {
-        if (typeof db !== "undefined" && db) {
-            // Tarik data konfigurasi form dari tabel 'form_settings'
-            const { data: formSettings, error } = await db.from('form_settings').select('*').limit(1);
-
-            if (!error && formSettings && formSettings.length > 0) {
-                // Ambil data dari kolom c_jumlah_tamu_termasuk_anda
-                const rawJumlahData = formSettings[0].c_jumlah_tamu_termasuk_anda;
-
-                if (rawJumlahData) {
-                    // Jika datanya berbentuk Array (misal: ['1','2','3'])
-                    if (Array.isArray(rawJumlahData)) {
-                        optionsJumlahArray = rawJumlahData;
-                    } 
-                    // Jika datanya berbentuk Teks/String terpisah koma (misal: "1,2,3" atau "1, 2, 3")
-                    else if (typeof rawJumlahData === 'string') {
-                        optionsJumlahArray = rawJumlahData.split(',').map(item => item.trim());
-                    }
-                }
-            }
-        }
-    } catch (err) {
-        console.warn("Gagal mengambil form_settings, menggunakan default 1-3:", err);
-    }
-
-    // Buat HTML elemen <option> secara dinamis berdasarkan data Supabase
-    const dynamicOptionsHtml = optionsJumlahArray
-        .map(val => `<option value="${val}">${val}</option>`)
-        .join('');
-
-    // 2. Tutup loading dan Tampilkan Form Tambah Tamu
-    Swal.close();
+    // Tambahkan Pilihan Kategori Tamu Manual (VIP / Reguler)
+    formFieldsHtml += `
+        <hr style="border: 0; border-top: 2px dashed #eee; margin: 20px 0 15px 0;">
+        <div style="margin-bottom: 12px; text-align: left;">
+            <label style="font-weight: 900; color: #846924; display: block; margin-bottom: 4px; font-size: 0.8rem;">KATEGORI TAMU</label>
+            <select id="swal_field_kategori_tamu" class="swal2-select" style="width: 100%; margin: 0; height: 40px; font-size: 0.85rem; border: 2px solid #846924; font-weight: bold; color: #846924; border-radius: 6px; box-sizing: border-box;">
+                <option value="Reguler">Tamu Reguler</option>
+                <option value="VIP">Tamu VIP</option>
+            </select>
+        </div>
+    `;
 
     const { value: formValues } = await Swal.fire({
-        title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900;">TAMBAH TAMU MANUAL</h2>',
-        html: `
-            <div style="text-align: left; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; padding-top: 10px;">
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Nama Tamu</label>
-                <input id="swal-input-nama" class="swal2-input" placeholder="Masukkan nama..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Institusi</label>
-                <select id="swal-input-institusi" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
-                    <option value="Civitas SMKN 10 Bandung">Civitas SMKN 10 Bandung</option>
-                    <option value="Umum">Umum</option>
-                </select>
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Asal (bila anda memilih umum diatas)</label>
-                <input id="swal-input-asal" class="swal2-input" placeholder="Kota/Instansi..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Jumlah tamu hadir (termasuk anda)</label>
-                <select id="swal-input-jumlah" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
-                    ${dynamicOptionsHtml}
-                </select>
-
-                <hr style="border: 0; border-top: 2px dashed #eee; margin: 25px 0 20px 0;">
-
-                <label style="font-weight: 900; color: #846924; display: block; margin-bottom: 5px;">KATEGORI TAMU</label>
-                <select id="swal-input-kategori" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 2px solid #846924; font-weight: bold; color: #846924; border-radius: 6px; box-sizing: border-box;">
-                    <option value="Reguler">Tamu Reguler</option>
-                    <option value="VIP">Tamu VIP</option>
-                </select>
-            </div>
-        `,
+        title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900; font-size: 1.4rem;">TAMBAH TAMU MANUAL</h2>',
+        html: `<div style="padding-top: 10px;">${formFieldsHtml}</div>`,
         focusConfirm: false,
         showCancelButton: true,
-        confirmButtonText: 'Buat & Tampilkan QR',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Simpan & Buat QR',
+        cancelButtonText: 'Batal',
         confirmButtonColor: '#b39343',
-        cancelButtonColor: '#b39343',
-        width: '450px',
+        cancelButtonColor: '#888',
+        width: '440px',
         preConfirm: () => {
-            const nama = document.getElementById('swal-input-nama').value;
-            const institusi = document.getElementById('swal-input-institusi').value;
-            const asal = document.getElementById('swal-input-asal').value;
-            const jumlah = document.getElementById('swal-input-jumlah').value;
-            const kategori = document.getElementById('swal-input-kategori').value;
-            
-            if (!nama) {
-                Swal.showValidationMessage('Nama tamu wajib diisi!');
+            let payload = {};
+            let missing = false;
+
+            questionsToRender.forEach(q => {
+                let el = document.getElementById('swal_field_' + q.id);
+                let val = el ? el.value.trim() : '';
+                if (q.required && !val) missing = true;
+                payload[q.id] = val;
+            });
+
+            let elKat = document.getElementById('swal_field_kategori_tamu');
+            payload['kategori_tamu'] = elKat ? elKat.value : 'Reguler';
+
+            if (missing) {
+                Swal.showValidationMessage('Semua kolom bertanda bintang (*) wajib diisi!');
                 return false;
             }
-            return { nama, institusi, asal, jumlah, kategori };
+            return payload;
         }
     });
 
-    if (formValues) saveAndGenerateTicketManual(formValues);
+    if (formValues) {
+        saveAndGenerateTicketManual(formValues);
+    }
 }
 
-// 2. Fungsi Utama Eksekusi Simpan & Langsung Generate Tiket
-async function saveAndGenerateTicketManual(data) {
-    // Tampilkan loading screen sementara
-    Swal.fire({ title: 'Menyimpan & Membuat Tiket...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+async function saveAndGenerateTicketManual(formDataPayload) {
+    Swal.fire({ title: 'Menyimpan Data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     try {
-        if (typeof db === "undefined" || !db) throw new Error("Database belum terkoneksi.");
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
-        // A. Generate ID unik untuk QR Code (Contoh: TMO-169800000)
-        const newIdForQr = "TMO-" + Date.now();
+        const guestId = "TMO-" + Date.now().toString().slice(-6) + Math.floor(1000 + Math.random() * 9000);
         
-        // B. Buat objek data baru yang akan dikirim ke Supabase tabel data_tamu
+        // Deteksi Nama, Pax, Institusi dari payload dinamis
+        const guestName = formDataPayload['nama_tamu'] || formDataPayload[Object.keys(formDataPayload)[0]] || "Tamu Undangan";
+        const paxValue = parseInt(formDataPayload['jumlah_pax'] || formDataPayload['jumlah_tamu'] || 1, 10) || 1;
+        const instValue = formDataPayload['institusi'] || 'Umum';
+
         const guestDataToSave = {
-            id: newIdForQr,
-            nama_tamu: data.nama,
-            kategori_tamu: data.kategori, // VIP atau Reguler
-            jumlah_aktual: parseInt(data.jumlah),
+            id: guestId,
+            nama_tamu: guestName,
+            kategori_tamu: formDataPayload['kategori_tamu'] || 'Reguler',
+            jumlah_aktual: paxValue,
+            institusi: instValue,
             status_kehadiran: 'BELUM_HADIR',
             status_souvenir: 'BELUM_AMBIL',
-            // Kita simpan institusi/asal di kolom keterangan_tambahan sebagai JSON
-            keterangan_tambahan: JSON.stringify({ institusi: data.institusi, asal: data.asal })
+            form_data: formDataPayload,
+            created_at: new Date().toISOString()
         };
 
-        // C. Eksekusi simpan ke database tabel data_tamu
         const { error } = await db.from('data_tamu').insert([guestDataToSave]);
-        
         if (error) throw error;
         
-        // D. SUKSES SIMPAN: Langsung generate tiket dan tampilkan modal hasil (Persis alur Versi Awal)
-        // Kita tutup modal loading, lalu panggil modal sukses
         Swal.close();
-        showGeneratedQrCard(guestDataToSave);
         
+        // Buka Pop-Up QR Code Tiket
+        showQrCodeModal(guestId, guestName);
+        
+        // Refresh tabel rekap di latar belakang
+        if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
+
     } catch (err) {
-        console.error("Gagal simpan/generate manual:", err);
-        Swal.fire('Gagal!', 'Terjadi kesalahan saat menyimpan data atau membuat tiket.', 'error');
+        console.error("Gagal simpan manual:", err);
+        Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat menyimpan data.', 'error');
     }
 }
 
