@@ -2706,10 +2706,10 @@ function safeFileName(str) {
     return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
 }
 // =========================================================================
-// PENGATURAN TEMPLATE & IMPORT EXCEL PREMIUM (ADAPTIF & ANTI GAGAL)
+// PENGATURAN TEMPLATE & IMPORT EXCEL PREMIUM (DINAMIS 100% ANTI-GAGAL)
 // =========================================================================
 
-// 1. FUNGSI DOWNLOAD TEMPLATE EXCEL (OTOMATIS MENGIKUTI STRUKTUR FORM ACTIVE)
+// 1. FUNGSI DOWNLOAD TEMPLATE EXCEL (MENGIKUTI STRUKTUR PERTANYAAN AKTIF)
 async function downloadExcelTemplate() {
     Swal.fire({
         title: 'Menyiapkan Template...',
@@ -2718,47 +2718,41 @@ async function downloadExcelTemplate() {
     });
 
     try {
-        // Jalur standar awal
-        let headers = ["Nama Lengkap"];
-        let sampleRow = ["Budi Santoso"];
+        // Ambil daftar pertanyaan aktif dari currentQuestions / Supabase
+        const activeQuestions = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0)
+            ? currentQuestions
+            : [
+                { id: 'nama_tamu', label: 'Nama Tamu' },
+                { id: 'institusi', label: 'Institusi' },
+                { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda' }
+              ];
 
-        if (typeof db !== "undefined" && db) {
-            // Ambil data konfigurasi pertanyaan aktif dari form_settings
-            const { data: formSettings } = await db.from('form_settings').select('*').limit(1);
+        let headers = [];
+        let sampleRow = [];
 
-            if (formSettings && formSettings.length > 0) {
-                const setting = formSettings[0];
-                
-                // Ambil semua key kolom di form_settings untuk mendeteksi pertanyaan kustom
-                Object.keys(setting).forEach(key => {
-                    // Jika kolom tersebut berisi text label pertanyaan dan statusnya aktif/true
-                    if (key.startsWith('label_') && setting[key]) {
-                        const namaPertanyaan = setting[key];
-                        // Hindari duplikasi jika labelnya bertuliskan nama
-                        if (!namaPertanyaan.toLowerCase().includes('nama lengkap') && !namaPertanyaan.toLowerCase().includes('nama tamu')) {
-                            headers.push(namaPertanyaan);
-                            sampleRow.push(key.includes('jumlah') ? 1 : "Contoh Jawaban");
-                        }
-                    }
-                });
+        // Masukkan header dari label pertanyaan dinamis
+        activeQuestions.forEach(q => {
+            headers.push(q.label);
+            if (q.type === 'dropdown' && q.options && q.options.length > 0) {
+                sampleRow.push(q.options[0]); // Ambil opsi pertama sebagai contoh
+            } else if (q.id.includes('jumlah') || q.label.toLowerCase().includes('jumlah')) {
+                sampleRow.push(1);
+            } else {
+                sampleRow.push("Contoh Jawaban");
             }
-        }
+        });
 
-        // Tambahkan kolom Kategori & Jumlah Tamu secara opsional di akhir jika belum ada
-        if (!headers.includes("Jumlah Tamu")) {
-            headers.push("Jumlah Tamu");
-            sampleRow.push(1);
-        }
+        // Tambahkan Kolom Kategori Tamu di Paling Akhir (Opsional)
         headers.push("Kategori (Reguler / VIP)");
         sampleRow.push("Reguler");
 
-        // Proses pembuatan dokumen Excel
+        // Proses Pembuatan Dokumen Excel
         const wsData = [headers, sampleRow];
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(wsData);
 
         // Atur lebar kolom yang ideal
-        ws['!cols'] = headers.map(() => ({ wch: 25 }));
+        ws['!cols'] = headers.map(() => ({ wch: 30 }));
 
         XLSX.utils.book_append_sheet(wb, ws, "Template_Import");
         Swal.close();
@@ -2767,9 +2761,9 @@ async function downloadExcelTemplate() {
     } catch (err) {
         console.error("Gagal membuat template dinamis:", err);
         Swal.close();
-        // Fallback aman jika koneksi gagal
+        // Fallback aman
         const fallbackWs = XLSX.utils.aoa_to_sheet([
-            ["Nama Lengkap", "Institusi / Asal", "Jumlah Tamu", "Kategori (Reguler / VIP)"],
+            ["Nama Tamu", "Institusi", "Jumlah Tamu Termasuk Anda", "Kategori (Reguler / VIP)"],
             ["Budi Santoso", "Umum", 1, "Reguler"]
         ]);
         const wb = XLSX.utils.book_new();
@@ -2778,7 +2772,7 @@ async function downloadExcelTemplate() {
     }
 }
 
-// 2. FUNGSI PEMROSES FILE IMPORT EXCEL (ANTI-GAGAL SCHEMA VALIDATION)
+// 2. FUNGSI PEMROSES FILE IMPORT EXCEL (MEMBACA DATA DINAMIS KE FORM_DATA)
 async function processExcelImport(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2799,59 +2793,75 @@ async function processExcelImport(event) {
             
             // Konversi ke JSON data
             const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-            if (rawJson.length === 0) throw new Error("File Excel tidak memiliki data.");
+            if (rawJson.length === 0) throw new Error("File Excel kosong atau tidak memiliki data baris.");
 
-            // Bersihkan baris contoh jika user lupa menghapusnya
-            if (rawJson[0]["Nama Lengkap"] === "Budi Santoso") {
-                rawJson.shift(); 
-            }
+            // Hapus baris sampel jika pengguna lupa menghapusnya
+            const filteredRows = rawJson.filter(row => {
+                const firstVal = Object.values(row)[0] ? Object.values(row)[0].toString().toLowerCase() : '';
+                return !firstVal.includes('contoh') && firstVal !== 'budi santoso';
+            });
 
-            if (rawJson.length === 0) {
-                Swal.fire('Info', 'Tidak ada data tamu baru untuk diimport.', 'info');
-                return;
-            }
+            const dataToProcess = filteredRows.length > 0 ? filteredRows : rawJson;
 
-            // Pemetaan data adaptif ke kolom Database Supabase (data_tamu)
-            const payload = rawJson.map(row => {
-                let namaTamuVal = 'Tamu Tanpa Nama';
-                let jumlahVal = 1;
-                let kategoriVal = 'Reguler';
-                let kustomJawabanArr = [];
+            // Pemetaan data adaptif ke Supabase
+            const payload = dataToProcess.map((row, idx) => {
+                let formPayload = {};
+                let guestName = '';
+                let paxValue = 1;
+                let kategoriValue = 'Reguler';
 
-                // Looping baris data secara dinamis untuk mencocokkan kolom secara cerdas
+                // Pemetaaan Jawaban berdasarkan Label Pertanyaan
                 Object.keys(row).forEach(headerKey => {
-                    const cleanHeader = headerKey.trim().toLowerCase();
-                    const valueStr = row[headerKey].toString().trim();
+                    const cleanHeader = headerKey.trim();
+                    const valueStr = row[headerKey] ? row[headerKey].toString().trim() : '';
 
-                    if (cleanHeader.includes('nama lengkap') || cleanHeader === 'nama') {
-                        namaTamuVal = valueStr || namaTamuVal;
-                    } 
-                    else if (cleanHeader.includes('jumlah tamu') || cleanHeader.includes('jumlah_aktual') || cleanHeader.includes('pax')) {
-                        jumlahVal = parseInt(valueStr, 10) || 1;
-                    } 
-                    else if (cleanHeader.includes('kategori')) {
-                        kategoriVal = valueStr || kategoriVal;
-                        if (kategoriVal.toLowerCase() === 'umum') kategoriVal = 'Reguler';
-                    } 
-                    else {
-                        // Jika merupakan kolom kustom/pertanyaan form, kumpulkan jawabannya di sini
-                        if (valueStr && valueStr !== '-') {
-                            kustomJawabanArr.push(`${headerKey}: ${valueStr}`);
+                    // Cek apakah header cocok dengan pertanyaan aktif
+                    const matchedQ = (typeof currentQuestions !== 'undefined') 
+                        ? currentQuestions.find(q => q.label.toLowerCase() === cleanHeader.toLowerCase())
+                        : null;
+
+                    if (matchedQ) {
+                        formPayload[matchedQ.id] = valueStr;
+                        if (matchedQ.id === 'nama_tamu' || matchedQ.label.toLowerCase().includes('nama')) {
+                            guestName = valueStr;
+                        }
+                        if (matchedQ.id === 'jumlah_pax' || matchedQ.label.toLowerCase().includes('jumlah')) {
+                            paxValue = parseInt(valueStr, 10) || 1;
+                        }
+                    } else {
+                        // Deteksi Kolom Bawaan Kategori / Fallback Nama & Pax
+                        const lowerHeader = cleanHeader.toLowerCase();
+                        if (lowerHeader.includes('kategori')) {
+                            kategoriValue = valueStr || 'Reguler';
+                        } else if (!guestName && (lowerHeader.includes('nama') || lowerHeader.includes('tamu'))) {
+                            guestName = valueStr;
+                        } else if (lowerHeader.includes('jumlah') || lowerHeader.includes('pax')) {
+                            paxValue = parseInt(valueStr, 10) || 1;
+                        } else {
+                            // Simpan kolom kustom lain jika ada
+                            formPayload[cleanHeader.toLowerCase().replace(/\s+/g, '_')] = valueStr;
                         }
                     }
                 });
 
-                // Gabungkan seluruh jawaban pertanyaan form kustom ke kolom institusi
-                // Ini adalah kunci sukses agar Supabase tidak menolak data terlepas dari apapun pertanyaannya
-                let gabunganCatatan = kustomJawabanArr.join(' | ') || 'Umum';
+                // Fallback nama jika kosong
+                if (!guestName) {
+                    guestName = Object.values(row)[0] ? Object.values(row)[0].toString() : `Tamu ${idx + 1}`;
+                }
+
+                // Generate Unique ID Tamu untuk QR Code
+                const randomCode = Math.floor(1000 + Math.random() * 9000);
+                const guestId = "TMO-" + (Date.now() + idx).toString().slice(-6) + randomCode;
 
                 return {
-                    nama_tamu: namaTamuVal,
-                    institusi: gabunganCatatan,
-                    jumlah_aktual: jumlahVal,
-                    kategori_tamu: kategoriVal,
+                    id: guestId,
+                    nama_tamu: guestName,
+                    kategori_tamu: kategoriValue,
+                    jumlah_aktual: paxValue,
                     status_kehadiran: 'BELUM_HADIR',
-                    status_souvenir: 'BELUM_AMBIL'
+                    status_souvenir: 'BELUM_AMBIL',
+                    form_data: formPayload,
+                    created_at: new Date().toISOString()
                 };
             });
 
@@ -2865,14 +2875,19 @@ async function processExcelImport(event) {
             const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
             if (inputEl) inputEl.value = "";
 
-            Swal.fire('Berhasil!', `${payload.length} data tamu sukses dimasukkan ke database.`, 'success');
+            Swal.fire({
+                title: 'Berhasil Impor!',
+                text: `${payload.length} data tamu sukses dimasukkan ke database & QR Code otomatis dibuat!`,
+                icon: 'success',
+                customClass: { popup: 'luxury-popup' }
+            });
             
             // Perbarui visual tabel rekap secara instan
-            loadGuestRecapTable();
+            if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
 
         } catch (err) {
             console.error("Gagal Eksekusi Impor Excel:", err);
-            Swal.fire('Gagal Impor!', 'Terjadi kendala sistem saat membaca format berkas. Pastikan file Anda bersih.', 'error');
+            Swal.fire('Gagal Impor!', err.message || 'Terjadi kendala sistem saat membaca format berkas.', 'error');
             
             const inputEl = document.getElementById('excelUploadInput') || document.getElementById('importExcelInput');
             if (inputEl) inputEl.value = "";
