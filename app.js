@@ -71,105 +71,111 @@ window.onload = () => {
 };
 
 // =========================================================================
-// CORE LOGIC FUNCTIONS (MENGGUNAKAN SUPABASE)
+// CORE LOGIC FUNCTIONS (MENGGUNAKAN SUPABASE) - FORM & SETTINGS LOADER
 // =========================================================================
+
 async function loadForm() {
-  try {
-    const { data: configData, error: configError } = await db.from('app_config').select('*');
-    if (configError) throw configError;
-    
-    let data = {};
-    configData.forEach(row => {
-        data[row.key] = row.value;
-    });
+    try {
+        const { data: configData, error: configError } = await db.from('app_config').select('*');
+        if (configError) throw configError;
+        
+        let data = {};
+        configData.forEach(row => {
+            data[row.key] = row.value;
+        });
 
-    const { data: settingsData, error: settingsError } = await db.from('form_settings').select('*').order('sort_order', { ascending: true });
-    if (settingsError) throw settingsError;
+        const { data: settingsData, error: settingsError } = await db.from('form_settings').select('*').order('sort_order', { ascending: true });
+        if (settingsError) throw settingsError;
 
-    const { count, error: countError } = await db.from('data_tamu').select('*', { count: 'exact', head: true });
-    if (!countError) {
-        data.currentRegistered = count || 0;
-    }
-
-    currentQuestions = settingsData.map(q => ({
-        id: q.id,
-        label: q.label,
-        type: q.type,
-        options: q.options ? q.options.split(",") : [],
-        showOnTv: q.show_on_tv,
-        required: q.required
-    }));
-
-    let currentTheme = data.AppTheme || "classic_gold"; applyAppTheme(currentTheme);
-    let elTheme = document.getElementById('adminAppTheme'); if(elTheme) elTheme.value = currentTheme;
-    spreadsheetUrl = "https://supabase.com"; 
-    greetingPrefix = data.GreetingPrefix || "Bapak / Ibu"; 
-    greetingSuffix = data.GreetingSuffix || "";
-    
-    let setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val || ""; };
-    let setText = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val || ""; };
-
-    setVal('adminPrefix', data.GreetingPrefix); setVal('adminSuffix', data.GreetingSuffix);
-    setText('displayEventTitle', data.EventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.EventTitle);
-    let announcementText = data.Announcement || "Selamat Datang";
-    setText('runningTextDisplay', announcementText); 
-    setVal('adminAnnouncement', announcementText);
-
-    // --- AKTIFKAN RUNNING TEXT DI DOM ---
-    let tickerContainer = document.getElementById('tickerWrapContainer') || document.querySelector('.ticker-wrap');
-    if (tickerContainer && announcementText.trim() !== "") {
-    tickerContainer.classList.add('active-ticker');
-    tickerContainer.style.display = 'block';
- }     
-    setVal('adminEventName', data.EventName); setVal('adminEventDate', data.EventDate); setVal('adminEventLocation', data.EventLocation); 
-    setVal('adminPosterUrl', data.PosterUrl); setVal('adminDetailUrl', data.DetailUrl);
-    enableSoundSuccess = data.SoundSuccess !== "false"; enableSoundError = data.SoundError !== "false";
-    setVal('adminSoundSuccess', data.SoundSuccess || "true"); setVal('adminSoundError', data.SoundError || "true");
-    dynamicSouvenirLabel = data.SouvenirLabel || "SOUVENIR"; setVal('adminSouvenirLabel', dynamicSouvenirLabel); updateSouvenirLabelDOM(dynamicSouvenirLabel);
-    isSouvenirPerPax = (data.SouvenirPerPax === "true"); setVal('adminSouvenirPerPax', data.SouvenirPerPax || "false");
-    setVal('adminMaxQuota', data.MaxQuota); setVal('adminFormStatus', data.FormStatus || "BUKA"); setVal('adminWaTemplate', data.WaTemplate); 
-    setVal('adminRequireLogin', data.RequireLogin || "true");
-
-    if (!IS_PUBLIC_MODE && currentUserRole === "" && data.RequireLogin === "false") {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('force') === 'login') {
-            console.log("Backdoor aktif: Menahan popup login untuk Admin.");
-        } else {
-            Swal.close(); 
-            currentUserRole = "Scanner"; 
-            loginSuccess(); 
+        const { count, error: countError } = await db.from('data_tamu').select('*', { count: 'exact', head: true });
+        if (!countError) {
+            data.currentRegistered = count || 0;
         }
-    }
 
-    if (data.PosterUrl && data.PosterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
+        // Ambil data pertanyaan dari database Supabase
+        currentQuestions = settingsData.map(q => ({
+            id: q.id,
+            label: q.label,
+            type: q.type,
+            options: q.options ? q.options.split(",") : [],
+            showOnTv: q.show_on_tv,
+            required: q.required
+        }));
 
-    if (data.FormStatus === "TUTUP") {
-        document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">PENDAFTARAN DITUTUP</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.</p></div>';
-        let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-        let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-        document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
-    }
+        let currentTheme = data.AppTheme || "classic_gold"; applyAppTheme(currentTheme);
+        let elTheme = document.getElementById('adminAppTheme'); if(elTheme) elTheme.value = currentTheme;
+        spreadsheetUrl = "https://supabase.com"; 
+        greetingPrefix = data.GreetingPrefix || "Bapak / Ibu"; 
+        greetingSuffix = data.GreetingSuffix || "";
+        
+        let setVal = (id, val) => { let el = document.getElementById(id); if(el) el.value = val || ""; };
+        let setText = (id, val) => { let el = document.getElementById(id); if(el) el.innerText = val || ""; };
 
-    let maxQ = parseInt(data.MaxQuota) || 0; let curRegHead = parseInt(data.currentRegistered) || 0;
-    if (maxQ > 0 && curRegHead >= maxQ) {
-        document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">MOHON MAAF</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh.</p></div>';
-        let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-        let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-        document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
-    }
+        setVal('adminPrefix', data.GreetingPrefix); setVal('adminSuffix', data.GreetingSuffix);
+        setText('displayEventTitle', data.EventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.EventTitle);
+        let announcementText = data.Announcement || "Selamat Datang";
+        setText('runningTextDisplay', announcementText); 
+        setVal('adminAnnouncement', announcementText);
 
-    if (IS_PUBLIC_MODE) {
-        document.getElementById('publicEventInfo').style.display = 'block'; document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle;
-        let dateLoc = []; if(data.EventDate) dateLoc.push(data.EventDate); if(data.EventLocation) dateLoc.push(data.EventLocation); document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
-        if(data.DetailUrl && data.DetailUrl.trim() !== "") { let btnDetail = document.getElementById('pubDetailBtn'); let finalUrl = data.DetailUrl.startsWith('http') ? data.DetailUrl : 'https://' + data.DetailUrl; btnDetail.href = finalUrl; btnDetail.style.display = 'inline-block'; }
+        // --- AKTIFKAN RUNNING TEXT DI DOM ---
+        let tickerContainer = document.getElementById('tickerWrapContainer') || document.querySelector('.ticker-wrap');
+        if (tickerContainer && announcementText.trim() !== "") {
+            tickerContainer.classList.add('active-ticker');
+            tickerContainer.style.display = 'block';
+        }      
+        
+        setVal('adminEventName', data.EventName); setVal('adminEventDate', data.EventDate); setVal('adminEventLocation', data.EventLocation); 
+        setVal('adminPosterUrl', data.PosterUrl); setVal('adminDetailUrl', data.DetailUrl);
+        enableSoundSuccess = data.SoundSuccess !== "false"; enableSoundError = data.SoundError !== "false";
+        setVal('adminSoundSuccess', data.SoundSuccess || "true"); setVal('adminSoundError', data.SoundError || "true");
+        dynamicSouvenirLabel = data.SouvenirLabel || "SOUVENIR"; setVal('adminSouvenirLabel', dynamicSouvenirLabel); updateSouvenirLabelDOM(dynamicSouvenirLabel);
+        isSouvenirPerPax = (data.SouvenirPerPax === "true"); setVal('adminSouvenirPerPax', data.SouvenirPerPax || "false");
+        setVal('adminMaxQuota', data.MaxQuota); setVal('adminFormStatus', data.FormStatus || "BUKA"); setVal('adminWaTemplate', data.WaTemplate); 
+        setVal('adminRequireLogin', data.RequireLogin || "true");
+
+        if (!IS_PUBLIC_MODE && currentUserRole === "" && data.RequireLogin === "false") {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('force') === 'login') {
+                console.log("Backdoor aktif: Menahan popup login untuk Admin.");
+            } else {
+                Swal.close(); 
+                currentUserRole = "Scanner"; 
+                loginSuccess(); 
+            }
+        }
+
+        if (data.PosterUrl && data.PosterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
+
+        // PERIKSA STATUS FORM (TUTUP)
+        if (data.FormStatus === "TUTUP") {
+            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">PENDAFTARAN DITUTUP</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.</p></div>';
+            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
+            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
+            document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+        }
+
+        // PERIKSA KUOTA MAKSIMAL
+        let maxQ = parseInt(data.MaxQuota) || 0; let curRegHead = parseInt(data.currentRegistered) || 0;
+        if (maxQ > 0 && curRegHead >= maxQ) {
+            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">MOHON MAAF</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh.</p></div>';
+            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
+            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
+            document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+        }
+
+        if (IS_PUBLIC_MODE) {
+            document.getElementById('publicEventInfo').style.display = 'block'; document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle;
+            let dateLoc = []; if(data.EventDate) dateLoc.push(data.EventDate); if(data.EventLocation) dateLoc.push(data.EventLocation); document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
+            if(data.DetailUrl && data.DetailUrl.trim() !== "") { let btnDetail = document.getElementById('pubDetailBtn'); let finalUrl = data.DetailUrl.startsWith('http') ? data.DetailUrl : 'https://' + data.DetailUrl; btnDetail.href = finalUrl; btnDetail.style.display = 'inline-block'; }
+        }
+        
+        // RENDER FORM UTAMA DAN SINKRONISASI MODAL REKAP
+        renderGuestForm();
+        renderSetupQuestionsTable();
+        
+    } catch(e) { 
+        Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
     }
-    
-    renderGuestForm();
-    renderSetupQuestionsTable();
-    
-  } catch(e) { 
-      Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
-  }
 }
 
 // =========================================================================
@@ -613,23 +619,18 @@ function updateSouvenirLabelDOM(label) {
 }
 
 // =========================================================================
-// SINKRONISASI RENDER FORM DINAMIS (FORM UTAMA & MODAL TAMBAH TAMU)
+// RENDER FORM DINAMIS UNTUK UTAMA & MODAL TAMBAH TAMU
 // =========================================================================
 
 function renderGuestForm() {
-    // 1. Set / Kunci Pertanyaan Standar (3 Pertanyaan Wajib)
-    const standardQuestions = [
-        { id: 'nama_tamu', label: 'Nama Tamu', type: 'text', required: true },
-        { id: 'institusi', label: 'Institusi', type: 'text', required: false },
-        { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda', type: 'dropdown', options: ['1', '2', '3'], required: true }
-    ];
-
-    // Gunakan pertanyaan standar jika currentQuestions belum di-load
     const questionsToRender = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0) 
         ? currentQuestions 
-        : standardQuestions;
+        : [
+            { id: 'nama_tamu', label: 'Nama Tamu', type: 'text', required: true },
+            { id: 'institusi', label: 'Institusi', type: 'text', required: false },
+            { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda', type: 'dropdown', options: ['1', '2', '3'], required: true }
+          ];
 
-    // 2. Generate HTML Form
     let html = '';
     questionsToRender.forEach(q => {
         let isReq = q.required ? 'required' : '';
@@ -640,9 +641,9 @@ function renderGuestForm() {
         
         if (q.type === 'dropdown') {
             html += `<select id="field_${q.id}" class="form-control" ${isReq} style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc;">`;
-            html += `<option value="">-- Pilih Jumlah --</option>`;
+            html += `<option value="">-- Pilih --</option>`;
             (q.options || []).forEach(o => {
-                html += `<option value="${o}">${o} Person</option>`;
+                html += `<option value="${o}">${o}</option>`;
             });
             html += `</select>`;
         } else if (q.type === 'radio') {
@@ -660,20 +661,22 @@ function renderGuestForm() {
         html += `</div>`;
     });
 
-    // 3. Inject ke Container Form Utama
+    // 1. Inject ke Container Form Utama
     const mainContainer = document.getElementById('dynamicFormContainer');
     if (mainContainer) mainContainer.innerHTML = html;
 
-    // 4. INJECT JUGA KE MODAL TAMBAH TAMU REKAP (SINKRONISASI)
-    const modalContainers = [
+    // 2. Inject ke Semua Kemungkinan ID Container Modal Tambah Tamu
+    const modalContainerIDs = [
         'modalDynamicFormContainer', 
         'adminGuestFormContainer', 
         'rekapDynamicFormContainer',
-        'modalTambahTamuForm'
+        'modalTambahTamuForm',
+        'modalAddGuestForm',
+        'addGuestDynamicForm'
     ];
 
-    modalContainers.forEach(containerId => {
-        const el = document.getElementById(containerId);
+    modalContainerIDs.forEach(id => {
+        const el = document.getElementById(id);
         if (el) el.innerHTML = html;
     });
 }
