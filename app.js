@@ -612,20 +612,71 @@ function updateSouvenirLabelDOM(label) {
     let filterSouv = document.getElementById('filterSouvenir'); if(filterSouv && filterSouv.options.length > 0) filterSouv.options[0].text = "Semua " + label;
 }
 
-function renderGuestForm() {
-  let html = '';
-  currentQuestions.forEach(q => {
-    let isReq = q.required ? 'required' : ''; let reqLabel = q.required ? '<span style="color:red;">*</span>' : '';
-    html += '<div class="form-group"><label>' + q.label + ' ' + reqLabel + '</label>';
-    if(q.type === 'dropdown') { html += '<select id="field_' + q.id + '" ' + isReq + '><option value="">-- Pilih --</option>' + q.options.map(o => '<option value="' + o + '">' + o + '</option>').join('') + '</select>'; } 
-    else if (q.type === 'radio') { q.options.forEach(o => { html += '<div style="margin-bottom:8px;"><input type="radio" name="field_' + q.id + '" value="' + o + '" ' + isReq + ' style="width:auto; display:inline-block; margin-right:8px;"> ' + o + '</div>'; }); } 
-    else if (q.type === 'checkbox') { q.options.forEach(o => { html += '<div style="margin-bottom:8px;"><input type="checkbox" name="field_' + q.id + '" value="' + o + '" style="width:auto; display:inline-block; margin-right:8px;"> ' + o + '</div>'; }); } 
-    else { html += '<input type="' + q.type + '" id="field_' + q.id + '" placeholder="..." ' + isReq + '>'; }
-    html += '</div>';
-  });
-  document.getElementById('dynamicFormContainer').innerHTML = html;
-}
+// =========================================================================
+// SINKRONISASI RENDER FORM DINAMIS (FORM UTAMA & MODAL TAMBAH TAMU)
+// =========================================================================
 
+function renderGuestForm() {
+    // 1. Set / Kunci Pertanyaan Standar (3 Pertanyaan Wajib)
+    const standardQuestions = [
+        { id: 'nama_tamu', label: 'Nama Tamu', type: 'text', required: true },
+        { id: 'institusi', label: 'Institusi', type: 'text', required: false },
+        { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda', type: 'dropdown', options: ['1', '2', '3'], required: true }
+    ];
+
+    // Gunakan pertanyaan standar jika currentQuestions belum di-load
+    const questionsToRender = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0) 
+        ? currentQuestions 
+        : standardQuestions;
+
+    // 2. Generate HTML Form
+    let html = '';
+    questionsToRender.forEach(q => {
+        let isReq = q.required ? 'required' : '';
+        let reqLabel = q.required ? '<span style="color:red;">*</span>' : '';
+        
+        html += `<div class="form-group" style="margin-bottom:15px; text-align:left;">`;
+        html += `<label style="display:block; font-weight:600; margin-bottom:5px; color:#333;">${q.label} ${reqLabel}</label>`;
+        
+        if (q.type === 'dropdown') {
+            html += `<select id="field_${q.id}" class="form-control" ${isReq} style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+            html += `<option value="">-- Pilih Jumlah --</option>`;
+            (q.options || []).forEach(o => {
+                html += `<option value="${o}">${o} Person</option>`;
+            });
+            html += `</select>`;
+        } else if (q.type === 'radio') {
+            (q.options || []).forEach(o => {
+                html += `<div style="margin-bottom:5px;"><input type="radio" name="field_${q.id}" value="${o}" ${isReq}> ${o}</div>`;
+            });
+        } else if (q.type === 'checkbox') {
+            (q.options || []).forEach(o => {
+                html += `<div style="margin-bottom:5px;"><input type="checkbox" name="field_${q.id}" value="${o}"> ${o}</div>`;
+            });
+        } else {
+            html += `<input type="${q.type || 'text'}" id="field_${q.id}" class="form-control" placeholder="Isi ${q.label}..." ${isReq} style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+        }
+        
+        html += `</div>`;
+    });
+
+    // 3. Inject ke Container Form Utama
+    const mainContainer = document.getElementById('dynamicFormContainer');
+    if (mainContainer) mainContainer.innerHTML = html;
+
+    // 4. INJECT JUGA KE MODAL TAMBAH TAMU REKAP (SINKRONISASI)
+    const modalContainers = [
+        'modalDynamicFormContainer', 
+        'adminGuestFormContainer', 
+        'rekapDynamicFormContainer',
+        'modalTambahTamuForm'
+    ];
+
+    modalContainers.forEach(containerId => {
+        const el = document.getElementById(containerId);
+        if (el) el.innerHTML = html;
+    });
+}
 function toggleQOptDisplay() {
     let elType = document.getElementById('newQType');
     let container = document.getElementById('newQOptContainer') || document.getElementById('newQOptionsContainer'); // Fallback multi-ID HTML
