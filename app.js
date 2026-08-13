@@ -2527,7 +2527,35 @@ function getCurrentlyFilteredData() {
     });
 }
 
-// 1. FUNGSI EXPORT TO EXCEL (DINAMIS EVENT)
+// =========================================================================
+// FUNGSI EXPORT DATA TAMU (EXCEL & PDF LANDSCAPE + INSTITUSI & TIMESTAMP RINGKAS)
+// =========================================================================
+
+// Helper Fungsi Pemformat Timestamp agar Simpel & Ringkas (Contoh: 13/08/2026 15:40)
+function formatSimpleTimestamp(isoString) {
+    if (!isoString || isoString === '-') return '-';
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+
+        const dateStr = d.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        const timeStr = d.toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).replace('.', ':');
+
+        return `${dateStr} ${timeStr}`;
+    } catch (e) {
+        return isoString;
+    }
+}
+
+// 1. FUNGSI EXPORT TO EXCEL (MENAMBAHKAN KOLOM INSTITUSI & TIMESTAMP SIMPEL)
 function exportToExcel() {
     const targetData = getCurrentlyFilteredData();
     if (targetData.length === 0) {
@@ -2579,18 +2607,21 @@ function exportToExcel() {
         ["Total Tamu Reguler Hadir (Pax)", regulerHadir],
         [],
         ["DAFTAR RINCIAN TAMU UNDANGAN"],
-        ["NO", "NAMA TAMU", "KATEGORI", "JUMLAH (PAX)", "STATUS CHECK-IN", "STATUS SOUVENIR", "WAKTU HADIR"]
+        ["NO", "NAMA TAMU", "INSTITUSI", "KATEGORI", "JUMLAH (PAX)", "STATUS CHECK-IN", "STATUS SOUVENIR", "WAKTU HADIR"]
     ];
 
     targetData.forEach((guest, index) => {
+        let instText = guest.institusi || (guest.form_data && guest.form_data.institusi) || 'Umum';
+
         wsData.push([
             index + 1,
             guest.nama_tamu || '-',
+            instText,
             (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.jumlah_aktual || 1,
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
             (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
-            guest.waktu_hadir || '-'
+            formatSimpleTimestamp(guest.waktu_hadir)
         ]);
     });
 
@@ -2600,7 +2631,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (LAYOUT PREMIUM + LOGO TAMOO PROPORSIONAL)
+// 2. FUNGSI EXPORT TO PDF (LAYOUT PREMIUM + INSTITUSI & TIMESTAMP RINGKAS)
 function exportToPdf() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'pt', 'a4');
@@ -2645,20 +2676,16 @@ function exportToPdf() {
     // =========================================================================
     // HEADER SECTION (CENTER ALIGNED)
     // =========================================================================
-    
-    // Brand TAMOO Emas Kecil & Proporsional (11pt Bold, mirip header tabel)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(179, 147, 67); // Warna Emas #b39343
     doc.text("TAMOO", pageWidth / 2, 38, { align: "center" });
 
-    // Sub-Judul Laporan
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.setTextColor(50, 50, 50);
     doc.text("LAPORAN REKAPITULASI DATA TAMU", pageWidth / 2, 55, { align: "center" });
 
-    // Detail Event & Tanggal
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
@@ -2669,43 +2696,45 @@ function exportToPdf() {
     // =========================================================================
     const cardX = 40;
     const cardY = 88;
-    const cardWidth = pageWidth - 80; // 762pt
-    const cardHeight = 70;
+    const cardWidth = pageWidth - 80;
+    const cardHeight = 65;
 
-    // Background & border Emas Tipis untuk Card
     doc.setDrawColor(218, 192, 123); 
     doc.setFillColor(254, 253, 247); 
     doc.setLineWidth(1);
     doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 6, 6, 'FD');
 
-    // Teks statistik di dalam card box
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
     doc.setTextColor(60, 60, 60);
 
-    // Kolom Kiri
     doc.text(`• Total Kehadiran Nama Terdaftar :  ${totalNamaTerdaftar} Nama`, cardX + 25, cardY + 20);
     doc.text(`• Total Kehadiran Tamu (Pax)     :  ${totalHadirPax} Orang`, cardX + 25, cardY + 38);
-    doc.text(`• Total Pengambilan Souvenir     :  ${totalSouvenir} Pcs`, cardX + 25, cardY + 56);
+    doc.text(`• Total Pengambilan Souvenir     :  ${totalSouvenir} Pcs`, cardX + 25, cardY + 54);
 
-    // Kolom Kanan
     doc.text(`• Total Belum Hadir              :  ${totalBelumHadirNama} Nama`, cardX + 410, cardY + 20);
     doc.text(`• Total Tamu VIP Hadir (Pax)     :  ${vipHadirPax} Orang`, cardX + 410, cardY + 38);
-    doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 56);
+    doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 54);
 
     // =========================================================================
-    // DATA TABLE UNDANGAN + COLOMN TIMESTAMP
+    // DATA TABLE UNDANGAN + KOLOM INSTITUSI & TIMESTAMP RINGKAS
     // =========================================================================
-    const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "JUMLAH (PAX)", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR / TIMESTAMP"]];
-    const tableRows = targetData.map((guest, idx) => [
-        idx + 1,
-        guest.nama_tamu || '-',
-        guest.jumlah_aktual || 1,
-        (guest.kategori_tamu || 'Reguler').toUpperCase(),
-        guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
-        (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
-        guest.waktu_hadir || '-'
-    ]);
+    const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "INSTITUSI", "PAX", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR"]];
+    
+    const tableRows = targetData.map((guest, idx) => {
+        let instText = guest.institusi || (guest.form_data && guest.form_data.institusi) || 'Umum';
+
+        return [
+            idx + 1,
+            guest.nama_tamu || '-',
+            instText,
+            guest.jumlah_aktual || 1,
+            (guest.kategori_tamu || 'Reguler').toUpperCase(),
+            guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
+            (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
+            formatSimpleTimestamp(guest.waktu_hadir)
+        ];
+    });
 
     doc.autoTable({
         head: tableHeaders,
@@ -2714,22 +2743,22 @@ function exportToPdf() {
         margin: { left: 40, right: 40 },
         theme: 'striped',
         headStyles: { 
-            fillDouble: true, 
             fillColor: [179, 147, 67], 
             textColor: [255, 255, 255], 
             fontStyle: 'bold', 
             halign: 'center',
-            fontSize: 9
+            fontSize: 8.5
         }, 
-        styles: { fontSize: 8.5, cellPadding: 5, verticalAlign: 'middle' },
+        styles: { fontSize: 8, cellPadding: 5, verticalAlign: 'middle' },
         columnStyles: {
-            0: { halign: 'center', width: 35 },
-            1: { halign: 'left' },
-            2: { halign: 'center', width: 75 },
-            3: { halign: 'center', width: 90 },
-            4: { halign: 'center', width: 110 },
-            5: { halign: 'center', width: 110 },
-            6: { halign: 'center', width: 130 }
+            0: { halign: 'center', width: 30 },  // NO
+            1: { halign: 'left', width: 140 },    // NAMA
+            2: { halign: 'left', width: 130 },    // INSTITUSI
+            3: { halign: 'center', width: 40 },   // PAX
+            4: { halign: 'center', width: 70 },   // KATEGORI
+            5: { halign: 'center', width: 100 },  // STATUS KEHADIRAN
+            6: { halign: 'center', width: 110 },  // STATUS SOUVENIR
+            7: { halign: 'center', width: 120 }   // WAKTU HADIR
         },
         didDrawPage: function (data) {
             doc.setFont("helvetica", "italic");
