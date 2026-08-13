@@ -1832,20 +1832,19 @@ async function saveAndGenerateTicketManual(formDataPayload) {
 
         const guestId = "TMO-" + Date.now().toString().slice(-6) + Math.floor(1000 + Math.random() * 9000);
         
-        // Deteksi Nama, Pax, Institusi dari payload dinamis
+        // Deteksi Nama dan Pax dari payload
         const guestName = formDataPayload['nama_tamu'] || formDataPayload[Object.keys(formDataPayload)[0]] || "Tamu Undangan";
-        const paxValue = parseInt(formDataPayload['jumlah_pax'] || formDataPayload['jumlah_tamu'] || 1, 10) || 1;
-        const instValue = formDataPayload['institusi'] || 'Umum';
+        const paxValue = parseInt(formDataPayload['jumlah_pax'] || formDataPayload['jumlah_tamu'] || formDataPayload['c_jumlah_tamu_termasuk_anda'] || 1, 10) || 1;
 
+        // Objek yang dikirim ke Supabase (Murni kolom standar yang pasti ada di data_tamu)
         const guestDataToSave = {
             id: guestId,
             nama_tamu: guestName,
             kategori_tamu: formDataPayload['kategori_tamu'] || 'Reguler',
             jumlah_aktual: paxValue,
-            institusi: instValue,
             status_kehadiran: 'BELUM_HADIR',
             status_souvenir: 'BELUM_AMBIL',
-            form_data: formDataPayload,
+            form_data: formDataPayload, // Seluruh detail (institusi, dll) aman tersimpan di sini
             created_at: new Date().toISOString()
         };
 
