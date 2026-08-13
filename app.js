@@ -2555,7 +2555,62 @@ function formatSimpleTimestamp(isoString) {
     }
 }
 
-// 1. FUNGSI EXPORT TO EXCEL (MENAMBAHKAN KOLOM INSTITUSI & TIMESTAMP SIMPEL)
+// =========================================================================
+// HELPER PENARIKAN DATA INSTITUSI DINAMIS DARI JSON FORM_DATA
+// =========================================================================
+function extractInstitusiVal(guest) {
+    if (!guest) return 'Umum';
+    
+    // 1. Cek jika ada di kolom utama database
+    if (guest.institusi && guest.institusi.trim() !== "" && guest.institusi !== 'Umum') {
+        return guest.institusi;
+    }
+
+    // 2. Cek jika data tersimpan di JSON form_data
+    if (guest.form_data) {
+        let fd = typeof guest.form_data === 'string' ? JSON.parse(guest.form_data) : guest.form_data;
+        
+        if (fd.institusi && fd.institusi.trim() !== "") return fd.institusi;
+        if (fd.c_institusi && fd.c_institusi.trim() !== "") return fd.c_institusi;
+        if (fd.asal && fd.asal.trim() !== "") return fd.asal;
+
+        // Pencarian otomatis key yang mengandung kata 'inst' atau 'asal'
+        for (let key in fd) {
+            let lowerKey = key.toLowerCase();
+            if ((lowerKey.includes('inst') || lowerKey.includes('asal')) && fd[key] && fd[key].toString().trim() !== "") {
+                return fd[key].toString().trim();
+            }
+        }
+    }
+
+    return guest.institusi || 'Umum';
+}
+
+// Helper Fungsi Pemformat Timestamp agar Simpel & Ringkas (Contoh: 13/08/2026 15:40)
+function formatSimpleTimestamp(isoString) {
+    if (!isoString || isoString === '-') return '-';
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+
+        const dateStr = d.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        const timeStr = d.toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).replace('.', ':');
+
+        return `${dateStr} ${timeStr}`;
+    } catch (e) {
+        return isoString;
+    }
+}
+
+// 1. FUNGSI EXPORT TO EXCEL
 function exportToExcel() {
     const targetData = getCurrentlyFilteredData();
     if (targetData.length === 0) {
@@ -2563,7 +2618,6 @@ function exportToExcel() {
         return;
     }
 
-    // Ambil data event dinamis dari halaman setup
     const currentEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
     const currentEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
 
@@ -2611,7 +2665,7 @@ function exportToExcel() {
     ];
 
     targetData.forEach((guest, index) => {
-        let instText = guest.institusi || (guest.form_data && guest.form_data.institusi) || 'Umum';
+        let instText = extractInstitusiVal(guest);
 
         wsData.push([
             index + 1,
@@ -2631,7 +2685,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (LAYOUT PREMIUM + INSTITUSI & TIMESTAMP RINGKAS)
+// 2. FUNGSI EXPORT TO PDF
 function exportToPdf() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'pt', 'a4');
@@ -2642,11 +2696,9 @@ function exportToPdf() {
         return;
     }
 
-    // Ambil data event dinamis dari halaman setup
     const currentEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
     const currentEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
 
-    // 1. KONTROL HITUNG STATISTIK
     let totalNamaTerdaftar = targetData.length;
     let totalHadirPax = 0;
     let totalSouvenir = 0;
@@ -2671,14 +2723,12 @@ function exportToPdf() {
         if (isSouv) totalSouvenir += 1;
     });
 
-    const pageWidth = doc.internal.pageSize.getWidth(); // 842pt
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-    // =========================================================================
-    // HEADER SECTION (CENTER ALIGNED)
-    // =========================================================================
+    // HEADER SECTION
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.setTextColor(179, 147, 67); // Warna Emas #b39343
+    doc.setTextColor(179, 147, 67);
     doc.text("TAMOO", pageWidth / 2, 38, { align: "center" });
 
     doc.setFont("helvetica", "bold");
@@ -2691,9 +2741,7 @@ function exportToPdf() {
     doc.setTextColor(100, 100, 100);
     doc.text(`Nama Event: ${currentEventName.toUpperCase()}   |   Tanggal Pelaksanaan: ${currentEventDate}`, pageWidth / 2, 72, { align: "center" });
 
-    // =========================================================================
-    // STATISTIK SUMMARY CARD BOX (BOX EMAS TIPIS - 3 KIRI, 3 KANAN)
-    // =========================================================================
+    // STATISTIK SUMMARY CARD BOX
     const cardX = 40;
     const cardY = 88;
     const cardWidth = pageWidth - 80;
@@ -2716,13 +2764,11 @@ function exportToPdf() {
     doc.text(`• Total Tamu VIP Hadir (Pax)     :  ${vipHadirPax} Orang`, cardX + 410, cardY + 38);
     doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 54);
 
-    // =========================================================================
-    // DATA TABLE UNDANGAN + KOLOM INSTITUSI & TIMESTAMP RINGKAS
-    // =========================================================================
+    // DATA TABLE UNDANGAN + KOLOM INSTITUSI DINAMIS & TIMESTAMP RINGKAS
     const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "INSTITUSI", "PAX", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR"]];
     
     const tableRows = targetData.map((guest, idx) => {
-        let instText = guest.institusi || (guest.form_data && guest.form_data.institusi) || 'Umum';
+        let instText = extractInstitusiVal(guest);
 
         return [
             idx + 1,
@@ -2751,14 +2797,14 @@ function exportToPdf() {
         }, 
         styles: { fontSize: 8, cellPadding: 5, verticalAlign: 'middle' },
         columnStyles: {
-            0: { halign: 'center', width: 30 },  // NO
-            1: { halign: 'left', width: 140 },    // NAMA
-            2: { halign: 'left', width: 130 },    // INSTITUSI
-            3: { halign: 'center', width: 40 },   // PAX
-            4: { halign: 'center', width: 70 },   // KATEGORI
-            5: { halign: 'center', width: 100 },  // STATUS KEHADIRAN
-            6: { halign: 'center', width: 110 },  // STATUS SOUVENIR
-            7: { halign: 'center', width: 120 }   // WAKTU HADIR
+            0: { halign: 'center', width: 30 },
+            1: { halign: 'left', width: 140 },
+            2: { halign: 'left', width: 130 },
+            3: { halign: 'center', width: 40 },
+            4: { halign: 'center', width: 70 },
+            5: { halign: 'center', width: 100 },
+            6: { halign: 'center', width: 110 },
+            7: { halign: 'center', width: 120 }
         },
         didDrawPage: function (data) {
             doc.setFont("helvetica", "italic");
@@ -2771,7 +2817,6 @@ function exportToPdf() {
     doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
 }
 
-// Fungsi pembantu agar nama file download bersih dari karakter aneh
 function safeFileName(str) {
     return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
 }
