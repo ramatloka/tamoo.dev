@@ -1517,10 +1517,9 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU (UI VERSI AWAL + LIVE FILTERING SECARA A-Z)
+// MODUL REKAPITULASI TAMU + PAGINATION LENGKAP
 // =========================================================================
 
-// Variable Global untuk menyimpan cache data tamu agar filter cepat tanpa request ulang ke server
 let rawGuestDataCache = [];
 
 async function loadGuestRecapTable() {
@@ -1536,7 +1535,7 @@ async function loadGuestRecapTable() {
     try {
         if (typeof db === "undefined" || !db) return;
 
-        // Tarik seluruh data dari tabel Supabase (diurutkan A-Z)
+        // Tarik data dari Supabase
         const { data: guests, error } = await db
             .from('data_tamu')
             .select('*')
@@ -1544,11 +1543,10 @@ async function loadGuestRecapTable() {
 
         if (error) throw error;
 
-        // Simpan ke cache global
         rawGuestDataCache = guests || [];
 
-        // Jalankan filter pertama kali untuk merender data ke tabel
-        applyFilters();
+        // Langsung jalankan filter dan render pagination
+        applyFilters(false);
 
     } catch (err) {
         console.error("Gagal memuat rekap data_tamu:", err);
@@ -1557,10 +1555,6 @@ async function loadGuestRecapTable() {
         }
     }
 }
-
-// =========================================================================
-// FUNGSI LOGIKA FILTER, PENCARIAN & PAGINATION REKAPITULASI TAMU
-// =========================================================================
 
 function applyFilters(resetToFirstPage = false) {
     const tableBody = document.getElementById('guestTableBody') || 
@@ -1573,35 +1567,28 @@ function applyFilters(resetToFirstPage = false) {
         currentPage = 1;
     }
 
-    // 1. Ambil nilai dari input pencarian & dropdown filter
     const searchVal = (document.getElementById('searchRekapInput')?.value || '').toLowerCase().trim();
     const filterKatVal = document.getElementById('filterKategori')?.value || 'ALL';
     const filterStatVal = document.getElementById('filterStatus')?.value || 'ALL';
     const filterSouvVal = document.getElementById('filterSouvenir')?.value || 'ALL';
 
-    // 2. Terapkan Logika Penyaringan pada Data Cache
     filteredGuestData = rawGuestDataCache.filter(guest => {
-        // A. Filter Nama Tamu
         const namaTamu = (guest.nama_tamu || '').toLowerCase();
         const matchNama = !searchVal || namaTamu.includes(searchVal);
 
-        // B. Filter Kategori (VIP / Reguler)
         let rawKategori = (guest.kategori_tamu || 'Reguler').toUpperCase();
         if (rawKategori === 'UMUM') rawKategori = 'REGULER';
         
         let matchKategori = true;
         if (filterKatVal !== 'ALL') {
-            const targetKat = filterKatVal.toUpperCase();
-            matchKategori = rawKategori.includes(targetKat);
+            matchKategori = rawKategori.includes(filterKatVal.toUpperCase());
         }
 
-        // C. Filter Status Kehadiran (Hadir / Belum Hadir)
         const isHadir = guest.status_kehadiran === 'HADIR';
         let matchStatus = true;
         if (filterStatVal === 'Hadir') matchStatus = isHadir;
         else if (filterStatVal === 'Belum Hadir') matchStatus = !isHadir;
 
-        // D. Filter Souvenir (Sudah Ambil / Belum Ambil)
         const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
         let matchSouvenir = true;
         if (filterSouvVal === 'Sudah Ambil') matchSouvenir = isSouvenir;
@@ -1610,12 +1597,10 @@ function applyFilters(resetToFirstPage = false) {
         return matchNama && matchKategori && matchStatus && matchSouvenir;
     });
 
-    // 3. Update Kartu Ringkasan Statistik
     if (typeof updateRekapSummaryCards === "function") {
         updateRekapSummaryCards(filteredGuestData);
     }
 
-    // 4. Jika Data Kosong
     if (filteredGuestData.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -1629,7 +1614,7 @@ function applyFilters(resetToFirstPage = false) {
         return;
     }
 
-    // 5. Potong Data Sesuai Halaman Aktif (Pagination Slice)
+    // Hitung Pembagian Halaman (Pagination)
     const totalItems = filteredGuestData.length;
     const totalPages = Math.ceil(totalItems / rowsPerPage);
 
@@ -1640,7 +1625,6 @@ function applyFilters(resetToFirstPage = false) {
     const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
     const paginatedGuests = filteredGuestData.slice(startIndex, endIndex);
 
-    // 6. Render Baris Tabel
     tableBody.innerHTML = paginatedGuests.map((guest) => {
         const namaTamu = guest.nama_tamu || '-';
         const jumlahOrang = guest.jumlah_aktual || 1;
@@ -1711,13 +1695,9 @@ function applyFilters(resetToFirstPage = false) {
         `;
     }).join('');
 
-    // 7. Render Tombol Pagination (Atas & Bawah)
     renderPagination(totalItems);
 }
 
-// =========================================================================
-// RENDER KONTROL PAGINATION (ATAS & BAWAH TABEL)
-// =========================================================================
 function renderPagination(totalItems) {
     const topContainer = document.getElementById('paginationControlsTop');
     const bottomContainer = document.getElementById('paginationControls');
@@ -1728,24 +1708,24 @@ function renderPagination(totalItems) {
         return;
     }
 
-    const totalPages = Math.ceil(totalItems / rowsPerPage);
+    const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
     const startNum = (currentPage - 1) * rowsPerPage + 1;
     const endNum = Math.min(currentPage * rowsPerPage, totalItems);
 
-    const prevDisabled = currentPage === 1 ? 'disabled' : '';
-    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+    const prevDisabled = currentPage === 1 ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : '';
+    const nextDisabled = currentPage === totalPages ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : '';
 
     const html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <div style="font-size: 0.8rem; color: #777; font-weight: 600;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 6px 0;">
+            <div style="font-size: 0.8rem; color: #666; font-weight: 600;">
                 Menampilkan <b>${startNum}-${endNum}</b> dari <b>${totalItems}</b> Tamu
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <button type="button" class="btn-page" onclick="changePage(${currentPage - 1})" ${prevDisabled}>
                     <i class="fas fa-chevron-left"></i> Prev
                 </button>
-                <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-dark, #846924); padding: 0 5px;">
-                    Hal ${currentPage} / ${totalPages}
+                <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-dark, #846924); padding: 0 4px;">
+                    ${currentPage} / ${totalPages}
                 </span>
                 <button type="button" class="btn-page" onclick="changePage(${currentPage + 1})" ${nextDisabled}>
                     Next <i class="fas fa-chevron-right"></i>
