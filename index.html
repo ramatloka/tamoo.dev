@@ -171,19 +171,19 @@
         </button>
       </div>
 
-    </div> <div class="filter-container" style="margin-top: 15px;">
-      <input type="text" id="searchRekapInput" onkeyup="applyFilters()" placeholder="Cari Nama Tamu..." style="padding: 12px 15px; border-radius: 8px; flex: 2; min-width: 200px;">
-      <select id="filterKategori" class="filter-select" onchange="applyFilters()">
+    <div class="filter-container" style="margin-top: 15px;">
+      <input type="text" id="searchRekapInput" onkeyup="applyFilters(true)" placeholder="Cari Nama Tamu..." style="padding: 12px 15px; border-radius: 8px; flex: 2; min-width: 200px;">
+      <select id="filterKategori" class="filter-select" onchange="applyFilters(true)">
         <option value="ALL">Semua Kategori</option>
         <option value="VIP">VIP</option>
         <option value="Reguler">Reguler</option>
       </select>
-      <select id="filterStatus" class="filter-select" onchange="applyFilters()">
+      <select id="filterStatus" class="filter-select" onchange="applyFilters(true)">
         <option value="ALL">Semua Status</option>
         <option value="Hadir">Hadir</option>
         <option value="Belum Hadir">Belum Hadir</option>
       </select>
-      <select id="filterSouvenir" class="filter-select" onchange="applyFilters()">
+      <select id="filterSouvenir" class="filter-select" onchange="applyFilters(true)">
         <option value="ALL">Semua Souvenir</option>
         <option value="Sudah Ambil">Sudah Ambil</option>
         <option value="Belum Ambil">Belum Ambil</option>
