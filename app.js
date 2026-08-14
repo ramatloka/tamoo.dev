@@ -1668,6 +1668,10 @@ function applyFilters(resetToFirstPage = false) {
                onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
                style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
                title="Ubah Kategori (VIP/Reguler)"></i>
+            <i class="fab fa-whatsapp" 
+               onclick="copyWaMessage('${guest.id}')" 
+               style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
+               title="Salin Pesan WhatsApp / Email"></i>
         `;
 
         return `
@@ -2086,6 +2090,60 @@ async function toggleGuestVipStatus(guestId, currentKategori) {
     } catch (err) {
         console.error("Gagal update kategori tamu:", err);
         Swal.fire('Gagal!', 'Terjadi kesalahan saat memperbarui database.', 'error');
+    }
+}
+
+// =========================================================================
+// FUNGSI AKSI: COPY PESAN WHATSAPP SESUAI TEMPLATE DINAMIS
+// =========================================================================
+
+async function copyWaMessage(guestId) {
+    if (!guestId) return;
+
+    try {
+        // 1. Ambil data tamu dari cache atau database
+        const guest = rawGuestDataCache.find(g => g.id === guestId);
+        if (!guest) {
+            Swal.fire({ title: 'Gagal', text: 'Data tamu tidak ditemukan!', icon: 'error' });
+            return;
+        }
+
+        // 2. Ambil template pesan dari input Setup atau fallback default
+        let template = document.getElementById('adminWaTemplate')?.value || '';
+        
+        if (!template.trim()) {
+            template = "Halo [NAMA], terima kasih telah mendaftar. Silakan simpan dan gunakan E-Ticket QR Code Anda di pintu masuk: [QR_LINK]";
+        }
+
+        // 3. Buat URL QR Code tamu
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(guest.id)}`;
+
+        // 4. Ganti placeholder [NAMA] dan [QR_LINK]
+        let message = template
+            .replace(/\[NAMA\]/gi, guest.nama_tamu || 'Tamu Undangan')
+            .replace(/\[QR_LINK\]/gi, qrCodeUrl);
+
+        // 5. Salin teks ke Clipboard
+        await navigator.clipboard.writeText(message);
+
+        // 6. Notifikasi Berhasil Disalin
+        Swal.fire({
+            icon: 'success',
+            title: 'Pesan Disalin!',
+            html: `<p style="font-size: 0.85rem; color: #555;">Pesan untuk <b>${guest.nama_tamu}</b> berhasil disalin ke clipboard. Silakan tempel (paste) di WhatsApp atau Email.</p>`,
+            timer: 2000,
+            showConfirmButton: false,
+            customClass: { popup: 'luxury-popup' }
+        });
+
+    } catch (err) {
+        console.error("Gagal menyalin pesan WhatsApp:", err);
+        Swal.fire({
+            title: 'Gagal Salin',
+            text: 'Izin clipboard ditolak oleh browser.',
+            icon: 'error',
+            customClass: { popup: 'luxury-popup' }
+        });
     }
 }
 
