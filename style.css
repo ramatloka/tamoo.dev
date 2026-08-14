@@ -27,10 +27,10 @@ input:focus, select:focus { border-color: var(--gold-light); background: var(--c
 .action-container { display: flex; gap: 10px; margin-bottom: 15px; justify-content: flex-end; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
 .filter-container { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; flex-wrap: wrap; }
 .filter-select { padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-main); font-family: 'Montserrat', sans-serif; font-size: 0.8rem; font-weight: 600; outline: none; flex: 1; min-width: 120px; }
-.pagination-container { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px 0; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
-.btn-page { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--gold-dark); padding: 8px 15px; border-radius: 6px; cursor: pointer; transition: 0.3s; font-family: 'Montserrat', sans-serif; font-weight: 700; }
-.btn-page:hover:not(:disabled) { background: var(--gold-light); color: #fff; }
-.btn-page:disabled { opacity: 0.3; cursor: not-allowed; }
+.pagination-container { width: 100%; box-sizing: border-box; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; }
+.btn-page { background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #f0e6d2); color: var(--gold-dark, #846924); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.75rem; transition: 0.2s; }
+.btn-page:hover:not(:disabled) { background: var(--gold-light, #b39343); color: #fff; }
+.btn-page:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .branding-text { text-align: center; margin-top: 30px; font-weight: 800; letter-spacing: 6px; color: var(--gold-light); font-size: 0.75rem; text-transform: uppercase; }
 .stats-container { display: flex; gap: 20px; margin-bottom: 30px; width: 100%; box-sizing: border-box; }
@@ -100,8 +100,11 @@ body.tv-mode #layoutMain, body.tv-mode .footer-container { display: none !import
 /* SYSTEM FLOATING DOCK NAVIGASI (ELEGANT)   */
 /* ========================================= */
 
-body:not(.tv-mode) { padding-bottom: 30px !important; }
-.main-card { margin-bottom: 120px !important; }
+/* MEMBERI JARAK BAWAH AGAR KONTEN TIDAK TERTABRAK NAVIGASI DOCK */
+body:not(.tv-mode) { padding-bottom: 140px !important; }
+.main-card { margin-bottom: 80px !important; }}
+
+
 
 .footer-container { 
     position: fixed; bottom: 0; left: 0; width: 100%; 
