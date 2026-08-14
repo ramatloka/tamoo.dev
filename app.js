@@ -1559,14 +1559,19 @@ async function loadGuestRecapTable() {
 }
 
 // =========================================================================
-// FUNGSI LOGIKA FILTER & PENCARIAN REKAPITULASI TAMU (REAL-TIME RENDERING)
+// FUNGSI LOGIKA FILTER, PENCARIAN & PAGINATION REKAPITULASI TAMU
 // =========================================================================
-function applyFilters() {
+
+function applyFilters(resetToFirstPage = false) {
     const tableBody = document.getElementById('guestTableBody') || 
                       document.getElementById('rekapTableBody') || 
                       document.querySelector('#rekapTable tbody');
 
     if (!tableBody) return;
+
+    if (resetToFirstPage) {
+        currentPage = 1;
+    }
 
     // 1. Ambil nilai dari input pencarian & dropdown filter
     const searchVal = (document.getElementById('searchRekapInput')?.value || '').toLowerCase().trim();
@@ -1575,7 +1580,7 @@ function applyFilters() {
     const filterSouvVal = document.getElementById('filterSouvenir')?.value || 'ALL';
 
     // 2. Terapkan Logika Penyaringan pada Data Cache
-    const filteredGuests = rawGuestDataCache.filter(guest => {
+    filteredGuestData = rawGuestDataCache.filter(guest => {
         // A. Filter Nama Tamu
         const namaTamu = (guest.nama_tamu || '').toLowerCase();
         const matchNama = !searchVal || namaTamu.includes(searchVal);
@@ -1605,13 +1610,13 @@ function applyFilters() {
         return matchNama && matchKategori && matchStatus && matchSouvenir;
     });
 
-    // 3. Update Kartu Ringkasan Statistik berdasarkan data yang terfilter
+    // 3. Update Kartu Ringkasan Statistik
     if (typeof updateRekapSummaryCards === "function") {
-        updateRekapSummaryCards(filteredGuests);
+        updateRekapSummaryCards(filteredGuestData);
     }
 
-    // 4. Jika Data Tidak Ditemukan setelah difilter
-    if (filteredGuests.length === 0) {
+    // 4. Jika Data Kosong
+    if (filteredGuestData.length === 0) {
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" style="text-align: center; padding: 25px; color: #888; font-weight: 600;">
@@ -1620,11 +1625,23 @@ function applyFilters() {
                 </td>
             </tr>
         `;
+        renderPagination(0);
         return;
     }
 
-    // 5. Render Baris Tabel Hasil Filter
-    tableBody.innerHTML = filteredGuests.map((guest) => {
+    // 5. Potong Data Sesuai Halaman Aktif (Pagination Slice)
+    const totalItems = filteredGuestData.length;
+    const totalPages = Math.ceil(totalItems / rowsPerPage);
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
+    const paginatedGuests = filteredGuestData.slice(startIndex, endIndex);
+
+    // 6. Render Baris Tabel
+    tableBody.innerHTML = paginatedGuests.map((guest) => {
         const namaTamu = guest.nama_tamu || '-';
         const jumlahOrang = guest.jumlah_aktual || 1;
         
@@ -1648,6 +1665,8 @@ function applyFilters() {
             ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
             : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
 
+        const isChecked = (typeof selectedGuestsForZip !== "undefined" && selectedGuestsForZip.has(guest.id)) ? 'checked' : '';
+
         const aksiHtml = `
             <i class="fas fa-user-edit" 
                onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
@@ -1665,13 +1684,12 @@ function applyFilters() {
                onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
                style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
                title="Ubah Kategori (VIP/Reguler)"></i>
-            <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
         `;
 
         return `
             <tr style="border-bottom: 1px solid #f0f0f0;">
                 <td style="text-align: center; padding: 15px 10px;">
-                    <input type="checkbox" class="chk-select-guest" value="${guest.id}" style="transform: scale(1.2); cursor: pointer;">
+                    <input type="checkbox" class="chk-select-guest" value="${guest.id}" ${isChecked} style="transform: scale(1.2); cursor: pointer;">
                 </td>
                 <td style="padding: 15px 10px;">
                     <div style="font-weight: 800; color: #333; font-size: 0.95rem; margin-bottom: 4px;">${namaTamu}</div>
@@ -1692,6 +1710,65 @@ function applyFilters() {
             </tr>
         `;
     }).join('');
+
+    // 7. Render Tombol Pagination (Atas & Bawah)
+    renderPagination(totalItems);
+}
+
+// =========================================================================
+// RENDER KONTROL PAGINATION (ATAS & BAWAH TABEL)
+// =========================================================================
+function renderPagination(totalItems) {
+    const topContainer = document.getElementById('paginationControlsTop');
+    const bottomContainer = document.getElementById('paginationControls');
+
+    if (totalItems === 0) {
+        if (topContainer) topContainer.innerHTML = '';
+        if (bottomContainer) bottomContainer.innerHTML = '';
+        return;
+    }
+
+    const totalPages = Math.ceil(totalItems / rowsPerPage);
+    const startNum = (currentPage - 1) * rowsPerPage + 1;
+    const endNum = Math.min(currentPage * rowsPerPage, totalItems);
+
+    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+
+    const html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="font-size: 0.8rem; color: #777; font-weight: 600;">
+                Menampilkan <b>${startNum}-${endNum}</b> dari <b>${totalItems}</b> Tamu
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="button" class="btn-page" onclick="changePage(${currentPage - 1})" ${prevDisabled}>
+                    <i class="fas fa-chevron-left"></i> Prev
+                </button>
+                <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-dark, #846924); padding: 0 5px;">
+                    Hal ${currentPage} / ${totalPages}
+                </span>
+                <button type="button" class="btn-page" onclick="changePage(${currentPage + 1})" ${nextDisabled}>
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    if (topContainer) topContainer.innerHTML = html;
+    if (bottomContainer) bottomContainer.innerHTML = html;
+}
+
+function changePage(newPage) {
+    currentPage = newPage;
+    applyFilters(false);
+}
+
+// Fungsi pembantu untuk centang semua tamu yang ada di halaman aktif
+function toggleSelectAll(isChecked) {
+    const checkboxes = document.querySelectorAll('.chk-select-guest');
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
 }
 // =========================================================================
 // FUNGSI PEMBANTU: UPDATE ANGKA KARTU STATISTIK (DIPERBAIKI)
