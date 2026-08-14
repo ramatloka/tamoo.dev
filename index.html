@@ -120,86 +120,102 @@
       </div>
 
      <div id="secRekap" class="section">
-  <div class="tab-badge"><i class="fas fa-list-alt"></i> REKAPITULASI TAMU</div>
-  
-  <div class="stats-container" style="margin-top: 25px; margin-bottom: 20px;">
-    <div class="counter-box">
-      <div class="counter-label">TOTAL TERDAFTAR (KEPALA)</div>
-      <div class="counter-number" id="rekapTotalTerdaftar" style="color: var(--text-main);">00</div>
-    </div>
-    <div class="counter-box">
-      <div class="counter-label">TOTAL CHECK-IN</div>
-      <div class="counter-number" id="rekapTotalHadir" style="color: #137333;">00</div>
-    </div>
-    <div class="counter-box">
-      <div class="counter-label">TOTAL <span class="dyn-souvenir-text">SOUVENIR</span></div>
-      <div class="counter-number" id="rekapTotalSouvenir" style="color: #1967d2;">00</div>
-    </div>
-  </div>
+        <div class="tab-badge"><i class="fas fa-list-alt"></i> REKAPITULASI TAMU</div>
+        
+        <div class="stats-container" style="margin-top: 25px; margin-bottom: 20px;">
+          <div class="counter-box">
+            <div class="counter-label">TOTAL TERDAFTAR (KEPALA)</div>
+            <div class="counter-number" id="rekapTotalTerdaftar" style="color: var(--text-main);">00</div>
+          </div>
+          <div class="counter-box">
+            <div class="counter-label">TOTAL CHECK-IN</div>
+            <div class="counter-number" id="rekapTotalHadir" style="color: #137333;">00</div>
+          </div>
+          <div class="counter-box">
+            <div class="counter-label">TOTAL <span class="dyn-souvenir-text">SOUVENIR</span></div>
+            <div class="counter-number" id="rekapTotalSouvenir" style="color: #1967d2;">00</div>
+          </div>
+        </div>
 
-  <div style="margin-top: 10px;">
-    <div class="action-container" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-end; align-items: center; border-bottom: none; padding-bottom: 5px;">
-      
-      <div style="display: flex;">
-        <button onclick="openAddGuestModal()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem;">
-          <i class="fas fa-user-plus"></i> Tambah Tamu
-        </button>
-      </div>
+        <div style="margin-top: 10px;">
+          <div class="action-container" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-end; align-items: center; border-bottom: none; padding-bottom: 5px;">
+            
+            <div style="display: flex;">
+              <button onclick="openAddGuestModal()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem;">
+                <i class="fas fa-user-plus"></i> Tambah Tamu
+              </button>
+            </div>
 
-      <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
-        <button onclick="exportToExcel()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#107c41; box-shadow:none;" title="Download Excel">
-          <i class="fas fa-file-excel"></i> CSV
-        </button>
-        <button onclick="exportToPdf()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#c5221f; box-shadow:none;" title="Download PDF">
-          <i class="fas fa-file-pdf"></i> PDF
-        </button>
-      </div>
+            <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
+              <button onclick="exportToExcel()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#107c41; box-shadow:none;" title="Download Excel">
+                <i class="fas fa-file-excel"></i> CSV
+              </button>
+              <button onclick="exportToPdf()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#c5221f; box-shadow:none;" title="Download PDF">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>
+            </div>
 
-      <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
-        <button onclick="downloadExcelTemplate()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#f0ad4e; box-shadow:none;" title="Template Excel">
-          <i class="fas fa-download"></i> Template Import
-        </button>
-        <button onclick="document.getElementById('excelUploadInput').click()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#0275d8; box-shadow:none;" title="Upload Excel">
-          <i class="fas fa-upload"></i> Import Excel
-        </button>
-        <input type="file" id="excelUploadInput" accept=".xlsx, .xls" style="display:none;" onchange="processExcelImport(event)">
-      </div>
+            <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
+              <button onclick="downloadExcelTemplate()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#f0ad4e; box-shadow:none;" title="Template Excel">
+                <i class="fas fa-download"></i> Template Import
+              </button>
+              <button onclick="document.getElementById('excelUploadInput').click()" class="btn-submit" style="margin:0; width:auto; padding:8px 15px; font-size:0.75rem; background:#0275d8; box-shadow:none;" title="Upload Excel">
+                <i class="fas fa-upload"></i> Import Excel
+              </button>
+              <input type="file" id="excelUploadInput" accept=".xlsx, .xls" style="display:none;" onchange="processExcelImport(event)">
+            </div>
 
-      <div style="display: flex;">
-        <button onclick="downloadSelectedQRCodes()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem; background:#6f42c1; box-shadow:none;" title="Cetak QR Terpilih (ZIP)">
-          <i class="fas fa-file-archive"></i> Cetak QR Terpilih
-        </button>
-      </div>
+            <div style="display: flex;">
+              <button onclick="downloadSelectedQRCodes()" class="btn-submit" style="margin:0; width:auto; padding:10px 15px; font-size:0.75rem; background:#6f42c1; box-shadow:none;" title="Cetak QR Terpilih (ZIP)">
+                <i class="fas fa-file-archive"></i> Cetak QR Terpilih
+              </button>
+            </div>
 
-    <div class="filter-container" style="margin-top: 15px;">
-      <input type="text" id="searchRekapInput" onkeyup="applyFilters(true)" placeholder="Cari Nama Tamu..." style="padding: 12px 15px; border-radius: 8px; flex: 2; min-width: 200px;">
-      <select id="filterKategori" class="filter-select" onchange="applyFilters(true)">
-        <option value="ALL">Semua Kategori</option>
-        <option value="VIP">VIP</option>
-        <option value="Reguler">Reguler</option>
-      </select>
-      <select id="filterStatus" class="filter-select" onchange="applyFilters(true)">
-        <option value="ALL">Semua Status</option>
-        <option value="Hadir">Hadir</option>
-        <option value="Belum Hadir">Belum Hadir</option>
-      </select>
-      <select id="filterSouvenir" class="filter-select" onchange="applyFilters(true)">
-        <option value="ALL">Semua Souvenir</option>
-        <option value="Sudah Ambil">Sudah Ambil</option>
-        <option value="Belum Ambil">Belum Ambil</option>
-      </select>
-    </div>
-          
+          </div>
+
+          <div class="filter-container" style="margin-top: 15px;">
+            <input type="text" id="searchRekapInput" onkeyup="applyFilters(true)" placeholder="Cari Nama Tamu..." style="padding: 12px 15px; border-radius: 8px; flex: 2; min-width: 200px;">
+            <select id="filterKategori" class="filter-select" onchange="applyFilters(true)">
+              <option value="ALL">Semua Kategori</option>
+              <option value="VIP">VIP</option>
+              <option value="Reguler">Reguler</option>
+            </select>
+            <select id="filterStatus" class="filter-select" onchange="applyFilters(true)">
+              <option value="ALL">Semua Status</option>
+              <option value="Hadir">Hadir</option>
+              <option value="Belum Hadir">Belum Hadir</option>
+            </select>
+            <select id="filterSouvenir" class="filter-select" onchange="applyFilters(true)">
+              <option value="ALL">Semua Souvenir</option>
+              <option value="Sudah Ambil">Sudah Ambil</option>
+              <option value="Belum Ambil">Belum Ambil</option>
+            </select>
+          </div>
+                
           <div class="pagination-container" id="paginationControlsTop" style="margin-bottom: 10px; margin-top: 0; padding: 5px 0;"></div>
           
           <div class="rekap-table-wrapper">
             <table class="rekap-table">
-              <thead><tr><th style="width: 30px; text-align: center;"><input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this.checked)" style="transform: scale(1.2); cursor: pointer;" title="Pilih Semua"></th><th>Nama Tamu</th><th>Kategori</th><th>Status / <span class="dyn-souvenir-text">SOUVENIR</span></th><th style="text-align: center;">Aksi</th></tr></thead>
-              <tbody id="guestTableBody"><tr><td colspan="5" style="text-align:center; opacity:0.5;">Memuat data rekap...</td></tr></tbody>
+              <thead>
+                <tr>
+                  <th style="width: 30px; text-align: center;">
+                    <input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this.checked)" style="transform: scale(1.2); cursor: pointer;" title="Pilih Semua">
+                  </th>
+                  <th>Nama Tamu</th>
+                  <th>Kategori</th>
+                  <th>Status / <span class="dyn-souvenir-text">SOUVENIR</span></th>
+                  <th style="text-align: center;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="guestTableBody">
+                <tr><td colspan="5" style="text-align:center; opacity:0.5;">Memuat data rekap...</td></tr>
+              </tbody>
             </table>
           </div>
-          <div class="pagination-container" id="paginationControls"></div>
-        </div><div class="branding-text">RAMATLOKA</div>
+
+          <div class="pagination-container" id="paginationControls" style="margin-top: 10px;"></div>
+        </div>
+        <div class="branding-text">RAMATLOKA</div>
       </div>
 
       <div id="secAdmin" class="section">
