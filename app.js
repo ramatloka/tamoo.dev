@@ -2094,7 +2094,7 @@ async function toggleGuestVipStatus(guestId, currentKategori) {
 }
 
 // =========================================================================
-// FUNGSI AKSI: COPY PESAN WHATSAPP SESUAI TEMPLATE DINAMIS
+// FUNGSI AKSI: COPY PESAN WHATSAPP SESUAI TEMPLATE DINAMIS (SEMUA FORMAT)
 // =========================================================================
 
 async function copyWaMessage(guestId) {
@@ -2112,16 +2112,21 @@ async function copyWaMessage(guestId) {
         let template = document.getElementById('adminWaTemplate')?.value || '';
         
         if (!template.trim()) {
-            template = "Halo [NAMA], terima kasih telah mendaftar. Silakan simpan dan gunakan E-Ticket QR Code Anda di pintu masuk: [QR_LINK]";
+            template = "Halo {{nama}}, terima kasih telah melakukan registrasi. Simpan QR Code ini untuk akses masuk: {{qr_link}}";
         }
 
         // 3. Buat URL QR Code tamu
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(guest.id)}`;
+        const guestName = guest.nama_tamu || 'Tamu Undangan';
 
-        // 4. Ganti placeholder [NAMA] dan [QR_LINK]
+        // 4. Ganti placeholder (Mendukung {{nama}}, {nama}, [nama], {{qr_link}}, [qr_link], dll)
         let message = template
-            .replace(/\[NAMA\]/gi, guest.nama_tamu || 'Tamu Undangan')
-            .replace(/\[QR_LINK\]/gi, qrCodeUrl);
+            .replace(/\{\{\s*nama\s*\}\}/gi, guestName)
+            .replace(/\{\s*nama\s*\}/gi, guestName)
+            .replace(/\[\s*nama\s*\]/gi, guestName)
+            .replace(/\{\{\s*qr_link\s*\}\}/gi, qrCodeUrl)
+            .replace(/\{\s*qr_link\s*\}/gi, qrCodeUrl)
+            .replace(/\[\s*qr_link\s*\]/gi, qrCodeUrl);
 
         // 5. Salin teks ke Clipboard
         await navigator.clipboard.writeText(message);
@@ -2130,7 +2135,7 @@ async function copyWaMessage(guestId) {
         Swal.fire({
             icon: 'success',
             title: 'Pesan Disalin!',
-            html: `<p style="font-size: 0.85rem; color: #555;">Pesan untuk <b>${guest.nama_tamu}</b> berhasil disalin ke clipboard. Silakan tempel (paste) di WhatsApp atau Email.</p>`,
+            html: `<p style="font-size: 0.85rem; color: #555;">Pesan untuk <b>${guestName}</b> berhasil disalin ke clipboard. Silakan tempel (paste) di WhatsApp atau Email.</p>`,
             timer: 2000,
             showConfirmButton: false,
             customClass: { popup: 'luxury-popup' }
@@ -2146,7 +2151,6 @@ async function copyWaMessage(guestId) {
         });
     }
 }
-
 // =========================================================================
 // HELPER PENARIKAN DATA INSTITUSI & FORMAT TIMESTAMP DINAMIS
 // =========================================================================
