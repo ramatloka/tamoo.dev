@@ -102,7 +102,7 @@ body.tv-mode #layoutMain, body.tv-mode .footer-container { display: none !import
 
 /* MEMBERI JARAK BAWAH AGAR KONTEN TIDAK TERTABRAK NAVIGASI DOCK */
 body:not(.tv-mode) { padding-bottom: 140px !important; }
-.main-card { margin-bottom: 80px !important; }}
+.main-card { margin-bottom: 80px !important; }
 
 
 
