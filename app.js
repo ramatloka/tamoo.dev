@@ -1517,7 +1517,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 // =========================================================================
-// MODUL REKAPITULASI TAMU + PAGINATION LENGKAP
+// MODUL REKAPITULASI TAMU + PAGINATION LENGKAP (BERSIH DARI DUPLIKASI)
 // =========================================================================
 
 let rawGuestDataCache = [];
@@ -1535,7 +1535,7 @@ async function loadGuestRecapTable() {
     try {
         if (typeof db === "undefined" || !db) return;
 
-        // Tarik data dari Supabase
+        // Tarik data tamu dari Supabase
         const { data: guests, error } = await db
             .from('data_tamu')
             .select('*')
@@ -1616,7 +1616,7 @@ function applyFilters(resetToFirstPage = false) {
 
     // Hitung Pembagian Halaman (Pagination)
     const totalItems = filteredGuestData.length;
-    const totalPages = Math.ceil(totalItems / rowsPerPage);
+    const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
 
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
@@ -1712,11 +1712,11 @@ function renderPagination(totalItems) {
     const startNum = (currentPage - 1) * rowsPerPage + 1;
     const endNum = Math.min(currentPage * rowsPerPage, totalItems);
 
-    const prevDisabled = currentPage === 1 ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : '';
-    const nextDisabled = currentPage === totalPages ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : '';
+    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
 
     const html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 6px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 4px 0;">
             <div style="font-size: 0.8rem; color: #666; font-weight: 600;">
                 Menampilkan <b>${startNum}-${endNum}</b> dari <b>${totalItems}</b> Tamu
             </div>
@@ -1725,7 +1725,7 @@ function renderPagination(totalItems) {
                     <i class="fas fa-chevron-left"></i> Prev
                 </button>
                 <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-dark, #846924); padding: 0 4px;">
-                    ${currentPage} / ${totalPages}
+                    Hal ${currentPage} / ${totalPages}
                 </span>
                 <button type="button" class="btn-page" onclick="changePage(${currentPage + 1})" ${nextDisabled}>
                     Next <i class="fas fa-chevron-right"></i>
@@ -1743,99 +1743,29 @@ function changePage(newPage) {
     applyFilters(false);
 }
 
-// Fungsi pembantu untuk centang semua tamu yang ada di halaman aktif
 function toggleSelectAll(isChecked) {
     const checkboxes = document.querySelectorAll('.chk-select-guest');
     checkboxes.forEach(cb => {
         cb.checked = isChecked;
     });
 }
-// =========================================================================
-// FUNGSI PEMBANTU: UPDATE ANGKA KARTU STATISTIK (DIPERBAIKI)
-// =========================================================================
+
 function updateRekapSummaryCards(guests) {
-    // Hitung berdasarkan kepala (jumlah_aktual)
     const totalTamu = guests.reduce((sum, g) => sum + (parseInt(g.jumlah_aktual) || 1), 0);
-    
-    // Hitung yang hadir saja
     const totalHadir = guests
         .filter(g => g.status_kehadiran === 'HADIR')
         .reduce((sum, g) => sum + (parseInt(g.jumlah_aktual) || 1), 0);
-    
-    // Hitung yang sudah ambil souvenir
     const totalSouvenir = guests
         .filter(g => g.status_souvenir === 'SUDAH_AMBIL' || g.status_souvenir === 'SUDAH AMBIL')
-        .length; // Jika souvenir dihitung 1 per nama/baris
+        .length;
 
-    // Targetkan ID dari index.html Anda
     const elTotal = document.getElementById('rekapTotalTerdaftar');
     const elHadir = document.getElementById('rekapTotalHadir');
     const elSouvenir = document.getElementById('rekapTotalSouvenir');
 
-    // Update angkanya di layar
     if (elTotal) elTotal.innerText = totalTamu;
     if (elHadir) elHadir.innerText = totalHadir;
     if (elSouvenir) elSouvenir.innerText = totalSouvenir;
-}
-
-// =========================================================================
-// MODUL TAMBAH TAMU MANUAL (MODAL FORM FORMULIR)
-// =========================================================================
-async function openAddGuestModal() {
-    const { value: formValues } = await Swal.fire({
-        title: '<h2 style="font-family: \'Playfair Display\', serif; color: #846924; margin:0; font-weight: 900;">TAMBAH TAMU MANUAL</h2>',
-        html: `
-            <div style="text-align: left; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; padding-top: 10px;">
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Nama Tamu</label>
-                <input id="swal-input-nama" class="swal2-input" placeholder="Masukkan nama..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Institusi</label>
-                <select id="swal-input-institusi" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
-                    <option value="Civitas SMKN 10 Bandung">Civitas SMKN 10 Bandung</option>
-                    <option value="Umum">Umum</option>
-                </select>
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Asal (bila anda memilih umum diatas)</label>
-                <input id="swal-input-asal" class="swal2-input" placeholder="Kota/Instansi..." style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; box-sizing: border-box;">
-                
-                <label style="font-weight: 800; color: #777; display: block; margin-bottom: 5px;">Jumlah tamu hadir (termasuk anda)</label>
-                <select id="swal-input-jumlah" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 1px solid #d9d9d9; border-radius: 6px; box-sizing: border-box;">
-                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                    <option value="4">4</option><option value="5">5</option>
-                </select>
-
-                <hr style="border: 0; border-top: 2px dashed #eee; margin: 25px 0 20px 0;">
-
-                <label style="font-weight: 900; color: #846924; display: block; margin-bottom: 5px;">KATEGORI TAMU</label>
-                <select id="swal-input-kategori" class="swal2-select" style="width: 100%; margin: 0 0 15px 0; height: 42px; font-size: 0.9rem; border: 2px solid #846924; font-weight: bold; color: #846924; border-radius: 6px; box-sizing: border-box;">
-                    <option value="Reguler">Tamu Reguler</option>
-                    <option value="VIP">Tamu VIP</option>
-                </select>
-            </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Buat & Tampilkan QR',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#b39343',
-        cancelButtonColor: '#b39343',
-        width: '450px',
-        preConfirm: () => {
-            const nama = document.getElementById('swal-input-nama').value;
-            const institusi = document.getElementById('swal-input-institusi').value;
-            const asal = document.getElementById('swal-input-asal').value;
-            const jumlah = document.getElementById('swal-input-jumlah').value;
-            const kategori = document.getElementById('swal-input-kategori').value;
-            
-            if (!nama) {
-                Swal.showValidationMessage('Nama tamu wajib diisi!');
-                return false;
-            }
-            return { nama, institusi, asal, jumlah, kategori };
-        }
-    });
-
-    if (formValues) saveNewGuestManual(formValues);
 }
 
 // =========================================================================
@@ -1851,10 +1781,8 @@ async function openAddGuestModal() {
             { id: 'jumlah_pax', label: 'Jumlah Tamu Termasuk Anda', type: 'dropdown', options: ['1', '2', '3'], required: true }
           ];
 
-    // Generate HTML Form Dinamis untuk Pop-up
     let formFieldsHtml = '';
     questionsToRender.forEach(q => {
-        let isReq = q.required ? 'required' : '';
         let reqMark = q.required ? '<span style="color:red;">*</span>' : '';
         
         formFieldsHtml += `<div style="margin-bottom: 12px; text-align: left;">`;
@@ -1873,7 +1801,6 @@ async function openAddGuestModal() {
         formFieldsHtml += `</div>`;
     });
 
-    // Tambahkan Pilihan Kategori Tamu Manual (VIP / Reguler)
     formFieldsHtml += `
         <hr style="border: 0; border-top: 2px dashed #eee; margin: 20px 0 15px 0;">
         <div style="margin-bottom: 12px; text-align: left;">
@@ -1929,12 +1856,9 @@ async function saveAndGenerateTicketManual(formDataPayload) {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
         const guestId = "TMO-" + Date.now().toString().slice(-6) + Math.floor(1000 + Math.random() * 9000);
-        
-        // Deteksi Nama dan Pax dari payload
         const guestName = formDataPayload['nama_tamu'] || formDataPayload[Object.keys(formDataPayload)[0]] || "Tamu Undangan";
         const paxValue = parseInt(formDataPayload['jumlah_pax'] || formDataPayload['jumlah_tamu'] || formDataPayload['c_jumlah_tamu_termasuk_anda'] || 1, 10) || 1;
 
-        // Objek yang dikirim ke Supabase (Murni kolom standar yang pasti ada di data_tamu)
         const guestDataToSave = {
             id: guestId,
             nama_tamu: guestName,
@@ -1942,7 +1866,7 @@ async function saveAndGenerateTicketManual(formDataPayload) {
             jumlah_aktual: paxValue,
             status_kehadiran: 'BELUM_HADIR',
             status_souvenir: 'BELUM_AMBIL',
-            form_data: formDataPayload, // Seluruh detail (institusi, dll) aman tersimpan di sini
+            form_data: formDataPayload,
             created_at: new Date().toISOString()
         };
 
@@ -1950,175 +1874,13 @@ async function saveAndGenerateTicketManual(formDataPayload) {
         if (error) throw error;
         
         Swal.close();
-        
-        // Buka Pop-Up QR Code Tiket
         showQrCodeModal(guestId, guestName);
-        
-        // Refresh tabel rekap di latar belakang
         if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
 
     } catch (err) {
         console.error("Gagal simpan manual:", err);
         Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat menyimpan data.', 'error');
     }
-}
-
-// 3. Fungsi Menampilkan Modal "QR Code Anda" (Tampilan seperti Gambar 8)
-async function showGeneratedQrCard(guestData) {
-    // Tentukan Judul Dinamis: Poin 2 Wajib Tercantum "(VIP)" jika kategori VIP
-    const isVip = guestData.kategori_tamu.toUpperCase() === 'VIP';
-    const dynamicTitleName = guestData.nama_tamu + (isVip ? ' (VIP)' : '');
-    
-    // Gunakan SweetAlert2 untuk membuat kartu UI mengambang (seperti Gambar 8)
-    Swal.fire({
-        html: `
-            <div id="swalGeneratedQrCard" style="text-align: center; font-family: 'Playfair Display', serif; background: #fff; padding: 10px; position: relative;">
-                
-                <i class="fas fa-times" onclick="Swal.close()" style="position: absolute; top: 10px; right: 10px; color: #ccc; cursor: pointer; font-size: 1.2rem;"></i>
-
-                <h2 style="color: #846924; font-weight: 900; margin-top: 15px; margin-bottom: 5px;">QR CODE ANDA</h2>
-                <h1 style="color: #846924; font-weight: 900; margin-top: 0; margin-bottom: 25px; font-size: 1.8rem;">${dynamicTitleName}</h1>
-
-                <div id="swalQrCanvasWrapper" style="display: inline-block; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);"></div>
-                
-                <br>
-
-                <button id="btnDownloadTicket" class="swal2-confirm swal2-styled" style="background-color: #b39343; color: white; border-radius: 25px; padding: 12px 25px; font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; border: none;">
-                    <i class="fas fa-download"></i> DOWNLOAD E-TICKET
-                </button>
-            </div>
-        `,
-        showConfirmButton: false, // Kita buat tombol confirm sendiri agar mirip Gambar 8
-        width: '400px',
-        background: '#fff',
-        padding: '15px',
-        didOpen: () => {
-            // A. Generate Gambar QR ke dalam wrapper modal menggunakan library qrcodejs yang baru ditambahkan
-            const qrWrapper = document.getElementById('swalQrCanvasWrapper');
-            new QRCode(qrWrapper, {
-                text: guestData.id, // Isi QR adalah ID unik tamu (misal: TMO-169800000)
-                width: 180,
-                height: 180,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            // B. Event Listener untuk Tombol Download
-            document.getElementById('btnDownloadTicket').addEventListener('click', () => {
-                generateAndDownloadTicket(guestData);
-            });
-        },
-        willClose: () => {
-            // Refresh ulang tabel rekap di latar belakang agar data baru VIP terlihat
-            if (typeof loadGuestRecapTable === "function") loadGuestRecapTable();
-        }
-    });
-}
-
-// 4. Fungsi Utama Membuat File PNG E-Ticket Utuh (Dinamis + Auto Close Popup)
-function generateAndDownloadTicket(guestData) {
-    const rawEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
-    const rawEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
-    const rawEventLocation = document.getElementById('adminEventLocation')?.value || 'LOKASI';
-    
-    const eventNameText = rawEventName.toUpperCase();
-    const eventSubText = `${rawEventDate} | ${rawEventLocation}`.toUpperCase();
-
-    const isVip = guestData.kategori_tamu.toUpperCase() === 'VIP';
-    const nameOnTicket = guestData.nama_tamu + (isVip ? ' (VIP)' : '');
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = 600;
-    canvas.height = 800;
-
-    // Background & Bingkai Emas
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
-    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-
-    // Header Judul Acara (Auto Resize)
-    ctx.fillStyle = "#846924"; 
-    ctx.textAlign = "center";
-    
-    let fontSizeTitle = 45; 
-    ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
-    while (ctx.measureText(eventNameText).width > 520 && fontSizeTitle > 16) {
-        fontSizeTitle -= 2;
-        ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
-    }
-    ctx.fillText(eventNameText, canvas.width/2, 100);
-
-    // Sub-Judul (Tanggal | Lokasi)
-    ctx.fillStyle = "#333";
-    let fontSizeSub = 18;
-    ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
-    while (ctx.measureText(eventSubText).width > 520 && fontSizeSub > 10) {
-        fontSizeSub -= 1;
-        ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
-    }
-    ctx.fillText(eventSubText, canvas.width/2, 160);
-
-    // E-Ticket Pass
-    ctx.fillStyle = "#777";
-    ctx.font = "800 24px 'Montserrat'";
-    ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
-
-    // Nama Tamu
-    ctx.fillStyle = "#333";
-    let fontSizeName = 42;
-    ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
-    while (ctx.measureText(nameOnTicket).width > 520 && fontSizeName > 20) {
-        fontSizeName -= 2;
-        ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
-    }
-    ctx.fillText(nameOnTicket, canvas.width/2, 300);
-
-    // Gambar QR Code
-    const qrWrapper = document.getElementById('swalQrCanvasWrapper');
-    const qrImageSource = qrWrapper ? qrWrapper.querySelector('img') : null;
-
-    if (qrImageSource && qrImageSource.complete && qrImageSource.src) {
-        ctx.drawImage(qrImageSource, canvas.width/2 - 100, 360, 200, 200);
-    } else {
-        const tempDiv = document.createElement('div');
-        new QRCode(tempDiv, { text: guestData.id, width: 200, height: 200 });
-        const tempImg = tempDiv.querySelector('img');
-        if (tempImg && tempImg.src) {
-             ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
-        }
-    }
-
-    // Footer Teks
-    ctx.fillStyle = "#777";
-    ctx.font = "600 14px 'Montserrat'";
-    ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
-
-    ctx.fillStyle = "#846924";
-    ctx.font = "800 22px 'Montserrat'";
-    ctx.fillText("R A M A T L O K A", canvas.width/2, 680);
-
-    // Process Download File PNG & Auto Close Popup
-    canvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        
-        const safeName = guestData.nama_tamu.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const vipSuffix = isVip ? '_VIP' : '';
-        a.download = `tamoo_ticket_${safeName}${vipSuffix}.png`;
-        
-        a.href = url; 
-        document.body.appendChild(a);
-        a.click();
-        
-        document.body.removeChild(a); 
-        URL.revokeObjectURL(url);
-
-        // Tutup Popup QR secara otomatis setelah unduhan berjalan
-        Swal.close();
-    }, 'image/png');
 }
 
 // =========================================================================
@@ -2129,23 +1891,16 @@ document.addEventListener('click', function(e) {
     if (target) setTimeout(loadGuestRecapTable, 100);
 });
 
-// Panggil sekali saat script pertama kali termuat
 setTimeout(loadGuestRecapTable, 1000);
-// =========================================================================
-// FUNGSI AKSI: TOGGLE STATUS KEHADIRAN TAMU (TOMBOL BIRU PALING KIRI)
-// =========================================================================
 
 async function toggleGuestAttendance(guestId, currentStatus) {
     if (!guestId) return;
 
-    // Tentukan status baru dan waktu hadirnya
     const isCurrentlyHadir = currentStatus === 'HADIR';
     const newStatus = isCurrentlyHadir ? 'BELUM_HADIR' : 'HADIR';
     const newWaktuHadir = isCurrentlyHadir ? null : new Date().toISOString();
-
     const statusTextAlert = isCurrentlyHadir ? 'BELUM HADIR' : 'HADIR';
 
-    // Konfirmasi dari pengguna menggunakan SweetAlert2
     const result = await Swal.fire({
         title: 'Ubah Status Kehadiran?',
         text: `Status tamu akan diubah menjadi "${statusTextAlert}"`,
@@ -2159,37 +1914,19 @@ async function toggleGuestAttendance(guestId, currentStatus) {
 
     if (!result.isConfirmed) return;
 
-    // Tampilkan indikator loading saat update ke Supabase
-    Swal.fire({
-        title: 'Updating...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
-        // Update data di tabel 'data_tamu' Supabase
         const { error } = await db
             .from('data_tamu')
-            .update({
-                status_kehadiran: newStatus,
-                waktu_hadir: newWaktuHadir
-            })
+            .update({ status_kehadiran: newStatus, waktu_hadir: newWaktuHadir })
             .eq('id', guestId);
 
         if (error) throw error;
 
-        // Notifikasi Sukses Singkat
-        Swal.fire({
-            icon: 'success',
-            title: 'Berhasil!',
-            text: `Status kehadiran diperbarui menjadi ${statusTextAlert}`,
-            timer: 1200,
-            showConfirmButton: false
-        });
-
-        // Muat ulang data tabel & kartu statistik rekap
+        Swal.fire({ icon: 'success', title: 'Berhasil!', text: `Status diperbarui menjadi ${statusTextAlert}`, timer: 1200, showConfirmButton: false });
         loadGuestRecapTable();
 
     } catch (err) {
@@ -2198,69 +1935,37 @@ async function toggleGuestAttendance(guestId, currentStatus) {
     }
 }
 
-// =========================================================================
-// FUNGSI AKSI: LIHAT & DOWNLOAD QR CODE TAMU (TOMBOL QR CODE DI TABEL)
-// =========================================================================
-
 async function viewGuestQr(guestId) {
     if (!guestId) return;
 
-    // Indikator loading saat mengambil detail tamu
-    Swal.fire({
-        title: 'Memuat QR Code...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title: 'Memuat QR Code...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
-        // Tarik data spesifik tamu dari Supabase
-        const { data: guest, error } = await db
-            .from('data_tamu')
-            .select('*')
-            .eq('id', guestId)
-            .single();
-
+        const { data: guest, error } = await db.from('data_tamu').select('*').eq('id', guestId).single();
         if (error || !guest) throw new Error("Data tamu tidak ditemukan.");
 
         Swal.close();
-
-        // Siapkan objek data untuk dimasukkan ke pembuat tiket
-        const guestDataForTicket = {
-            id: guest.id,
-            nama_tamu: guest.nama_tamu,
-            kategori_tamu: guest.kategori_tamu || 'Reguler'
-        };
-
-        // Panggil kembali fungsi modal tampilan QR yang sudah kita buat sebelumnya
-        showGeneratedQrCard(guestDataForTicket);
+        showQrCodeModal(guest.id, guest.nama_tamu);
 
     } catch (err) {
         console.error("Gagal memuat QR Code tamu:", err);
         Swal.fire('Gagal!', 'Tidak dapat menampilkan QR Code tamu.', 'error');
     }
 }
-// =========================================================================
-// FUNGSI AKSI: CETAK E-TICKET TAMU (TOMBOL PRINT DI TABEL)
-// =========================================================================
+
 async function printGuestTicket(guestId) {
     if (!guestId) return;
 
-    Swal.fire({
-        title: 'Menyiapkan Tiket...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title: 'Menyiapkan Tiket...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
-        // 1. Ambil data tamu dari Supabase
         const { data: guest, error } = await db.from('data_tamu').select('*').eq('id', guestId).single();
         if (error || !guest) throw new Error("Data tamu tidak ditemukan.");
 
-        // 2. Tarik setup info untuk data e-ticket
         const rawEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA';
         const rawEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
         const rawEventLocation = document.getElementById('adminEventLocation')?.value || 'LOKASI';
@@ -2270,18 +1975,15 @@ async function printGuestTicket(guestId) {
         const isVip = (guest.kategori_tamu || '').toUpperCase() === 'VIP';
         const nameOnTicket = guest.nama_tamu + (isVip ? ' (VIP)' : '');
 
-        // 3. Buat Offscreen Canvas untuk merender Tiket
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 600;
         canvas.height = 800;
 
-        // Render Background & Bingkai
         ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = "#b39343"; ctx.lineWidth = 15;
         ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
 
-        // Render Header & Judul Acara (Auto-Resize)
         ctx.fillStyle = "#846924"; ctx.textAlign = "center";
         let fontSizeTitle = 45; ctx.font = `900 ${fontSizeTitle}px 'Playfair Display'`;
         while (ctx.measureText(eventNameText).width > 520 && fontSizeTitle > 16) {
@@ -2289,7 +1991,6 @@ async function printGuestTicket(guestId) {
         }
         ctx.fillText(eventNameText, canvas.width/2, 100);
 
-        // Render Subtitle
         ctx.fillStyle = "#333";
         let fontSizeSub = 18; ctx.font = `600 ${fontSizeSub}px 'Montserrat'`;
         while (ctx.measureText(eventSubText).width > 520 && fontSizeSub > 10) {
@@ -2297,11 +1998,9 @@ async function printGuestTicket(guestId) {
         }
         ctx.fillText(eventSubText, canvas.width/2, 160);
 
-        // E-Ticket Pass Banner
         ctx.fillStyle = "#777"; ctx.font = "800 24px 'Montserrat'";
         ctx.fillText("E - T I C K E T   P A S S", canvas.width/2, 220);
 
-        // Render Nama Tamu (Auto-Resize)
         ctx.fillStyle = "#333";
         let fontSizeName = 42; ctx.font = `900 ${fontSizeName}px 'Montserrat'`;
         while (ctx.measureText(nameOnTicket).width > 520 && fontSizeName > 20) {
@@ -2309,19 +2008,14 @@ async function printGuestTicket(guestId) {
         }
         ctx.fillText(nameOnTicket, canvas.width/2, 300);
 
-        // Render QR Code secara independen via library QRCode
         const tempDiv = document.createElement('div');
         new QRCode(tempDiv, { text: guest.id, width: 200, height: 200 });
-        
-        // Beri jeda micro-task agar image source QR ter-generate sempurna
         await new Promise(resolve => setTimeout(resolve, 100));
         const tempImg = tempDiv.querySelector('img');
-        
         if (tempImg && tempImg.src) {
             ctx.drawImage(tempImg, canvas.width/2 - 100, 360, 200, 200);
         }
 
-        // Render Footer Teks
         ctx.fillStyle = "#777"; ctx.font = "600 14px 'Montserrat'";
         ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width/2, 620);
         ctx.fillStyle = "#846924"; ctx.font = "800 22px 'Montserrat'";
@@ -2329,7 +2023,6 @@ async function printGuestTicket(guestId) {
 
         Swal.close();
 
-        // 4. Proses memicu print browser jendela baru khusus gambar tiket
         const dataUrl = canvas.toDataURL('image/png');
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -2355,13 +2048,9 @@ async function printGuestTicket(guestId) {
     }
 }
 
-// =========================================================================
-// FUNGSI AKSI: TOGGLE KATEGORI TAMU VIP / REGULER (TOMBOL MAHKOTA)
-// =========================================================================
 async function toggleGuestVipStatus(guestId, currentKategori) {
     if (!guestId) return;
 
-    // Tentukan kategori baru berdasarkan status saat ini
     const isCurrentlyVip = currentKategori.toUpperCase() === 'VIP';
     const newKategori = isCurrentlyVip ? 'Reguler' : 'VIP';
     const kategoriTextAlert = isCurrentlyVip ? 'REGULER' : 'VIP';
@@ -2379,16 +2068,11 @@ async function toggleGuestVipStatus(guestId, currentKategori) {
 
     if (!result.isConfirmed) return;
 
-    Swal.fire({
-        title: 'Memproses...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
 
-        // Update kategori_tamu di database Supabase
         const { error } = await db
             .from('data_tamu')
             .update({ kategori_tamu: newKategori })
@@ -2396,15 +2080,7 @@ async function toggleGuestVipStatus(guestId, currentKategori) {
 
         if (error) throw error;
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Berhasil!',
-            text: `Kategori tamu kini menjadi ${kategoriTextAlert}`,
-            timer: 1200,
-            showConfirmButton: false
-        });
-
-        // Refresh tabel agar perubahan langsung kelihatan
+        Swal.fire({ icon: 'success', title: 'Berhasil!', text: `Kategori tamu kini menjadi ${kategoriTextAlert}`, timer: 1200, showConfirmButton: false });
         loadGuestRecapTable();
 
     } catch (err) {
@@ -2412,226 +2088,22 @@ async function toggleGuestVipStatus(guestId, currentKategori) {
         Swal.fire('Gagal!', 'Terjadi kesalahan saat memperbarui database.', 'error');
     }
 }
-// =========================================================================
-// FUNGSI LOGIKA FILTER & PENCARIAN REKAPITULASI TAMU
-// =========================================================================
-
-function applyFilters() {
-    const tableBody = document.getElementById('guestTableBody') || 
-                      document.getElementById('rekapTableBody') || 
-                      document.querySelector('#rekapTable tbody');
-
-    if (!tableBody) return;
-
-    // 1. Ambil nilai dari input pencarian & dropdown filter
-    const searchVal = (document.getElementById('searchRekapInput')?.value || '').toLowerCase().trim();
-    const filterKatVal = document.getElementById('filterKategori')?.value || 'ALL';
-    const filterStatVal = document.getElementById('filterStatus')?.value || 'ALL';
-    const filterSouvVal = document.getElementById('filterSouvenir')?.value || 'ALL';
-
-    // 2. Terapkan Logika Penyaringan pada Data Cache
-    const filteredGuests = rawGuestDataCache.filter(guest => {
-        // A. Filter Nama Tamu
-        const namaTamu = (guest.nama_tamu || '').toLowerCase();
-        const matchNama = !searchVal || namaTamu.includes(searchVal);
-
-        // B. Filter Kategori (VIP / Reguler)
-        let rawKategori = (guest.kategori_tamu || 'Reguler').toUpperCase();
-        if (rawKategori === 'UMUM') rawKategori = 'REGULER';
-        
-        let matchKategori = true;
-        if (filterKatVal !== 'ALL') {
-            const targetKat = filterKatVal.toUpperCase();
-            matchKategori = rawKategori.includes(targetKat);
-        }
-
-        // C. Filter Status Kehadiran (Hadir / Belum Hadir)
-        const isHadir = guest.status_kehadiran === 'HADIR';
-        let matchStatus = true;
-        if (filterStatVal === 'Hadir') matchStatus = isHadir;
-        else if (filterStatVal === 'Belum Hadir') matchStatus = !isHadir;
-
-        // D. Filter Souvenir (Sudah Ambil / Belum Ambil)
-        const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
-        let matchSouvenir = true;
-        if (filterSouvVal === 'Sudah Ambil') matchSouvenir = isSouvenir;
-        else if (filterSouvVal === 'Belum Ambil') matchSouvenir = !isSouvenir;
-
-        return matchNama && matchKategori && matchStatus && matchSouvenir;
-    });
-
-    // 3. Update Kartu Ringkasan Statistik berdasarkan data yang terfilter
-    if (typeof updateRekapSummaryCards === "function") {
-        updateRekapSummaryCards(filteredGuests);
-    }
-
-    // 4. Jika Data Tidak Ditemukan
-    if (filteredGuests.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 25px; color: #888; font-weight: 600;">
-                    <i class="fas fa-search" style="margin-right: 8px; color: #b39343;"></i>
-                    Tidak ada data tamu yang cocok dengan filter.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    // 5. Render Baris Tabel Hasil Filter
-    tableBody.innerHTML = filteredGuests.map((guest) => {
-        const namaTamu = guest.nama_tamu || '-';
-        const jumlahOrang = guest.jumlah_aktual || 1;
-        
-        let rawKategori = guest.kategori_tamu || 'Reguler';
-        if (rawKategori.toLowerCase() === 'umum') rawKategori = 'Reguler';
-        const kategoriTamu = rawKategori.toUpperCase();
-
-        const isHadir = guest.status_kehadiran === 'HADIR';
-        const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
-
-        let katBadge = `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">${kategoriTamu}</span>`;
-        if (kategoriTamu === 'VIP' || kategoriTamu === 'TAMU VIP') {
-            katBadge = `<span style="background: #fef08a; color: #854d0e; padding: 4px 12px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"><i class="fas fa-crown"></i> VIP</span>`;
-        }
-
-        const hadirBadge = isHadir 
-            ? `<span style="background: #e6f4ea; color: #137333; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">HADIR</span>`
-            : `<span style="background: #fce8e6; color: #c5221f; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">BELUM HADIR</span>`;
-
-        const souvBadge = isSouvenir
-            ? `<span style="background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: SUDAH AMBIL</span>`
-            : `<span style="background: #f1f3f4; color: #5f6368; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">SOUVENIR: BELUM AMBIL</span>`;
-
-        const aksiHtml = `
-            <i class="fas fa-user-edit" 
-               onclick="toggleGuestAttendance('${guest.id}', '${guest.status_kehadiran}')" 
-               style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-               title="Ubah Status Kehadiran"></i>
-            <i class="fas fa-qrcode" 
-               onclick="viewGuestQr('${guest.id}')" 
-               style="color: #333; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-               title="Lihat & Download QR Code"></i>
-            <i class="fas fa-print" 
-               onclick="printGuestTicket('${guest.id}')" 
-               style="color: #1967d2; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-               title="Cetak E-Ticket"></i>
-            <i class="fas fa-crown" 
-               onclick="toggleGuestVipStatus('${guest.id}', '${guest.kategori_tamu || 'Reguler'}')" 
-               style="color: #b39343; cursor: pointer; margin: 0 5px; font-size: 14px;" 
-               title="Ubah Kategori (VIP/Reguler)"></i>
-            <i class="fab fa-whatsapp" style="color: #137333; cursor: pointer; margin: 0 5px; font-size: 14px;" title="Kirim WA"></i>
-        `;
-
-        return `
-            <tr style="border-bottom: 1px solid #f0f0f0;">
-                <td style="text-align: center; padding: 15px 10px;">
-                    <input type="checkbox" class="chk-select-guest" value="${guest.id}" style="transform: scale(1.2); cursor: pointer;">
-                </td>
-                <td style="padding: 15px 10px;">
-                    <div style="font-weight: 800; color: #333; font-size: 0.95rem; margin-bottom: 4px;">${namaTamu}</div>
-                    <div style="color: #b39343; font-weight: 800; font-size: 0.75rem;">
-                        <i class="fas fa-user-friends"></i> ${jumlahOrang} Orang
-                    </div>
-                </td>
-                <td style="padding: 15px 10px; vertical-align: middle;">
-                    ${katBadge}
-                </td>
-                <td style="padding: 15px 10px;">
-                    <div style="margin-bottom: 6px;">${hadirBadge}</div>
-                    <div>${souvBadge}</div>
-                </td>
-                <td style="text-align: center; padding: 15px 10px; vertical-align: middle; white-space: nowrap;">
-                    ${aksiHtml}
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-// =========================================================================
-// FUNGSI EXPORT DATA TAMU (EXCEL/CSV & PDF LANDSCAPE + WATERMARK)
-// =========================================================================
-
-// Helper untuk mendapatkan data tamu yang saat ini lolos dari filter rekap
-function getCurrentlyFilteredData() {
-    const searchVal = (document.getElementById('searchRekapInput')?.value || '').toLowerCase().trim();
-    const filterKatVal = document.getElementById('filterKategori')?.value || 'ALL';
-    const filterStatVal = document.getElementById('filterStatus')?.value || 'ALL';
-    const filterSouvVal = document.getElementById('filterSouvenir')?.value || 'ALL';
-
-    return rawGuestDataCache.filter(guest => {
-        const namaTamu = (guest.nama_tamu || '').toLowerCase();
-        const matchNama = !searchVal || namaTamu.includes(searchVal);
-
-        let rawKategori = (guest.kategori_tamu || 'Reguler').toUpperCase();
-        if (rawKategori === 'UMUM') rawKategori = 'REGULER';
-        let matchKategori = true;
-        if (filterKatVal !== 'ALL') {
-            matchKategori = rawKategori.includes(filterKatVal.toUpperCase());
-        }
-
-        const isHadir = guest.status_kehadiran === 'HADIR';
-        let matchStatus = true;
-        if (filterStatVal === 'Hadir') matchStatus = isHadir;
-        else if (filterStatVal === 'Belum Hadir') matchStatus = !isHadir;
-
-        const isSouvenir = guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL';
-        let matchSouvenir = true;
-        if (filterSouvVal === 'Sudah Ambil') matchSouvenir = isSouvenir;
-        else if (filterSouvVal === 'Belum Ambil') matchSouvenir = !isSouvenir;
-
-        return matchNama && matchKategori && matchStatus && matchSouvenir;
-    });
-}
 
 // =========================================================================
-// FUNGSI EXPORT DATA TAMU (EXCEL & PDF LANDSCAPE + INSTITUSI & TIMESTAMP RINGKAS)
+// HELPER PENARIKAN DATA INSTITUSI & FORMAT TIMESTAMP DINAMIS
 // =========================================================================
 
-// Helper Fungsi Pemformat Timestamp agar Simpel & Ringkas (Contoh: 13/08/2026 15:40)
-function formatSimpleTimestamp(isoString) {
-    if (!isoString || isoString === '-') return '-';
-    try {
-        const d = new Date(isoString);
-        if (isNaN(d.getTime())) return isoString;
-
-        const dateStr = d.toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-        const timeStr = d.toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        }).replace('.', ':');
-
-        return `${dateStr} ${timeStr}`;
-    } catch (e) {
-        return isoString;
-    }
-}
-
-// =========================================================================
-// HELPER PENARIKAN DATA INSTITUSI DINAMIS DARI JSON FORM_DATA
-// =========================================================================
 function extractInstitusiVal(guest) {
     if (!guest) return 'Umum';
-    
-    // 1. Cek jika ada di kolom utama database
     if (guest.institusi && guest.institusi.trim() !== "" && guest.institusi !== 'Umum') {
         return guest.institusi;
     }
-
-    // 2. Cek jika data tersimpan di JSON form_data
     if (guest.form_data) {
         let fd = typeof guest.form_data === 'string' ? JSON.parse(guest.form_data) : guest.form_data;
-        
         if (fd.institusi && fd.institusi.trim() !== "") return fd.institusi;
         if (fd.c_institusi && fd.c_institusi.trim() !== "") return fd.c_institusi;
         if (fd.asal && fd.asal.trim() !== "") return fd.asal;
 
-        // Pencarian otomatis key yang mengandung kata 'inst' atau 'asal'
         for (let key in fd) {
             let lowerKey = key.toLowerCase();
             if ((lowerKey.includes('inst') || lowerKey.includes('asal')) && fd[key] && fd[key].toString().trim() !== "") {
@@ -2639,28 +2111,17 @@ function extractInstitusiVal(guest) {
             }
         }
     }
-
     return guest.institusi || 'Umum';
 }
 
-// Helper Fungsi Pemformat Timestamp agar Simpel & Ringkas (Contoh: 13/08/2026 15:40)
 function formatSimpleTimestamp(isoString) {
     if (!isoString || isoString === '-') return '-';
     try {
         const d = new Date(isoString);
         if (isNaN(d.getTime())) return isoString;
 
-        const dateStr = d.toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-        const timeStr = d.toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        }).replace('.', ':');
-
+        const dateStr = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
         return `${dateStr} ${timeStr}`;
     } catch (e) {
         return isoString;
@@ -2688,7 +2149,6 @@ function exportToExcel() {
     targetData.forEach(g => {
         const pax = parseInt(g.jumlah_aktual || g.jumlah_tamu || 1, 10);
         totalTerdaftar += pax;
-        
         const isHadir = g.status_kehadiran === 'HADIR';
         const isSouv = g.status_souvenir === 'SUDAH_AMBIL' || g.status_souvenir === 'SUDAH AMBIL';
         let kat = (g.kategori_tamu || 'REGULER').toUpperCase();
@@ -2722,12 +2182,10 @@ function exportToExcel() {
     ];
 
     targetData.forEach((guest, index) => {
-        let instText = extractInstitusiVal(guest);
-
         wsData.push([
             index + 1,
             guest.nama_tamu || '-',
-            instText,
+            extractInstitusiVal(guest),
             (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.jumlah_aktual || 1,
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
@@ -2821,16 +2279,14 @@ function exportToPdf() {
     doc.text(`• Total Tamu VIP Hadir (Pax)     :  ${vipHadirPax} Orang`, cardX + 410, cardY + 38);
     doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 54);
 
-    // DATA TABLE UNDANGAN + KOLOM INSTITUSI DINAMIS & TIMESTAMP RINGKAS
+    // DATA TABLE UNDANGAN
     const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "INSTITUSI", "PAX", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR"]];
     
     const tableRows = targetData.map((guest, idx) => {
-        let instText = extractInstitusiVal(guest);
-
         return [
             idx + 1,
             guest.nama_tamu || '-',
-            instText,
+            extractInstitusiVal(guest),
             guest.jumlah_aktual || 1,
             (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
