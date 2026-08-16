@@ -3221,3 +3221,23 @@ function showPublicSuccessPage(guestName) {
         }
     }
 }
+function removeTvPoster() {
+    document.getElementById('adminPosterUrl').value = '';
+    const fileInput = document.getElementById('adminPosterUpload');
+    if (fileInput) fileInput.value = '';
+    
+    const statusEl = document.getElementById('posterPreviewStatus');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#dc3545';
+        statusEl.innerHTML = '<i class="fas fa-info-circle"></i> Poster dinonaktifkan. Klik "Simpan Semua Perubahan" untuk menerapkan.';
+    }
+    
+    Swal.fire({
+        title: 'Poster Dikosongkan',
+        text: 'Klik "Simpan Semua Perubahan" di bagian bawah untuk menghapus poster dari Layar TV.',
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+    });
+}
