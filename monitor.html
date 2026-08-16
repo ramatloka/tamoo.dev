@@ -3,173 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Display - TAMOO</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+    <title>TAMOO - Buku Tamu Digital - Monitor Display</title>
+    
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        :root { 
-            --gold-main: #b39343; 
-            --gold-dark: #846924; 
-            --gold-bg: #967728;
-            --gold-gradient: linear-gradient(135deg, #dfc16d 0%, #846924 100%);
+        :root {
+            --bg-color: #faf7f2;
+            --gold-main: #846924;
+            --gold-dark: #634d19;
+            --text-dark: #2c251d;
+            --accent-gold: #c5a059;
+            --gold-glow: rgba(197, 160, 89, 0.4);
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Cinzel', 'Trajan Pro', 'Georgia', serif;
+        }
+
         body {
-            font-family: 'Montserrat', sans-serif;
-            background: radial-gradient(circle at center, #ffffff 0%, #fdfaf3 100%);
+            background-color: var(--bg-color);
+            color: var(--text-dark);
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
             overflow: hidden;
-            color: #333;
             position: relative;
         }
 
-        /* Top Border Emas Tipis */
-        .top-bar { height: 8px; background: var(--gold-gradient); width: 100%; }
-        
-        /* TOMBOL FULLSCREEN TV (POJOK KANAN ATAS) */
-        .btn-tv-fullscreen {
+        /* 1. LAYER POSTER FULLSCREEN STANDBY */
+        #tvPosterOverlay {
+            display: none;
             position: fixed;
-            top: 15px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid #e0d5be;
-            color: var(--gold-dark);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.9rem;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-            z-index: 9999;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 5;
+            background-color: #000;
+            transition: opacity 0.6s ease;
         }
-        .btn-tv-fullscreen:hover {
-            transform: scale(1.1);
-            background: var(--gold-dark);
-            color: #fff;
+
+        #tvPosterOverlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
-        
-        /* Area Konten Utama */
+
+        /* 2. KONTEN SAPAAN UTAMA */
         .content-area {
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
             align-items: center;
-            text-align: center;
-            padding: 25px 40px 10px 40px;
+            justify-content: center;
+            padding: 40px 60px;
+            position: relative;
+            z-index: 10;
         }
 
-        /* Container Header Judul & Subjudul */
         .event-header-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin-top: 5px;
-            margin-bottom: 20px;
+            text-align: center;
+            margin-bottom: 25px;
         }
-        
-        /* Judul Utama Acara (Tema Besar) */
+
         #displayEventTitle {
-            font-family: 'Playfair Display', serif;
-            font-size: 3.2rem;
-            font-weight: 900;
-            color: var(--gold-dark);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            text-shadow: 0 2px 8px rgba(132, 105, 36, 0.1);
-            line-height: 1.1;
-        }
-
-        /* Sub-Judul Acara (Spesifik) */
-        #displayEventSubtitle {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.85rem;
-            font-weight: 800;
-            color: var(--gold-main);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-top: 8px;
-            text-shadow: 0 1px 4px rgba(132, 105, 36, 0.1);
-        }
-
-        /* Wadah Status & Greeting */
-        .status-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-        }
-        
-        #displayStatusMessage {
-            font-size: 1.8rem;
-            color: #a39575;
+            font-size: 2.8rem;
             font-weight: 800;
             letter-spacing: 5px;
+            color: var(--gold-main);
             text-transform: uppercase;
-            animation: pulse 2.2s infinite;
+            margin-bottom: 8px;
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.06);
         }
 
-        /* Greeting Tamu Blend In */
-        .welcome-blend {
+        #displayEventSubtitle {
+            font-size: 1.4rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            color: var(--gold-dark);
+            text-transform: uppercase;
+        }
+
+        .status-wrapper {
+            flex: 1;
+            width: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            animation: fadeInScale 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        /* BADGE VIP MEWAH */
+        #displayStatusMessage {
+            font-size: 1.8rem;
+            letter-spacing: 6px;
+            font-weight: 700;
+            color: #b5a489;
+            animation: pulse-op 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-op {
+            0%, 100% { opacity: 0.35; transform: scale(0.98); }
+            50% { opacity: 0.9; transform: scale(1); }
+        }
+
+        .welcome-blend {
+            text-align: center;
+            animation: fadeInScale 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 90%;
+        }
+
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(0.92); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
         .vip-badge-banner {
-            background: var(--gold-gradient);
-            color: #ffffff;
-            font-size: 1rem;
-            font-weight: 900;
-            padding: 6px 22px;
-            border-radius: 30px;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            box-shadow: 0 6px 18px rgba(132, 105, 36, 0.25);
-            margin-bottom: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid rgba(255,255,255,0.4);
-            animation: pulseVip 2s infinite;
+            display: inline-block;
+            background: linear-gradient(135deg, #d4af37, #85581A);
+            color: #fff;
+            padding: 8px 30px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px var(--gold-glow);
         }
 
         .greeting-title {
             font-size: 2.2rem;
-            color: var(--gold-main);
-            font-weight: 800;
-            letter-spacing: 4px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        
-        /* NAMA TAMU WARNA EMAS ELEGANT */
-        .guest-name {
-            font-family: 'Playfair Display', serif;
-            font-size: 5.2rem;
-            font-weight: 900;
             color: var(--gold-dark);
-            margin-bottom: 20px;
+            letter-spacing: 6px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .guest-name {
+            font-size: 4.2rem;
+            font-weight: 800;
+            color: var(--gold-main);
+            letter-spacing: 4px;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            line-height: 1.1;
-            text-shadow: 0 4px 20px rgba(132, 105, 36, 0.15);
+            margin-bottom: 25px;
+            text-shadow: 2px 4px 12px rgba(132, 105, 36, 0.2);
+            line-height: 1.2;
         }
 
         .custom-fields-box {
@@ -177,106 +160,123 @@
             flex-wrap: wrap;
             gap: 15px;
             justify-content: center;
-            align-items: center;
+            margin-top: 15px;
         }
 
-        /* BADGE KETERANGAN JUMLAH TAMU & INSTITUSI */
         .field-badge {
-            background: #ffffff;
-            padding: 10px 28px;
+            background: #fff;
+            border: 1.5px solid var(--gold-main);
+            color: var(--text-dark);
+            padding: 10px 24px;
             border-radius: 30px;
             font-size: 1.25rem;
-            font-weight: 800;
-            color: #222222;
-            border: 1.5px solid #e0d5be;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-            display: inline-flex;
+            font-weight: 600;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        /* 3. TOMBOL FS & WATERMARK */
+        .btn-fullscreen {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(132, 105, 36, 0.3);
+            color: var(--gold-main);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 50;
+            transition: all 0.3s;
         }
 
-        /* Baris Branding RAMATLOKA */
-        .brand-header {
-            width: 100%;
-            text-align: right;
-            padding: 10px 40px 15px 40px;
-            font-size: 1.3rem;
-            font-weight: 900;
-            letter-spacing: 4px;
-            color: var(--gold-dark);
-            text-transform: uppercase;
-            opacity: 0.9;
+        .btn-fullscreen:hover {
+            background: var(--gold-main);
+            color: #fff;
         }
 
-        /* TICKER EMAS */
-        .ticker-wrap {
-            width: 100%;
-            background: var(--gold-gradient);
-            color: #ffffff;
-            padding: 22px 0;
-            overflow: hidden;
-            border-top: 2px solid rgba(255,255,255,0.3);
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.08);
-        }
-        
-        .ticker-move {
-            display: inline-block;
-            white-space: nowrap;
-            padding-left: 100%;
-            animation: tickerGo 24s linear infinite;
-            font-size: 1.6rem;
+        .watermark-text {
+            position: fixed;
+            bottom: 50px;
+            right: 25px;
+            font-size: 1.1rem;
             font-weight: 800;
-            letter-spacing: 2.5px;
+            letter-spacing: 4px;
+            color: rgba(132, 105, 36, 0.65);
             text-transform: uppercase;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            z-index: 50;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
         }
 
-        /* Keyframe Animations */
-        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
-        @keyframes pulseVip { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @keyframes tickerGo { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+        /* 4. RUNNING TEXT (STICKY FOOTER OVERLAY) */
+        .ticker-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 42px;
+            background: var(--gold-main);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+            z-index: 50;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.15);
+        }
+
+        .ticker-text {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 25s linear infinite;
+            font-size: 1.15rem;
+            letter-spacing: 3px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        @keyframes marquee {
+            0%   { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
     </style>
 </head>
 <body>
 
-    <!-- Tombol Fullscreen TV Kecil Pojok Kanan Atas -->
-    <button class="btn-tv-fullscreen" onclick="toggleTvFullScreen()" title="Full Screen Display">
+    <!-- LAYER POSTER FULLSCREEN -->
+    <div id="tvPosterOverlay">
+        <img id="tvPosterImg" src="" alt="Poster Acara">
+    </div>
+
+    <!-- TOMBOL FULLSCREEN & WATERMARK -->
+    <div class="btn-fullscreen" onclick="toggleTvFullScreen()" title="Toggle Fullscreen">
         <i id="btnTvFsIcon" class="fas fa-expand"></i>
-    </button>
+    </div>
+    <div class="watermark-text">RAMATLOKA</div>
 
-    <div class="top-bar"></div>
-
-    <div class="content-area">
-        <div class="event-header-box">
+    <!-- KONTEN GREETING / STATUS SCANNER -->
+    <div class="content-area" id="mainContentArea">
+        <div class="event-header-box" id="eventHeaderBox">
             <div id="displayEventTitle">MEMUAT ACARA...</div>
             <div id="displayEventSubtitle" style="display: none;"></div>
         </div>
 
-        <!-- Wadah Poster Idle TV Maksimal & Fleksibel -->
-        <div id="tvPosterContainer" style="display: none; width: 100%; max-width: 1200px; height: calc(100vh - 240px); margin: 0 auto; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 45px rgba(132, 105, 36, 0.25); border: 2.5px solid var(--gold-main); background: #000; transition: all 0.5s ease;">
-            <img id="tvPosterImg" src="" style="width: 100%; height: 100%; object-fit: contain; display: block;" alt="Poster Acara">
-        </div>
-
-        <!-- Wadah Status / Greeting Tamu -->
         <div class="status-wrapper" id="displayCoreWrapper">
             <div id="displayStatusMessage">- MENUNGGU SCANNER -</div>
         </div>
     </div>
 
-    <div class="brand-header">
-        RAMATLOKA
+    <!-- RUNNING TICKER -->
+    <div class="ticker-bar">
+        <div class="ticker-text" id="displayTickerText">MEMUAT PENGUMUMAN...</div>
     </div>
-
-    <div class="ticker-wrap">
-        <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk</div>
-    </div>
-
-    <!-- Library Supabase JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // Configuration Client Supabase
         const SUPABASE_URL = 'https://pqavtpxnnsavwqrvxlst.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXZ0cHhubnNhdndxcnZ4bHN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTE2NDMsImV4cCI6MjEwMDUyNzY0M30.dkqS29xYf3VzQxZ3SnpFBYRPK4HKAy59S4L6V38KrH4';     
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -285,7 +285,6 @@
         let currentPosterUrl = '';
         let greetingTimeout;
 
-        // Fungsi Helper Mengatur Judul & Sub-Judul Tanpa Tabrakan
         function updateTvHeaderTitles(title, subtitle) {
             const elTitle = document.getElementById('displayEventTitle');
             const elSub = document.getElementById('displayEventSubtitle');
@@ -303,26 +302,23 @@
             }
         }
 
-        // Fungsi Helper Mengatur Poster Idle
+        // Pengatur Tampilan Poster Fullscreen
         function updateTvPoster(url) {
             currentPosterUrl = url || '';
-            const container = document.getElementById('tvPosterContainer');
+            const overlay = document.getElementById('tvPosterOverlay');
             const img = document.getElementById('tvPosterImg');
-            const coreWrapper = document.getElementById('displayCoreWrapper');
             
-            if (container && img && coreWrapper) {
+            if (overlay && img) {
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
                     img.src = currentPosterUrl;
-                    container.style.display = 'block';
-                    coreWrapper.style.display = 'none'; // Sembunyikan tulisan scanner jika ada poster
+                    overlay.style.display = 'block';
                 } else {
-                    container.style.display = 'none';
-                    coreWrapper.style.display = 'flex'; // Munculkan kembali tulisan scanner jika poster kosong
+                    overlay.style.display = 'none';
                 }
             }
         }
 
-        // 1. TARIK DATA ANNOUNCEMENT, JUDUL/SUBJUDUL & POSTER DARI SUPABASE
+        // 1. Tarik Data Supabase
         async function loadTvConfigFromSupabase() {
             try {
                 const { data: configData, error } = await db.from('app_config').select('*');
@@ -342,14 +338,13 @@
                     if (tickerEl) tickerEl.innerText = announcement;
                 }
             } catch (err) {
-                console.error("Gagal memuat config TV dari Supabase:", err);
+                console.error("Gagal memuat config TV:", err);
             }
         }
 
-        // Jalankan saat monitor.html pertama kali dibuka
         loadTvConfigFromSupabase();
 
-        // 2. DENGAR BROADCAST CHANNEL
+        // 2. Dengar Sinyal Broadcast
         monitorChannel.onmessage = (event) => {
             const { type, data } = event.data;
             
@@ -357,26 +352,32 @@
                 const title = data.eventTitle || data.eventName || '';
                 const subtitle = (data.eventName && data.eventTitle && data.eventName !== data.eventTitle) ? data.eventName : '';
                 updateTvHeaderTitles(title, subtitle);
+                
+                if (data.posterUrl !== undefined) {
+                    updateTvPoster(data.posterUrl);
+                }
+                
                 if (data.tickerText) {
                     const tickerEl = document.getElementById('displayTickerText');
                     if (tickerEl) tickerEl.innerText = data.tickerText;
                 }
             } 
             else if (type === 'GUEST_CHECKIN') {
-                console.log("Data check-in diterima di monitor TV:", data);
+                console.log("Data check-in diterima di TV:", data);
                 renderGuestGreeting(data);
             }
         };
 
-        // 3. RENDER SAPAAN TAMU (POSTER AUTO-HIDE DAN AUTO-RESTORE)
-       function renderGuestGreeting(guest) {
+        // 3. Render Sapaan Tamu
+        function renderGuestGreeting(guest) {
             clearTimeout(greetingTimeout);
+            const overlay = document.getElementById('tvPosterOverlay');
             const container = document.getElementById('displayCoreWrapper');
-            const posterContainer = document.getElementById('tvPosterContainer');
+            const headerBox = document.getElementById('eventHeaderBox');
             
-            // Sembunyikan poster dan aktifkan wadah sapaan
-            if (posterContainer) posterContainer.style.display = 'none';
-            if (container) container.style.display = 'flex';
+            // Sembunyikan poster fullscreen, tampilkan header dan sapaan
+            if (overlay) overlay.style.display = 'none';
+            if (headerBox) headerBox.style.display = 'block';
 
             let vipBadgeHtml = '';
             let badgesHtml = '';
@@ -390,7 +391,7 @@
                 guest.tv_badges.forEach(b => {
                     const cleanVal = (b.value || '').toString().toUpperCase();
                     badgesHtml += `
-                        <div class="field-badge" style="text-transform: uppercase;">
+                        <div class="field-badge">
                             <i class="fas fa-check-circle" style="color:var(--gold-dark);"></i> 
                             ${cleanVal}
                         </div>`;
@@ -408,14 +409,12 @@
                 </div>
             `;
 
-            // Setelah 7 detik, kembali ke poster (atau ke status scanner jika poster tidak ada)
+            // Setelah 7 detik, kembali ke poster fullscreen (atau teks standby bila poster kosong)
             greetingTimeout = setTimeout(() => {
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
-                    if (posterContainer) posterContainer.style.display = 'block';
-                    if (container) container.style.display = 'none';
+                    if (overlay) overlay.style.display = 'block';
                 } else {
                     container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
-                    if (container) container.style.display = 'flex';
                 }
             }, 7000);
         }
