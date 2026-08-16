@@ -66,20 +66,40 @@
             justify-content: flex-start;
             align-items: center;
             text-align: center;
-            padding: 30px 40px 10px 40px;
+            padding: 25px 40px 10px 40px;
+        }
+
+        /* Container Header Judul & Subjudul */
+        .event-header-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 5px;
+            margin-bottom: 20px;
         }
         
-        /* Nama Event */
-        #displayEventName {
+        /* Judul Utama Acara (Tema Besar) */
+        #displayEventTitle {
             font-family: 'Playfair Display', serif;
             font-size: 3.2rem;
             font-weight: 900;
             color: var(--gold-dark);
             letter-spacing: 2px;
-            margin-top: 10px;
-            margin-bottom: 20px;
             text-transform: uppercase;
             text-shadow: 0 2px 8px rgba(132, 105, 36, 0.1);
+            line-height: 1.1;
+        }
+
+        /* Sub-Judul Acara (Spesifik) */
+        #displayEventSubtitle {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--gold-main);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 6px;
         }
 
         /* Wadah Status & Greeting */
@@ -227,7 +247,10 @@
     <div class="top-bar"></div>
 
     <div class="content-area">
-        <div id="displayEventName">MEMUAT NAMA ACARA...</div>
+        <div class="event-header-box">
+            <div id="displayEventTitle">MEMUAT ACARA...</div>
+            <div id="displayEventSubtitle" style="display: none;"></div>
+        </div>
 
         <div class="status-wrapper" id="displayCoreWrapper">
             <div id="displayStatusMessage">- MENUNGGU SCANNER -</div>
@@ -242,7 +265,7 @@
         <div class="ticker-move" id="displayTickerText">Selamat Datang di Acara Kami • Mohon Siapkan QR Code E-Ticket Anda Untuk Scan Masuk</div>
     </div>
 
-    <!-- Library Supabase JS agar Layar TV bisa baca Announcement langsung dari Database -->
+    <!-- Library Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
@@ -253,7 +276,25 @@
 
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
 
-        // 1. TARIK DATA ANNOUNCEMENT & EVENT TITLE LANGSUNG DARI SUPABASE
+        // Fungsi Helper Mengatur Judul & Sub-Judul Tanpa Tabrakan
+        function updateTvHeaderTitles(title, subtitle) {
+            const elTitle = document.getElementById('displayEventTitle');
+            const elSub = document.getElementById('displayEventSubtitle');
+
+            if (elTitle) {
+                elTitle.innerText = (title && title.trim() !== "") ? title.toUpperCase() : "GUEST BOOK PRO";
+            }
+            if (elSub) {
+                if (subtitle && subtitle.trim() !== "") {
+                    elSub.innerText = subtitle.toUpperCase();
+                    elSub.style.display = "block";
+                } else {
+                    elSub.style.display = "none";
+                }
+            }
+        }
+
+        // 1. TARIK DATA ANNOUNCEMENT & JUDUL/SUBJUDUL DARI SUPABASE
         async function loadTvConfigFromSupabase() {
             try {
                 const { data: configData, error } = await db.from('app_config').select('*');
@@ -261,10 +302,11 @@
                     let configMap = {};
                     configData.forEach(row => { configMap[row.key] = row.value; });
 
-                    const eventTitle = configMap['EventTitle'] || configMap['EventName'] || 'GUEST BOOK EVENT';
+                    const eventTitle = configMap['EventTitle'] || 'GUEST BOOK PRO';
+                    const eventName = configMap['EventName'] || '';
                     const announcement = configMap['Announcement'] || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
 
-                    document.getElementById('displayEventName').innerText = eventTitle;
+                    updateTvHeaderTitles(eventTitle, eventName);
                     document.getElementById('displayTickerText').innerText = announcement;
                 }
             } catch (err) {
@@ -275,12 +317,14 @@
         // Jalankan saat monitor.html pertama kali dibuka
         loadTvConfigFromSupabase();
 
-        // 2. DENGAR BROADCAST CHANNEL (JIKA ADA SIARAN DARI BROADCAST ADMIN)
+        // 2. DENGAR BROADCAST CHANNEL
         monitorChannel.onmessage = (event) => {
             const { type, data, config } = event.data;
             
             if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER') {
-                if (data.eventName) document.getElementById('displayEventName').innerText = data.eventName;
+                const title = data.eventTitle || data.eventName || '';
+                const subtitle = data.eventName && data.eventTitle ? data.eventName : '';
+                updateTvHeaderTitles(title, subtitle);
                 if (data.tickerText) document.getElementById('displayTickerText').innerText = data.tickerText;
             } 
             else if (type === 'GUEST_CHECKIN') {
@@ -305,7 +349,7 @@
                 badgesHtml += `<div class="field-badge"><i class="fas fa-users" style="color:var(--gold-dark);"></i> Hadir Bersama: ${guest.jumlah_aktual} Pax</div>`;
             }
 
-            if (config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
+            if (config && config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
                 badgesHtml += `<div class="field-badge"><i class="fas fa-building" style="color:var(--gold-dark);"></i> ${guest.institusi}</div>`;
             }
 
