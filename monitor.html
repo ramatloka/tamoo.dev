@@ -288,9 +288,9 @@
         let currentPosterUrl = '';
         let greetingTimeout;
 
-        // PETA TEMA TAMPILAN MONITOR TV
+        // PETA TEMA TAMPILAN MONITOR TV (SESUAI DENGAN VALUE INDEX.HTML)
         const TV_THEMES = {
-            'gold': {
+            'classic_gold': {
                 '--bg-color': '#faf7f2',
                 '--gold-main': '#846924',
                 '--gold-dark': '#634d19',
@@ -300,17 +300,7 @@
                 '--ticker-bg': '#846924',
                 '--ticker-text': '#ffffff'
             },
-            'silver': {
-                '--bg-color': '#f3f4f6',
-                '--gold-main': '#4b5563',
-                '--gold-dark': '#1f2937',
-                '--text-dark': '#111827',
-                '--accent-gold': '#9ca3af',
-                '--gold-glow': 'rgba(156, 163, 175, 0.4)',
-                '--ticker-bg': '#374151',
-                '--ticker-text': '#ffffff'
-            },
-            'navy': {
+            'royal_navy': {
                 '--bg-color': '#0f172a',
                 '--gold-main': '#38bdf8',
                 '--gold-dark': '#0284c7',
@@ -319,6 +309,16 @@
                 '--gold-glow': 'rgba(56, 189, 248, 0.4)',
                 '--ticker-bg': '#1e293b',
                 '--ticker-text': '#38bdf8'
+            },
+            'midnight': {
+                '--bg-color': '#000000',
+                '--gold-main': '#ffffff',
+                '--gold-dark': '#cccccc',
+                '--text-dark': '#ffffff',
+                '--accent-gold': '#888888',
+                '--gold-glow': 'rgba(255, 255, 255, 0.3)',
+                '--ticker-bg': '#1a1a1a',
+                '--ticker-text': '#ffffff'
             },
             'emerald': {
                 '--bg-color': '#f0fdf4',
@@ -329,22 +329,12 @@
                 '--gold-glow': 'rgba(74, 222, 128, 0.4)',
                 '--ticker-bg': '#166534',
                 '--ticker-text': '#ffffff'
-            },
-            'monochrome': {
-                '--bg-color': '#000000',
-                '--gold-main': '#ffffff',
-                '--gold-dark': '#cccccc',
-                '--text-dark': '#ffffff',
-                '--accent-gold': '#888888',
-                '--gold-glow': 'rgba(255, 255, 255, 0.3)',
-                '--ticker-bg': '#1a1a1a',
-                '--ticker-text': '#ffffff'
             }
         };
 
         function applyTvTheme(themeKey) {
-            const selectedKey = (themeKey || 'gold').toLowerCase();
-            const theme = TV_THEMES[selectedKey] || TV_THEMES['gold'];
+            const selectedKey = (themeKey || 'classic_gold').toLowerCase();
+            const theme = TV_THEMES[selectedKey] || TV_THEMES['classic_gold'];
             const root = document.documentElement;
             
             Object.keys(theme).forEach(prop => {
