@@ -43,9 +43,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px 60px 70px 60px;
+            padding: 30px 60px 75px 60px;
             position: relative;
-            z-index: 1; /* Di bawah poster */
+            z-index: 1;
         }
 
         .event-header-box {
@@ -155,7 +155,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
 
-        /* 2. LAYER POSTER FULLSCREEN SOLID (Z-INDEX 20, MENUTUPI KONTEN DENGAN BERSIH) */
+        /* 2. LAYER POSTER FULLSCREEN SOLID (Z-INDEX 20) */
         #tvPosterOverlay {
             display: none;
             position: fixed;
@@ -163,7 +163,7 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            z-index: 20; /* Menutup konten judul & status */
+            z-index: 20;
             background-color: #000;
         }
 
@@ -174,7 +174,7 @@
             display: block;
         }
 
-        /* 3. TOMBOL FULLSCREEN & WATERMARK MELAYANG DI ATAS POSTER (Z-INDEX 50) */
+        /* 3. TOMBOL FULLSCREEN (Z-INDEX 50) */
         .btn-fullscreen {
             position: fixed;
             top: 20px;
@@ -199,44 +199,45 @@
             color: #fff;
         }
 
+        /* WATERMARK BERSIH TANPA SHADOW KOTOR */
         .watermark-text {
             position: fixed;
-            bottom: 58px;
+            bottom: 60px;
             right: 25px;
             font-size: 1.15rem;
             font-weight: 800;
             letter-spacing: 4px;
-            color: rgba(212, 175, 55, 0.7);
+            color: var(--gold-main);
             text-transform: uppercase;
             z-index: 50;
-            text-shadow: 1px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
+            opacity: 0.85;
         }
 
-        /* 4. RUNNING TEXT ASLI TEBAL (Z-INDEX 50) */
+        /* 4. RUNNING TEXT TEBAL & JELAS */
         .ticker-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 48px; /* Ukuran asli yang kokoh */
+            height: 52px; /* Ukuran tebal dan jelas */
             background: var(--gold-main);
-            color: #fff;
+            color: #ffffff;
             display: flex;
             align-items: center;
             overflow: hidden;
             white-space: nowrap;
             z-index: 50;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.25);
         }
 
         .ticker-text {
             display: inline-block;
             padding-left: 100%;
             animation: marquee 25s linear infinite;
-            font-size: 1.15rem;
+            font-size: 1.3rem; /* Huruf tebal dan lebih terbaca */
             letter-spacing: 3px;
-            font-weight: 700;
+            font-weight: 800;
             text-transform: uppercase;
         }
 
@@ -253,7 +254,7 @@
         <img id="tvPosterImg" src="" alt="Poster Acara">
     </div>
 
-    <!-- TOMBOL FULLSCREEN & WATERMARK MELAYANG -->
+    <!-- TOMBOL FULLSCREEN & WATERMARK -->
     <div class="btn-fullscreen" onclick="toggleTvFullScreen()" title="Toggle Fullscreen">
         <i id="btnTvFsIcon" class="fas fa-expand"></i>
     </div>
@@ -271,7 +272,7 @@
         </div>
     </div>
 
-    <!-- RUNNING TICKER TEBAL ASLI -->
+    <!-- RUNNING TICKER -->
     <div class="ticker-bar">
         <div class="ticker-text" id="displayTickerText">MEMUAT PENGUMUMAN...</div>
     </div>
@@ -302,7 +303,6 @@
             }
         }
 
-        // Pengatur Tampilan Poster Fullscreen Murni
         function updateTvPoster(url) {
             currentPosterUrl = url || '';
             const overlay = document.getElementById('tvPosterOverlay');
@@ -313,12 +313,12 @@
                     img.src = currentPosterUrl;
                     overlay.style.display = 'block';
                 } else {
+                    img.src = '';
                     overlay.style.display = 'none';
                 }
             }
         }
 
-        // 1. Tarik Data Supabase
         async function loadTvConfigFromSupabase() {
             try {
                 const { data: configData, error } = await db.from('app_config').select('*');
@@ -344,14 +344,13 @@
 
         loadTvConfigFromSupabase();
 
-        // 2. Dengar Sinyal Broadcast
         monitorChannel.onmessage = (event) => {
             const { type, data } = event.data;
             
-            if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER') {
+            if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER' || type === 'UPDATE_POSTER') {
                 const title = data.eventTitle || data.eventName || '';
                 const subtitle = (data.eventName && data.eventTitle && data.eventName !== data.eventTitle) ? data.eventName : '';
-                updateTvHeaderTitles(title, subtitle);
+                if (title || subtitle) updateTvHeaderTitles(title, subtitle);
                 
                 if (data.posterUrl !== undefined) {
                     updateTvPoster(data.posterUrl);
@@ -368,13 +367,12 @@
             }
         };
 
-        // 3. Render Sapaan Tamu
         function renderGuestGreeting(guest) {
             clearTimeout(greetingTimeout);
             const overlay = document.getElementById('tvPosterOverlay');
             const container = document.getElementById('displayCoreWrapper');
             
-            // Sembunyikan poster saat scan berhasil
+            // Sembunyikan poster
             if (overlay) overlay.style.display = 'none';
 
             let vipBadgeHtml = '';
@@ -398,7 +396,6 @@
 
             const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().toUpperCase();
 
-            // Isi pesan sapaan
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
@@ -408,7 +405,7 @@
                 </div>
             `;
 
-            // Setelah 7 detik, bersihkan sapaan dan kembalikan poster secara bersih
+            // Setelah 7 detik, bersihkan sapaan dan kembalikan poster atau status scanner
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
