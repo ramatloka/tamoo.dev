@@ -526,6 +526,7 @@ async function saveAdminSettingsData() {
         const eventName = getVal('adminEventName');
         const announcement = getVal('adminAnnouncement');
         const posterUrl = getVal('adminPosterUrl');
+        const appTheme = getVal('adminAppTheme') || 'gold';
 
         // 1. Kumpulkan Konfigurasi Utama
         const configs = [
@@ -541,7 +542,7 @@ async function saveAdminSettingsData() {
             { key: 'MaxQuota', value: getVal('adminMaxQuota') },
             { key: 'FormStatus', value: getVal('adminFormStatus') },
             { key: 'RequireLogin', value: getVal('adminRequireLogin') },
-            { key: 'AppTheme', value: getVal('adminAppTheme') },
+            { key: 'AppTheme', value: appTheme },
             { key: 'SoundSuccess', value: getVal('adminSoundSuccess') },
             { key: 'SoundError', value: getVal('adminSoundError') },
             { key: 'PosterUrl', value: posterUrl },
@@ -578,7 +579,13 @@ async function saveAdminSettingsData() {
         if (typeof tvBroadcast !== 'undefined') {
             tvBroadcast.postMessage({
                 type: 'INIT_DISPLAY',
-                data: { eventTitle, eventName, tickerText: announcement, posterUrl }
+                data: { 
+                    eventTitle, 
+                    eventName, 
+                    tickerText: announcement, 
+                    posterUrl,
+                    theme: appTheme 
+                }
             });
         }
 
