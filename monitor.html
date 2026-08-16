@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TAMOO - Buku Tamu Digital - Monitor Display</title>
     
-    <!-- Supabase JS Client -->
+    <!-- Supabase JS Client & FontAwesome -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -17,6 +17,8 @@
             --text-dark: #2c251d;
             --accent-gold: #c5a059;
             --gold-glow: rgba(197, 160, 89, 0.4);
+            --ticker-bg: #846924;
+            --ticker-text: #ffffff;
         }
 
         * {
@@ -24,6 +26,7 @@
             padding: 0;
             box-sizing: border-box;
             font-family: 'Cinzel', 'Trajan Pro', 'Georgia', serif;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         body {
@@ -36,14 +39,33 @@
             position: relative;
         }
 
-        /* 1. LAYER KONTEN UTAMA (SAPAAN TAMU & JUDUL) */
+        /* 1. LAYER POSTER FULLSCREEN STANDBY */
+        #tvPosterOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 20;
+            background-color: #000;
+        }
+
+        #tvPosterOverlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* 2. KONTEN SAPAAN UTAMA */
         .content-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 30px 60px 75px 60px;
+            padding: 30px 60px 85px 60px;
             position: relative;
             z-index: 1;
         }
@@ -83,7 +105,7 @@
             font-size: 1.8rem;
             letter-spacing: 6px;
             font-weight: 700;
-            color: #b5a489;
+            color: var(--accent-gold);
             animation: pulse-op 2s infinite ease-in-out;
         }
 
@@ -105,7 +127,7 @@
 
         .vip-badge-banner {
             display: inline-block;
-            background: linear-gradient(135deg, #d4af37, #85581A);
+            background: linear-gradient(135deg, var(--gold-main), var(--gold-dark));
             color: #fff;
             padding: 8px 30px;
             border-radius: 50px;
@@ -131,7 +153,7 @@
             letter-spacing: 4px;
             text-transform: uppercase;
             margin-bottom: 25px;
-            text-shadow: 2px 4px 12px rgba(132, 105, 36, 0.2);
+            text-shadow: 2px 4px 12px var(--gold-glow);
             line-height: 1.2;
         }
 
@@ -155,34 +177,15 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
 
-        /* 2. LAYER POSTER FULLSCREEN SOLID (Z-INDEX 20) */
-        #tvPosterOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 20;
-            background-color: #000;
-        }
-
-        #tvPosterOverlay img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-        }
-
-        /* 3. TOMBOL FULLSCREEN (Z-INDEX 50) */
+        /* 3. TOMBOL FS & WATERMARK */
         .btn-fullscreen {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.4);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(132, 105, 36, 0.4);
-            color: #fff;
+            border: 1px solid var(--gold-main);
+            color: var(--gold-main);
             width: 44px;
             height: 44px;
             border-radius: 50%;
@@ -199,10 +202,9 @@
             color: #fff;
         }
 
-        /* WATERMARK BERSIH TANPA SHADOW KOTOR */
         .watermark-text {
             position: fixed;
-            bottom: 74px; /* Dinaikkan sedikit agar tetap berjarak rapi di atas bar ticker */
+            bottom: 74px;
             right: 25px;
             font-size: 1.15rem;
             font-weight: 800;
@@ -214,28 +216,28 @@
             opacity: 0.85;
         }
 
-        /* 4. RUNNING TEXT LEBIH LEBAR & TINGGI */
+        /* 4. RUNNING TICKER DINAMIS SESUAI TEMA */
         .ticker-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 64px; /* Ditinggikan menjadi 64px agar lebih lega dan mantap */
-            background: var(--gold-main);
-            color: #ffffff;
+            height: 64px;
+            background: var(--ticker-bg);
+            color: var(--ticker-text);
             display: flex;
             align-items: center;
             overflow: hidden;
             white-space: nowrap;
             z-index: 50;
-            box-shadow: 0 -6px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 -6px 20px rgba(0,0,0,0.25);
         }
 
         .ticker-text {
             display: inline-block;
             padding-left: 100%;
             animation: marquee 25s linear infinite;
-            font-size: 1.55rem; /* Ukuran font lebih besar dan tebal */
+            font-size: 1.55rem;
             letter-spacing: 4px;
             font-weight: 800;
             text-transform: uppercase;
@@ -286,6 +288,70 @@
         let currentPosterUrl = '';
         let greetingTimeout;
 
+        // PETA TEMA TAMPILAN MONITOR TV
+        const TV_THEMES = {
+            'gold': {
+                '--bg-color': '#faf7f2',
+                '--gold-main': '#846924',
+                '--gold-dark': '#634d19',
+                '--text-dark': '#2c251d',
+                '--accent-gold': '#c5a059',
+                '--gold-glow': 'rgba(197, 160, 89, 0.4)',
+                '--ticker-bg': '#846924',
+                '--ticker-text': '#ffffff'
+            },
+            'silver': {
+                '--bg-color': '#f3f4f6',
+                '--gold-main': '#4b5563',
+                '--gold-dark': '#1f2937',
+                '--text-dark': '#111827',
+                '--accent-gold': '#9ca3af',
+                '--gold-glow': 'rgba(156, 163, 175, 0.4)',
+                '--ticker-bg': '#374151',
+                '--ticker-text': '#ffffff'
+            },
+            'navy': {
+                '--bg-color': '#0f172a',
+                '--gold-main': '#38bdf8',
+                '--gold-dark': '#0284c7',
+                '--text-dark': '#f8fafc',
+                '--accent-gold': '#7dd3fc',
+                '--gold-glow': 'rgba(56, 189, 248, 0.4)',
+                '--ticker-bg': '#1e293b',
+                '--ticker-text': '#38bdf8'
+            },
+            'emerald': {
+                '--bg-color': '#f0fdf4',
+                '--gold-main': '#15803d',
+                '--gold-dark': '#14532d',
+                '--text-dark': '#052e16',
+                '--accent-gold': '#4ade80',
+                '--gold-glow': 'rgba(74, 222, 128, 0.4)',
+                '--ticker-bg': '#166534',
+                '--ticker-text': '#ffffff'
+            },
+            'monochrome': {
+                '--bg-color': '#000000',
+                '--gold-main': '#ffffff',
+                '--gold-dark': '#cccccc',
+                '--text-dark': '#ffffff',
+                '--accent-gold': '#888888',
+                '--gold-glow': 'rgba(255, 255, 255, 0.3)',
+                '--ticker-bg': '#1a1a1a',
+                '--ticker-text': '#ffffff'
+            }
+        };
+
+        function applyTvTheme(themeKey) {
+            const selectedKey = (themeKey || 'gold').toLowerCase();
+            const theme = TV_THEMES[selectedKey] || TV_THEMES['gold'];
+            const root = document.documentElement;
+            
+            Object.keys(theme).forEach(prop => {
+                root.style.setProperty(prop, theme[prop]);
+            });
+        }
+
         function updateTvHeaderTitles(title, subtitle) {
             const elTitle = document.getElementById('displayEventTitle');
             const elSub = document.getElementById('displayEventSubtitle');
@@ -319,6 +385,7 @@
             }
         }
 
+        // Tarik Data Konfigurasi & Tema dari Supabase
         async function loadTvConfigFromSupabase() {
             try {
                 const { data: configData, error } = await db.from('app_config').select('*');
@@ -330,7 +397,9 @@
                     const eventName = configMap['EventName'] || '';
                     const announcement = configMap['Announcement'] || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
                     const posterUrl = configMap['PosterUrl'] || '';
+                    const appTheme = configMap['AppTheme'] || 'gold';
 
+                    applyTvTheme(appTheme);
                     updateTvHeaderTitles(eventTitle, eventName);
                     updateTvPoster(posterUrl);
                     
@@ -344,10 +413,13 @@
 
         loadTvConfigFromSupabase();
 
+        // Dengar Sinyal Broadcast Perubahan
         monitorChannel.onmessage = (event) => {
             const { type, data } = event.data;
             
-            if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER' || type === 'UPDATE_POSTER') {
+            if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER' || type === 'UPDATE_POSTER' || type === 'UPDATE_THEME') {
+                if (data.theme) applyTvTheme(data.theme);
+                
                 const title = data.eventTitle || data.eventName || '';
                 const subtitle = (data.eventName && data.eventTitle && data.eventName !== data.eventTitle) ? data.eventName : '';
                 if (title || subtitle) updateTvHeaderTitles(title, subtitle);
@@ -372,7 +444,6 @@
             const overlay = document.getElementById('tvPosterOverlay');
             const container = document.getElementById('displayCoreWrapper');
             
-            // Sembunyikan poster
             if (overlay) overlay.style.display = 'none';
 
             let vipBadgeHtml = '';
@@ -405,7 +476,6 @@
                 </div>
             `;
 
-            // Setelah 7 detik, bersihkan sapaan dan kembalikan poster atau status scanner
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
