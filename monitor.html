@@ -36,36 +36,16 @@
             position: relative;
         }
 
-        /* 1. LAYER POSTER FULLSCREEN STANDBY */
-        #tvPosterOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 5;
-            background-color: #000;
-            transition: opacity 0.6s ease;
-        }
-
-        #tvPosterOverlay img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-        }
-
-        /* 2. KONTEN SAPAAN UTAMA */
+        /* 1. LAYER KONTEN UTAMA (SAPAAN TAMU & JUDUL) */
         .content-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px 60px;
+            padding: 40px 60px 70px 60px;
             position: relative;
-            z-index: 10;
+            z-index: 1; /* Di bawah poster */
         }
 
         .event-header-box {
@@ -175,15 +155,34 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
 
-        /* 3. TOMBOL FS & WATERMARK */
+        /* 2. LAYER POSTER FULLSCREEN SOLID (Z-INDEX 20, MENUTUPI KONTEN DENGAN BERSIH) */
+        #tvPosterOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 20; /* Menutup konten judul & status */
+            background-color: #000;
+        }
+
+        #tvPosterOverlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* 3. TOMBOL FULLSCREEN & WATERMARK MELAYANG DI ATAS POSTER (Z-INDEX 50) */
         .btn-fullscreen {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.35);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(132, 105, 36, 0.3);
-            color: var(--gold-main);
+            border: 1px solid rgba(132, 105, 36, 0.4);
+            color: #fff;
             width: 44px;
             height: 44px;
             border-radius: 50%;
@@ -202,24 +201,25 @@
 
         .watermark-text {
             position: fixed;
-            bottom: 50px;
+            bottom: 58px;
             right: 25px;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 800;
             letter-spacing: 4px;
-            color: rgba(132, 105, 36, 0.65);
+            color: rgba(212, 175, 55, 0.7);
             text-transform: uppercase;
             z-index: 50;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
         }
 
-        /* 4. RUNNING TEXT (STICKY FOOTER OVERLAY) */
+        /* 4. RUNNING TEXT ASLI TEBAL (Z-INDEX 50) */
         .ticker-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 42px;
+            height: 48px; /* Ukuran asli yang kokoh */
             background: var(--gold-main);
             color: #fff;
             display: flex;
@@ -227,7 +227,7 @@
             overflow: hidden;
             white-space: nowrap;
             z-index: 50;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.15);
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
         }
 
         .ticker-text {
@@ -236,7 +236,7 @@
             animation: marquee 25s linear infinite;
             font-size: 1.15rem;
             letter-spacing: 3px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
         }
 
@@ -248,12 +248,12 @@
 </head>
 <body>
 
-    <!-- LAYER POSTER FULLSCREEN -->
+    <!-- LAYER POSTER FULLSCREEN STANDBY -->
     <div id="tvPosterOverlay">
         <img id="tvPosterImg" src="" alt="Poster Acara">
     </div>
 
-    <!-- TOMBOL FULLSCREEN & WATERMARK -->
+    <!-- TOMBOL FULLSCREEN & WATERMARK MELAYANG -->
     <div class="btn-fullscreen" onclick="toggleTvFullScreen()" title="Toggle Fullscreen">
         <i id="btnTvFsIcon" class="fas fa-expand"></i>
     </div>
@@ -271,7 +271,7 @@
         </div>
     </div>
 
-    <!-- RUNNING TICKER -->
+    <!-- RUNNING TICKER TEBAL ASLI -->
     <div class="ticker-bar">
         <div class="ticker-text" id="displayTickerText">MEMUAT PENGUMUMAN...</div>
     </div>
@@ -302,7 +302,7 @@
             }
         }
 
-        // Pengatur Tampilan Poster Fullscreen
+        // Pengatur Tampilan Poster Fullscreen Murni
         function updateTvPoster(url) {
             currentPosterUrl = url || '';
             const overlay = document.getElementById('tvPosterOverlay');
@@ -373,11 +373,9 @@
             clearTimeout(greetingTimeout);
             const overlay = document.getElementById('tvPosterOverlay');
             const container = document.getElementById('displayCoreWrapper');
-            const headerBox = document.getElementById('eventHeaderBox');
             
-            // Sembunyikan poster fullscreen, tampilkan header dan sapaan
+            // Sembunyikan poster saat scan berhasil
             if (overlay) overlay.style.display = 'none';
-            if (headerBox) headerBox.style.display = 'block';
 
             let vipBadgeHtml = '';
             let badgesHtml = '';
@@ -391,7 +389,7 @@
                 guest.tv_badges.forEach(b => {
                     const cleanVal = (b.value || '').toString().toUpperCase();
                     badgesHtml += `
-                        <div class="field-badge">
+                        <div class="field-badge" style="text-transform: uppercase;">
                             <i class="fas fa-check-circle" style="color:var(--gold-dark);"></i> 
                             ${cleanVal}
                         </div>`;
@@ -400,6 +398,7 @@
 
             const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().toUpperCase();
 
+            // Isi pesan sapaan
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
@@ -409,12 +408,11 @@
                 </div>
             `;
 
-            // Setelah 7 detik, kembali ke poster fullscreen (atau teks standby bila poster kosong)
+            // Setelah 7 detik, bersihkan sapaan dan kembalikan poster secara bersih
             greetingTimeout = setTimeout(() => {
+                container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
                     if (overlay) overlay.style.display = 'block';
-                } else {
-                    container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
                 }
             }, 7000);
         }
