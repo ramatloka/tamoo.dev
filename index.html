@@ -49,7 +49,8 @@
       
       <div id="secTamu" class="section active">
         <div id="publicEventInfo" style="display:none; text-align:center; margin-bottom:30px; padding-bottom:25px; border-bottom:1px dashed var(--border-color);">
-           <div id="pubEventName" style="font-family:'Playfair Display', serif; font-size:2rem; font-weight:900; color:var(--gold-dark); text-transform:uppercase; margin-bottom:8px; line-height:1.2;"></div>
+           <div id="pubEventTitle" style="font-family:'Playfair Display', serif; font-size:2.2rem; font-weight:900; color:var(--gold-dark); text-transform:uppercase; margin-bottom:4px; line-height:1.2;"></div>
+           <div id="pubEventName" style="font-family:'Montserrat', sans-serif; font-size:1.1rem; font-weight:700; color:var(--text-main); text-transform:uppercase; margin-bottom:10px; letter-spacing:1px;"></div>
            <div id="pubEventDateLoc" style="font-family:'Montserrat', sans-serif; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:20px; letter-spacing:1px;"></div>
            <a id="pubDetailBtn" href="#" target="_blank" style="display:none; background:var(--bg-color); color:var(--gold-dark); border:2px solid var(--gold-light); padding:10px 25px; border-radius:30px; font-size:0.75rem; font-weight:800; text-decoration:none; text-transform:uppercase; letter-spacing:1px; transition:0.3s;"><i class="fas fa-external-link-alt"></i> Lihat Detail Acara</a>
         </div>
@@ -288,8 +289,8 @@
           </div>
           <div class="acc-header" onclick="toggleAcc('accEvent')"><span><i class="fas fa-calendar-alt"></i> Detail Acara & Identitas</span><i id="icon_accEvent" class="fas fa-chevron-down"></i></div>
           <div id="accEvent" class="acc-content">
-              <div class="form-group"><label>Nama / Judul Event (Tampil di Web Utama)</label><input type="text" id="adminEventTitle" placeholder="Misal: GENDING KARESMEN"></div>
-              <div style="display:flex; gap:15px; margin-bottom:20px;"><div class="form-group" style="flex:2; margin-bottom:0;"><label>Nama Acara (Khusus di Tiket Digital)</label><input type="text" id="adminEventName" placeholder="Misal: Perpisahan 2026"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Tanggal Acara</label><input type="date" id="adminEventDate"></div></div>
+              <div class="form-group"><label>Judul Utama Acara (Tema Besar)</label><input type="text" id="adminEventTitle" placeholder="Misal: REUNI ALUMNI SMKN 10 BANDUNG"></div>
+              <div style="display:flex; gap:15px; margin-bottom:20px;"><div class="form-group" style="flex:2; margin-bottom:0;"><label>Sub-Judul Acara (Keterangan Khusus / Spesifik)</label><input type="text" id="adminEventName" placeholder="Misal: Angkatan 2000-2005"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Tanggal Acara</label><input type="date" id="adminEventDate"></div></div>
               <div class="form-group"><label>Lokasi Acara</label><input type="text" id="adminEventLocation" placeholder="Misal: Gedung Budaya Bandung"></div>
               <div style="display:flex; gap:15px; margin-bottom:10px;"><div class="form-group" style="flex:1; margin-bottom:0;"><label>Awalan Sapaan (Opsional)</label><input type="text" id="adminPrefix" placeholder="Misal: Bapak / Ibu"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Akhiran Nama (Opsional)</label><input type="text" id="adminSuffix" placeholder="Misal: & Partner"></div></div>
               <div style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:15px;">
