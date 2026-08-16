@@ -164,9 +164,23 @@ async function loadForm() {
         }
 
         if (IS_PUBLIC_MODE) {
-            document.getElementById('publicEventInfo').style.display = 'block'; document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle;
-            let dateLoc = []; if(data.EventDate) dateLoc.push(data.EventDate); if(data.EventLocation) dateLoc.push(data.EventLocation); document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
-            if(data.DetailUrl && data.DetailUrl.trim() !== "") { let btnDetail = document.getElementById('pubDetailBtn'); let finalUrl = data.DetailUrl.startsWith('http') ? data.DetailUrl : 'https://' + data.DetailUrl; btnDetail.href = finalUrl; btnDetail.style.display = 'inline-block'; }
+            document.getElementById('publicEventInfo').style.display = 'block'; 
+            let elTitle = document.getElementById('pubEventTitle');
+            if(elTitle) elTitle.innerText = data.EventTitle || "GUEST BOOK PRO";
+            let elName = document.getElementById('pubEventName');
+            if(elName) elName.innerText = data.EventName || "";
+            
+            let dateLoc = []; 
+            if(data.EventDate) dateLoc.push(data.EventDate); 
+            if(data.EventLocation) dateLoc.push(data.EventLocation); 
+            document.getElementById('pubEventDateLoc').innerText = dateLoc.join("  |  ");
+            
+            if(data.DetailUrl && data.DetailUrl.trim() !== "") { 
+                let btnDetail = document.getElementById('pubDetailBtn'); 
+                let finalUrl = data.DetailUrl.startsWith('http') ? data.DetailUrl : 'https://' + data.DetailUrl; 
+                btnDetail.href = finalUrl; 
+                btnDetail.style.display = 'inline-block'; 
+            }
         }
         
         // RENDER FORM UTAMA DAN SINKRONISASI MODAL REKAP
@@ -705,22 +719,20 @@ const tvBroadcast = new BroadcastChannel('tamoo_tv_broadcast');
 function openTvWindow() { 
     console.log("Membuka Layar TV Extended..."); 
     
-    // 1. Tarik Data Event Resmi dari elemen input setup halaman admin
-    const eventName = document.getElementById('adminEventName')?.value || 'DRAMA TARI';
-    const tickerText = document.getElementById('adminRunningText')?.value || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
+    const eventTitle = document.getElementById('adminEventTitle')?.value || 'TAMOO EVENT';
+    const eventName = document.getElementById('adminEventName')?.value || '';
+    const tickerText = document.getElementById('adminAnnouncement')?.value || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
 
-    // Simpan ke localstorage sebagai cache cadangan untuk monitor
+    localStorage.setItem('currentEventTitle', eventTitle);
     localStorage.setItem('currentEventName', eventName);
     localStorage.setItem('currentEventTicker', tickerText);
 
-    // 2. Buka tab baru monitor.html
     const monitorWindow = window.open('monitor.html', '_blank');
 
-    // 3. Beri jeda 1 detik agar tab baru selesai memuat halaman, lalu tembakkan data
     setTimeout(() => {
         tvBroadcast.postMessage({
             type: 'INIT_DISPLAY',
-            data: { eventName, tickerText }
+            data: { eventTitle, eventName, tickerText }
         });
     }, 1000);
 }
@@ -977,26 +989,45 @@ async function downloadETicket(id, name, title, date, loc) {
             ctx.fillText("★ VIP GUEST", 482, 69);
         }
 
-        // 3. Judul Acara
+        // 3. Judul Utama Acara (Besar) & Sub-Judul (Sedang)
+        const rawTitle = (document.getElementById('adminEventTitle')?.value || title || "GUEST BOOK").toUpperCase();
+        const rawSubTitle = (document.getElementById('adminEventName')?.value || "").toUpperCase();
+
         ctx.textAlign = 'center';
         ctx.fillStyle = '#846924';
-        ctx.font = 'bold 32px serif';
-        const displayTitle = (title && title.trim() !== "") ? title.toUpperCase() : "GUEST BOOK TICKET";
-        ctx.fillText(displayTitle, canvas.width / 2, 110);
+        
+        let fontTitleSize = 34;
+        ctx.font = `bold ${fontTitleSize}px serif`;
+        while (ctx.measureText(rawTitle).width > 500 && fontTitleSize > 18) {
+            fontTitleSize -= 2;
+            ctx.font = `bold ${fontTitleSize}px serif`;
+        }
+        ctx.fillText(rawTitle, canvas.width / 2, 95);
+
+        if (rawSubTitle) {
+            ctx.fillStyle = '#555555';
+            let fontSubSize = 20;
+            ctx.font = `bold ${fontSubSize}px sans-serif`;
+            while (ctx.measureText(rawSubTitle).width > 500 && fontSubSize > 12) {
+                fontSubSize -= 1;
+                ctx.font = `bold ${fontSubSize}px sans-serif`;
+            }
+            ctx.fillText(rawSubTitle, canvas.width / 2, 125);
+        }
 
         // Garis Pemisah Emas
         ctx.beginPath();
         ctx.strokeStyle = '#846924';
         ctx.lineWidth = 2;
-        ctx.moveTo(150, 135);
-        ctx.lineTo(450, 135);
+        ctx.moveTo(150, 142);
+        ctx.lineTo(450, 142);
         ctx.stroke();
 
         // 4. Info Tanggal & Lokasi
         ctx.fillStyle = '#777';
-        ctx.font = '600 18px sans-serif';
+        ctx.font = '600 16px sans-serif';
         const infoText = `${date || ''} ${date && loc ? '|' : ''} ${(loc || '').toUpperCase()}`.trim() || 'RAMATLOKA EVENT';
-        ctx.fillText(infoText, canvas.width / 2, 175);
+        ctx.fillText(infoText, canvas.width / 2, 172);
 
         // 5. Header Tiket (E-TICKET PASS)
         ctx.fillStyle = '#999';
