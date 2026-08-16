@@ -2420,16 +2420,34 @@ function formatSimpleTimestamp(isoString) {
     }
 }
 
+// =========================================================================
+// HELPER AMBIL DATA AKTIF UNTUK EXPORT (EXCEL & PDF)
+// =========================================================================
+function getCurrentlyFilteredData() {
+    if (typeof filteredGuestData !== "undefined" && filteredGuestData.length > 0) {
+        return filteredGuestData;
+    }
+    if (typeof rawGuestDataCache !== "undefined" && rawGuestDataCache.length > 0) {
+        return rawGuestDataCache;
+    }
+    return [];
+}
+
 // 1. FUNGSI EXPORT TO EXCEL
 function exportToExcel() {
     const targetData = getCurrentlyFilteredData();
     if (targetData.length === 0) {
-        alert("Tidak ada data yang dapat diexport berdasarkan filter saat ini.");
+        Swal.fire('Data Kosong', 'Tidak ada data tamu yang dapat diexport berdasarkan filter saat ini.', 'warning');
         return;
     }
 
-    const currentEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
-    const currentEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
+    if (typeof XLSX === "undefined") {
+        Swal.fire('Library Error', 'Library XLSX (SheetJS) belum terpasang di HTML.', 'error');
+        return;
+    }
+
+    const currentEventName = document.getElementById('adminEventName')?.value || document.getElementById('adminEventTitle')?.value || 'TAMOO EVENT';
+    const currentEventDate = document.getElementById('adminEventDate')?.value || '-';
 
     let totalTerdaftar = 0;
     let totalHadirPax = 0;
@@ -2494,17 +2512,22 @@ function exportToExcel() {
 
 // 2. FUNGSI EXPORT TO PDF
 function exportToPdf() {
+    if (typeof window.jspdf === "undefined") {
+        Swal.fire('Library Error', 'Library jsPDF belum terpasang di HTML.', 'error');
+        return;
+    }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'pt', 'a4');
     
     const targetData = getCurrentlyFilteredData();
     if (targetData.length === 0) {
-        alert("Tidak ada data yang dapat diexport berdasarkan filter saat ini.");
+        Swal.fire('Data Kosong', 'Tidak ada data tamu yang dapat diexport berdasarkan filter saat ini.', 'warning');
         return;
     }
 
-    const currentEventName = document.getElementById('adminEventName')?.value || 'NAMA ACARA BELUM DISET';
-    const currentEventDate = document.getElementById('adminEventDate')?.value || 'TANGGAL';
+    const currentEventName = document.getElementById('adminEventName')?.value || document.getElementById('adminEventTitle')?.value || 'TAMOO EVENT';
+    const currentEventDate = document.getElementById('adminEventDate')?.value || '-';
 
     let totalNamaTerdaftar = targetData.length;
     let totalHadirPax = 0;
@@ -2587,37 +2610,39 @@ function exportToPdf() {
         ];
     });
 
-    doc.autoTable({
-        head: tableHeaders,
-        body: tableRows,
-        startY: cardY + cardHeight + 15,
-        margin: { left: 40, right: 40 },
-        theme: 'striped',
-        headStyles: { 
-            fillColor: [179, 147, 67], 
-            textColor: [255, 255, 255], 
-            fontStyle: 'bold', 
-            halign: 'center',
-            fontSize: 8.5
-        }, 
-        styles: { fontSize: 8, cellPadding: 5, verticalAlign: 'middle' },
-        columnStyles: {
-            0: { halign: 'center', width: 30 },
-            1: { halign: 'left', width: 140 },
-            2: { halign: 'left', width: 130 },
-            3: { halign: 'center', width: 40 },
-            4: { halign: 'center', width: 70 },
-            5: { halign: 'center', width: 100 },
-            6: { halign: 'center', width: 110 },
-            7: { halign: 'center', width: 120 }
-        },
-        didDrawPage: function (data) {
-            doc.setFont("helvetica", "italic");
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text("Powered by RAMATLOKA", pageWidth - 145, 575);
-        }
-    });
+    if (typeof doc.autoTable === "function") {
+        doc.autoTable({
+            head: tableHeaders,
+            body: tableRows,
+            startY: cardY + cardHeight + 15,
+            margin: { left: 40, right: 40 },
+            theme: 'striped',
+            headStyles: { 
+                fillColor: [179, 147, 67], 
+                textColor: [255, 255, 255], 
+                fontStyle: 'bold', 
+                halign: 'center',
+                fontSize: 8.5
+            }, 
+            styles: { fontSize: 8, cellPadding: 5, verticalAlign: 'middle' },
+            columnStyles: {
+                0: { halign: 'center', width: 30 },
+                1: { halign: 'left', width: 140 },
+                2: { halign: 'left', width: 130 },
+                3: { halign: 'center', width: 40 },
+                4: { halign: 'center', width: 70 },
+                5: { halign: 'center', width: 100 },
+                6: { halign: 'center', width: 110 },
+                7: { halign: 'center', width: 120 }
+            },
+            didDrawPage: function (data) {
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text("Powered by RAMATLOKA", pageWidth - 145, 575);
+            }
+        });
+    }
 
     doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
 }
