@@ -334,26 +334,31 @@
         };
 
         let greetingTimeout;
-        function renderGuestGreeting(guest, config) {
+        function renderGuestGreeting(guest) {
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
             
             let vipBadgeHtml = '';
             let badgesHtml = '';
 
+            // 1. Badge VIP Mewah
             const isVip = guest.kategori_tamu && guest.kategori_tamu.toUpperCase().includes('VIP');
             if (isVip) {
                 vipBadgeHtml = `<div class="vip-badge-banner"><i class="fas fa-crown"></i> TAMU VIP</div>`;
             }
 
-            if (guest.jumlah_aktual && parseInt(guest.jumlah_aktual) > 1) {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-users" style="color:var(--gold-dark);"></i> Hadir Bersama: ${guest.jumlah_aktual} Pax</div>`;
+            // 2. Render Badge Dinamis Sesuai Settingan Setup (show_on_tv = true)
+            if (Array.isArray(guest.tv_badges) && guest.tv_badges.length > 0) {
+                guest.tv_badges.forEach(b => {
+                    badgesHtml += `
+                        <div class="field-badge">
+                            <i class="fas fa-check-circle" style="color:var(--gold-dark);"></i> 
+                            ${b.value}
+                        </div>`;
+                });
             }
 
-            if (config && config.showInstitusi && guest.institusi && guest.institusi !== 'Umum') {
-                badgesHtml += `<div class="field-badge"><i class="fas fa-building" style="color:var(--gold-dark);"></i> ${guest.institusi}</div>`;
-            }
-
+            // 3. Render ke Layar Sapa
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
