@@ -1084,7 +1084,7 @@ function showQrCodeModal(guestId, guestName) {
 }
 
 // =========================================================================
-// GENERATOR DOWNLOAD E-TICKET ELEGAN (DENGAN PREFIX & SUFFIX OTOMATIS)
+// GENERATOR DOWNLOAD E-TICKET ELEGAN (STRUKTUR NAMA BERJENJANG / TIDAK PADAT)
 // =========================================================================
 
 async function downloadETicket(id, name, title, date, loc) {
@@ -1114,7 +1114,7 @@ async function downloadETicket(id, name, title, date, loc) {
             isVip = true;
         }
 
-        // 2. Background & Border Mewah
+        // 2. Background & Bingkai Mewah
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -1124,7 +1124,7 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineWidth = 2;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-        // 3. Judul Acara
+        // 3. Judul Acara & Sub-judul
         const rawTitle = (document.getElementById('adminEventTitle')?.value || title || "GUEST BOOK").toUpperCase();
         const rawSubTitle = (document.getElementById('adminEventName')?.value || "").toUpperCase();
 
@@ -1137,68 +1137,77 @@ async function downloadETicket(id, name, title, date, loc) {
             fontTitleSize -= 2;
             ctx.font = `bold ${fontTitleSize}px serif`;
         }
-        ctx.fillText(rawTitle, canvas.width / 2, 95);
+        ctx.fillText(rawTitle, canvas.width / 2, 90);
 
         if (rawSubTitle) {
             ctx.fillStyle = '#555555';
-            let fontSubSize = 20;
+            let fontSubSize = 18;
             ctx.font = `bold ${fontSubSize}px sans-serif`;
             while (ctx.measureText(rawSubTitle).width > 500 && fontSubSize > 12) {
                 fontSubSize -= 1;
                 ctx.font = `bold ${fontSubSize}px sans-serif`;
             }
-            ctx.fillText(rawSubTitle, canvas.width / 2, 125);
+            ctx.fillText(rawSubTitle, canvas.width / 2, 118);
         }
 
         // Garis Pemisah
         ctx.beginPath();
         ctx.strokeStyle = '#846924';
         ctx.lineWidth = 2;
-        ctx.moveTo(150, 142);
-        ctx.lineTo(450, 142);
+        ctx.moveTo(150, 134);
+        ctx.lineTo(450, 134);
         ctx.stroke();
 
         // 4. Info Tanggal & Lokasi
         ctx.fillStyle = '#777';
-        ctx.font = '600 16px sans-serif';
+        ctx.font = '600 15px sans-serif';
         const infoText = `${date || ''} ${date && loc ? '|' : ''} ${(loc || '').toUpperCase()}`.trim() || 'RAMATLOKA EVENT';
-        ctx.fillText(infoText, canvas.width / 2, 172);
+        ctx.fillText(infoText, canvas.width / 2, 160);
 
-        // 5. Header Pass
+        // 5. Header Tiket (PASS)
         ctx.fillStyle = '#999';
-        ctx.font = '500 20px sans-serif';
-        ctx.fillText(isVip ? "VIP ACCESS PASS" : "E-TICKET PASS", canvas.width / 2, 220);
+        ctx.font = '500 17px sans-serif';
+        ctx.fillText(isVip ? "VIP ACCESS PASS" : "E-TICKET PASS", canvas.width / 2, 195);
 
-        // 6. Rangkai Nama Tamu dengan Prefix & Suffix
+        // 6. RENDER NAMA BERJENJANG (PREFIX -> NAMA -> SUFFIX)
         const prefix = (document.getElementById('adminPrefix')?.value || greetingPrefix || "").trim();
         const suffix = (document.getElementById('adminSuffix')?.value || greetingSuffix || "").trim();
         let pureName = name.replace(/\(VIP\)/gi, '').trim().toUpperCase();
 
-        let fullDisplayName = pureName;
-        if (prefix && suffix) {
-            fullDisplayName = `${prefix} ${pureName} ${suffix}`;
-        } else if (prefix) {
-            fullDisplayName = `${prefix} ${pureName}`;
-        } else if (suffix) {
-            fullDisplayName = `${pureName} ${suffix}`;
+        // A. AWALAN SAPAAN (DI ATAS NAMA - WARNA HITAM)
+        if (prefix) {
+            ctx.fillStyle = '#333333';
+            ctx.font = '500 18px sans-serif';
+            ctx.fillText(prefix, canvas.width / 2, 228);
         }
 
+        // B. NAMA UTAMA TAMU (BESAR & TEGAS)
+        const namePosY = prefix ? 268 : 250;
         ctx.fillStyle = isVip ? '#846924' : '#222222';
-        let fontSizeName = 36;
+        let fontSizeName = 38;
         ctx.font = `bold ${fontSizeName}px sans-serif`;
-        while (ctx.measureText(fullDisplayName).width > 500 && fontSizeName > 16) {
+        while (ctx.measureText(pureName).width > 480 && fontSizeName > 18) {
             fontSizeName -= 2;
             ctx.font = `bold ${fontSizeName}px sans-serif`;
         }
-        ctx.fillText(fullDisplayName, canvas.width / 2, 280);
+        ctx.fillText(pureName, canvas.width / 2, namePosY);
+
+        // C. SUB-TEXT / AKHIRAN SAPAAN (DI BAWAH NAMA)
+        let subPosY = namePosY + 26;
+        if (suffix) {
+            ctx.fillStyle = '#333333';
+            ctx.font = '500 16px sans-serif';
+            ctx.fillText(suffix, canvas.width / 2, subPosY);
+            subPosY += 22;
+        }
 
         if (isVip) {
             ctx.fillStyle = '#b39343';
-            ctx.font = 'italic bold 15px serif';
-            ctx.fillText("• Tamu Kehormatan VIP •", canvas.width / 2, 310);
+            ctx.font = 'italic bold 14px serif';
+            ctx.fillText("• Tamu Kehormatan VIP •", canvas.width / 2, subPosY);
         }
 
-        // 7. QR Code
+        // 7. Gambar QR Code
         let qrDataUrl = "";
         const existingQrImg = document.querySelector('#qrcodeDisplay img') || document.querySelector('#swalQrCanvasWrapper img');
         if (existingQrImg && existingQrImg.src && existingQrImg.src.startsWith('data:image')) {
@@ -1219,51 +1228,51 @@ async function downloadETicket(id, name, title, date, loc) {
             setTimeout(resolve, 4000); 
         });
 
-        // Frame QR
+        // Frame Putih QR (Ukuran: 260x260)
         ctx.fillStyle = '#fdfaf3';
-        ctx.fillRect(160, 335, 280, 280);
+        ctx.fillRect(170, 360, 260, 260);
         
         if (qrImg.complete && qrImg.naturalWidth !== 0) {
-            ctx.drawImage(qrImg, 180, 355, 240, 240);
+            ctx.drawImage(qrImg, 185, 375, 230, 230);
         } else {
             ctx.fillStyle = '#846924';
             ctx.font = 'bold 22px sans-serif';
-            ctx.fillText(id, canvas.width / 2, 475);
+            ctx.fillText(id, canvas.width / 2, 490);
         }
 
-        // 8. Badge VIP (Center di bawah QR)
+        // 8. BADGE VIP (DI BAWAH QR CODE - CENTER)
         if (isVip) {
-            const badgeW = 170;
-            const badgeH = 34;
+            const badgeW = 160;
+            const badgeH = 32;
             const badgeX = (canvas.width - badgeW) / 2;
-            const badgeY = 630;
+            const badgeY = 638;
 
             ctx.fillStyle = '#846924';
             ctx.beginPath();
             if (ctx.roundRect) {
-                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 17);
+                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 16);
             } else {
                 ctx.rect(badgeX, badgeY, badgeW, badgeH);
             }
             ctx.fill();
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 15px sans-serif';
+            ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText("★ VIP GUEST", canvas.width / 2, badgeY + 23);
+            ctx.fillText("★ VIP GUEST", canvas.width / 2, badgeY + 21);
         }
 
-        // 9. Footer
+        // 9. Footer & Brand
         ctx.fillStyle = '#888';
-        ctx.font = 'italic 15px sans-serif';
+        ctx.font = 'italic 14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 725);
+        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 735);
 
         ctx.fillStyle = '#846924';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.fillText("RAMATLOKA", canvas.width / 2, 790);
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText("RAMATLOKA", canvas.width / 2, 795);
 
-        // 10. Ekspor File PNG
+        // 10. Ekspor & Unduh File PNG
         const safeFileName = pureName.replace(/\s+/g, '-');
         const vipSuffix = isVip ? '_VIP' : '';
         const downloadName = `Tiket-${safeFileName}${vipSuffix}.png`;
