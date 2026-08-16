@@ -522,13 +522,18 @@ async function saveAdminSettingsData() {
 
         const getVal = (id) => { let el = document.getElementById(id); return el ? el.value : ""; };
 
+        const eventTitle = getVal('adminEventTitle');
+        const eventName = getVal('adminEventName');
+        const announcement = getVal('adminAnnouncement');
+        const posterUrl = getVal('adminPosterUrl');
+
         // 1. Kumpulkan Konfigurasi Utama
         const configs = [
-            { key: 'EventTitle', value: getVal('adminEventTitle') },
-            { key: 'EventName', value: getVal('adminEventName') },
+            { key: 'EventTitle', value: eventTitle },
+            { key: 'EventName', value: eventName },
             { key: 'EventDate', value: getVal('adminEventDate') },
             { key: 'EventLocation', value: getVal('adminEventLocation') },
-            { key: 'Announcement', value: getVal('adminAnnouncement') },
+            { key: 'Announcement', value: announcement },
             { key: 'GreetingPrefix', value: getVal('adminPrefix') },
             { key: 'GreetingSuffix', value: getVal('adminSuffix') },
             { key: 'SouvenirLabel', value: getVal('adminSouvenirLabel') },
@@ -539,7 +544,7 @@ async function saveAdminSettingsData() {
             { key: 'AppTheme', value: getVal('adminAppTheme') },
             { key: 'SoundSuccess', value: getVal('adminSoundSuccess') },
             { key: 'SoundError', value: getVal('adminSoundError') },
-            { key: 'PosterUrl', value: getVal('adminPosterUrl') },
+            { key: 'PosterUrl', value: posterUrl },
             { key: 'DetailUrl', value: getVal('adminDetailUrl') },
             { key: 'WaTemplate', value: getVal('adminWaTemplate') }
         ];
@@ -549,7 +554,6 @@ async function saveAdminSettingsData() {
         if (configError) throw configError;
 
         // 2. Simpan Struktur Field Pertanyaan ke tabel form_settings Supabase
-        // Hapus data setting lama lalu masukkan list baru
         await db.from('form_settings').delete().neq('id', 'keep_alive_placeholder');
 
         const questionsPayload = currentQuestions.map((q, index) => ({
@@ -565,6 +569,19 @@ async function saveAdminSettingsData() {
         const { error: formError } = await db.from('form_settings').upsert(questionsPayload, { onConflict: 'id' });
         if (formError) throw formError;
 
+        // 3. Simpan ke LocalStorage & Kirim Broadcast Instan ke Layar TV
+        localStorage.setItem('currentEventTitle', eventTitle);
+        localStorage.setItem('currentEventName', eventName);
+        localStorage.setItem('currentEventTicker', announcement);
+        localStorage.setItem('currentEventPoster', posterUrl);
+
+        if (typeof tvBroadcast !== 'undefined') {
+            tvBroadcast.postMessage({
+                type: 'INIT_DISPLAY',
+                data: { eventTitle, eventName, tickerText: announcement, posterUrl }
+            });
+        }
+
         Swal.fire({ title: 'Berhasil!', text: 'Pengaturan berhasil disimpan ke Supabase!', icon: 'success', customClass: { popup: 'luxury-popup' } });
         
         // Refresh UI Aplikasi
@@ -579,21 +596,71 @@ async function saveAdminSettingsData() {
 // FUNGSI LAYAR PENUH (FULLSCREEN UTIL)
 // =========================================================================
 function toggleFullScreen() {
-  let btn = document.getElementById('btnFullscreenIcon');
-  if (!document.fullscreenElement) { 
-      document.documentElement.requestFullscreen().catch(err => {}); 
-      if(btn) btn.className = 'fas fa-compress'; 
-  } else { 
-      if (document.exitFullscreen) { 
-          document.exitFullscreen(); 
-          if(btn) btn.className = 'fas fa-expand'; 
-      } 
-  }
+    let btn = document.getElementById('btnFullscreenIcon');
+    if (!document.fullscreenElement) { 
+        document.documentElement.requestFullscreen().catch(err => {}); 
+        if(btn) btn.className = 'fas fa-compress'; 
+    } else { 
+        if (document.exitFullscreen) { 
+            document.exitFullscreen(); 
+            if(btn) btn.className = 'fas fa-expand'; 
+        } 
+    }
 }
 document.addEventListener('fullscreenchange', () => { 
     let btn = document.getElementById('btnFullscreenIcon'); 
     if (!document.fullscreenElement && btn) { btn.className = 'fas fa-expand'; } 
 });
+
+// =========================================================================
+// FUNGSI HAPUS / NONAKTIFKAN POSTER TV (GLOBAL)
+// =========================================================================
+async function removeTvPoster() {
+    const posterUrlInput = document.getElementById('adminPosterUrl');
+    const fileInput = document.getElementById('adminPosterUpload');
+    if (posterUrlInput) posterUrlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    
+    const statusEl = document.getElementById('posterPreviewStatus');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#dc3545';
+        statusEl.innerHTML = '<i class="fas fa-info-circle"></i> Poster dinonaktifkan. Sedang memperbarui...';
+    }
+
+    try {
+        const { error } = await db
+            .from('app_config')
+            .upsert({ key: 'PosterUrl', value: '' }, { onConflict: 'key' });
+
+        if (error) throw error;
+
+        localStorage.setItem('currentEventPoster', '');
+
+        if (typeof tvBroadcast !== 'undefined') {
+            tvBroadcast.postMessage({
+                type: 'UPDATE_POSTER',
+                data: { posterUrl: '' }
+            });
+        }
+
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Poster berhasil dinonaktifkan dari Layar TV.';
+        }
+
+        Swal.fire({
+            title: 'Poster Dinonaktifkan',
+            text: 'Poster telah dihapus dari Layar TV dan kembali ke mode scanner.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+    } catch (err) {
+        console.error("Gagal menghapus poster dari Supabase:", err);
+        Swal.fire('Gagal Menghapus', err.message || 'Terjadi kesalahan saat menghapus poster.', 'error');
+    }
+}
 
 // =========================================================================
 // INTERFACE NAVIGATION & LOG IN UTILS
@@ -3221,23 +3288,56 @@ function showPublicSuccessPage(guestName) {
         }
     }
 }
-function removeTvPoster() {
-    document.getElementById('adminPosterUrl').value = '';
+// =========================================================================
+// FUNGSI HAPUS / NONAKTIFKAN POSTER TV
+// =========================================================================
+async function removeTvPoster() {
+    // 1. Kosongkan input form
+    const posterUrlInput = document.getElementById('adminPosterUrl');
     const fileInput = document.getElementById('adminPosterUpload');
+    if (posterUrlInput) posterUrlInput.value = '';
     if (fileInput) fileInput.value = '';
     
+    // 2. Perbarui status visual di form admin
     const statusEl = document.getElementById('posterPreviewStatus');
     if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#dc3545';
-        statusEl.innerHTML = '<i class="fas fa-info-circle"></i> Poster dinonaktifkan. Klik "Simpan Semua Perubahan" untuk menerapkan.';
+        statusEl.innerHTML = '<i class="fas fa-info-circle"></i> Poster dinonaktifkan. Sedang memperbarui...';
     }
-    
-    Swal.fire({
-        title: 'Poster Dikosongkan',
-        text: 'Klik "Simpan Semua Perubahan" di bagian bawah untuk menghapus poster dari Layar TV.',
-        icon: 'info',
-        timer: 2000,
-        showConfirmButton: false
-    });
+
+    try {
+        // 3. Update langsung ke Supabase app_config
+        const { error } = await db
+            .from('app_config')
+            .upsert({ key: 'PosterUrl', value: '' }, { onConflict: 'key' });
+
+        if (error) throw error;
+
+        localStorage.setItem('currentEventPoster', '');
+
+        // 4. Siarkan langsung ke TV agar poster seketika hilang
+        if (typeof tvBroadcast !== 'undefined') {
+            tvBroadcast.postMessage({
+                type: 'UPDATE_POSTER',
+                data: { posterUrl: '' }
+            });
+        }
+
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Poster berhasil dinonaktifkan dari Layar TV.';
+        }
+
+        Swal.fire({
+            title: 'Poster Dinonaktifkan',
+            text: 'Poster telah dihapus dari Layar TV dan kembali ke mode scanner.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+    } catch (err) {
+        console.error("Gagal menghapus poster dari Supabase:", err);
+        Swal.fire('Gagal Menghapus', err.message || 'Terjadi kesalahan saat menghapus poster.', 'error');
+    }
 }
