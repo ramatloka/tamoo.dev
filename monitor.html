@@ -348,23 +348,27 @@
                 vipBadgeHtml = `<div class="vip-badge-banner"><i class="fas fa-crown"></i> TAMU VIP</div>`;
             }
 
-            // 2. Render Badge Dinamis Sesuai Settingan Setup (show_on_tv = true)
+            // 2. Render Badge Dinamis - Otomatis Huruf Kapital (Uppercase)
             if (Array.isArray(guest.tv_badges) && guest.tv_badges.length > 0) {
                 guest.tv_badges.forEach(b => {
+                    const cleanVal = (b.value || '').toString().toUpperCase();
                     badgesHtml += `
-                        <div class="field-badge">
+                        <div class="field-badge" style="text-transform: uppercase;">
                             <i class="fas fa-check-circle" style="color:var(--gold-dark);"></i> 
-                            ${b.value}
+                            ${cleanVal}
                         </div>`;
                 });
             }
 
-            // 3. Render ke Layar Sapa
+            // 3. Nama Tamu Bersih & Huruf Kapital Penuh
+            const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().toUpperCase();
+
+            // 4. Render ke Layar Sapa
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
                     <div class="greeting-title">SELAMAT DATANG</div>
-                    <div class="guest-name">${guest.nama_tamu}</div>
+                    <div class="guest-name">${cleanGuestName}</div>
                     ${badgesHtml ? `<div class="custom-fields-box">${badgesHtml}</div>` : ''}
                 </div>
             `;
