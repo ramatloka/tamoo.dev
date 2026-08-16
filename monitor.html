@@ -455,13 +455,25 @@
                 });
             }
 
-            const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().toUpperCase();
+            // Gabungkan Prefix + Nama + Suffix untuk Layar TV
+            const prefix = (guest.prefix || '').trim();
+            const suffix = (guest.suffix || '').trim();
+            const baseName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().trim().toUpperCase();
+
+            let fullTvName = baseName;
+            if (prefix && suffix) {
+                fullTvName = `${prefix} ${baseName} ${suffix}`;
+            } else if (prefix) {
+                fullTvName = `${prefix} ${baseName}`;
+            } else if (suffix) {
+                fullTvName = `${baseName} ${suffix}`;
+            }
 
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
                     <div class="greeting-title">SELAMAT DATANG</div>
-                    <div class="guest-name">${cleanGuestName}</div>
+                    <div class="guest-name">${fullTvName}</div>
                     ${badgesHtml ? `<div class="custom-fields-box">${badgesHtml}</div>` : ''}
                 </div>
             `;
