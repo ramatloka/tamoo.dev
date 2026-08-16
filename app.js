@@ -1084,7 +1084,7 @@ function showQrCodeModal(guestId, guestName) {
 }
 
 // =========================================================================
-// GENERATOR DOWNLOAD E-TICKET ELEGAN (MENDUKUNG BADGE MEWAH TAMU VIP)
+// GENERATOR DOWNLOAD E-TICKET ELEGAN (BADGE VIP DI BAWAH QR CODE - CENTER)
 // =========================================================================
 
 async function downloadETicket(id, name, title, date, loc) {
@@ -1102,7 +1102,7 @@ async function downloadETicket(id, name, title, date, loc) {
         canvas.width = 600;
         canvas.height = 850;
 
-        // 1. Cek Apakah Tamu Memiliki Kategori VIP (Dari Cache/Data)
+        // 1. Cek Kategori VIP
         let isVip = false;
         if (typeof rawGuestDataCache !== "undefined" && rawGuestDataCache.length > 0) {
             const currentGuest = rawGuestDataCache.find(g => g.id === id);
@@ -1110,7 +1110,6 @@ async function downloadETicket(id, name, title, date, loc) {
                 isVip = true;
             }
         }
-        // Fallback jika dikirim via parameter nama (misal ada tulisan "(VIP)")
         if (name.toUpperCase().includes('VIP')) {
             isVip = true;
         }
@@ -1126,24 +1125,7 @@ async function downloadETicket(id, name, title, date, loc) {
         ctx.lineWidth = 2;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-        // -----------------------------------------------------------------
-        // BADGE VIP EKSKLUSIF (Pojok Kanan Atas Tiket jika VIP)
-        // -----------------------------------------------------------------
-        if (isVip) {
-            // Pita Emas
-            ctx.fillStyle = '#846924';
-            ctx.beginPath();
-            ctx.roundRect(410, 45, 145, 36, 18);
-            ctx.fill();
-
-            // Teks VIP
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText("★ VIP GUEST", 482, 69);
-        }
-
-        // 3. Judul Utama Acara (Besar) & Sub-Judul (Sedang)
+        // 3. Judul Acara (Bebas dari tabrakan badge)
         const rawTitle = (document.getElementById('adminEventTitle')?.value || title || "GUEST BOOK").toUpperCase();
         const rawSubTitle = (document.getElementById('adminEventName')?.value || "").toUpperCase();
 
@@ -1186,10 +1168,10 @@ async function downloadETicket(id, name, title, date, loc) {
         // 5. Header Tiket (E-TICKET PASS)
         ctx.fillStyle = '#999';
         ctx.font = '500 20px sans-serif';
-        ctx.fillText(isVip ? "VIP ACCESS PASS" : "E-TICKET PASS", canvas.width / 2, 230);
+        ctx.fillText(isVip ? "VIP ACCESS PASS" : "E-TICKET PASS", canvas.width / 2, 225);
 
         // 6. Nama Tamu
-        ctx.fillStyle = isVip ? '#846924' : '#222222'; // Nama warna Emas jika VIP
+        ctx.fillStyle = isVip ? '#846924' : '#222222';
         let cleanName = name.replace(/\(VIP\)/gi, '').trim().toUpperCase();
         let fontSizeName = 40;
         ctx.font = `bold ${fontSizeName}px sans-serif`;
@@ -1197,13 +1179,13 @@ async function downloadETicket(id, name, title, date, loc) {
             fontSizeName -= 2;
             ctx.font = `bold ${fontSizeName}px sans-serif`;
         }
-        ctx.fillText(cleanName, canvas.width / 2, 300);
+        ctx.fillText(cleanName, canvas.width / 2, 285);
 
         // Sub-text Penanda VIP di Bawah Nama
         if (isVip) {
             ctx.fillStyle = '#b39343';
             ctx.font = 'italic bold 15px serif';
-            ctx.fillText("• Tamu Kehormatan VIP •", canvas.width / 2, 330);
+            ctx.fillText("• Tamu Kehormatan VIP •", canvas.width / 2, 315);
         }
 
         // 7. Gambar QR Code (Anti-CORS Safe)
@@ -1229,26 +1211,53 @@ async function downloadETicket(id, name, title, date, loc) {
 
         // Frame Putih untuk QR
         ctx.fillStyle = '#fdfaf3';
-        ctx.fillRect(150, 360, 300, 300);
+        ctx.fillRect(160, 340, 280, 280);
         
         if (qrImg.complete && qrImg.naturalWidth !== 0) {
-            ctx.drawImage(qrImg, 175, 385, 250, 250);
+            ctx.drawImage(qrImg, 180, 360, 240, 240);
         } else {
             ctx.fillStyle = '#846924';
             ctx.font = 'bold 22px sans-serif';
-            ctx.fillText(id, canvas.width / 2, 510);
+            ctx.fillText(id, canvas.width / 2, 480);
         }
 
-        // 8. Footer & Instruksi
+        // -----------------------------------------------------------------
+        // 8. BADGE VIP EKSKLUSIF (DI BAWAH QR CODE - CENTER)
+        // -----------------------------------------------------------------
+        if (isVip) {
+            const badgeW = 170;
+            const badgeH = 34;
+            const badgeX = (canvas.width - badgeW) / 2;
+            const badgeY = 635;
+
+            // Pita Kapsul Emas
+            ctx.fillStyle = '#846924';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 17);
+            } else {
+                ctx.rect(badgeX, badgeY, badgeW, badgeH);
+            }
+            ctx.fill();
+
+            // Teks Badge
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("★ VIP GUEST", canvas.width / 2, badgeY + 23);
+        }
+
+        // 9. Footer & Instruksi
         ctx.fillStyle = '#888';
-        ctx.font = 'italic 16px sans-serif';
-        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 730);
+        ctx.font = 'italic 15px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("*Tunjukkan tiket ini kepada petugas di pintu masuk", canvas.width / 2, 725);
 
         ctx.fillStyle = '#846924';
         ctx.font = 'bold 24px sans-serif';
-        ctx.fillText("RAMATLOKA", canvas.width / 2, 800);
+        ctx.fillText("RAMATLOKA", canvas.width / 2, 790);
 
-        // 9. Ekspor & Unduh File PNG
+        // 10. Ekspor & Unduh File PNG
         const safeFileName = cleanName.replace(/\s+/g, '-');
         const vipSuffix = isVip ? '_VIP' : '';
         const downloadName = `Tiket-${safeFileName}${vipSuffix}.png`;
