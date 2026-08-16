@@ -202,7 +202,7 @@
         /* WATERMARK BERSIH TANPA SHADOW KOTOR */
         .watermark-text {
             position: fixed;
-            bottom: 60px;
+            bottom: 74px; /* Dinaikkan sedikit agar tetap berjarak rapi di atas bar ticker */
             right: 25px;
             font-size: 1.15rem;
             font-weight: 800;
@@ -214,13 +214,13 @@
             opacity: 0.85;
         }
 
-        /* 4. RUNNING TEXT TEBAL & JELAS */
+        /* 4. RUNNING TEXT LEBIH LEBAR & TINGGI */
         .ticker-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 52px; /* Ukuran tebal dan jelas */
+            height: 64px; /* Ditinggikan menjadi 64px agar lebih lega dan mantap */
             background: var(--gold-main);
             color: #ffffff;
             display: flex;
@@ -228,15 +228,15 @@
             overflow: hidden;
             white-space: nowrap;
             z-index: 50;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.25);
+            box-shadow: 0 -6px 20px rgba(0,0,0,0.3);
         }
 
         .ticker-text {
             display: inline-block;
             padding-left: 100%;
             animation: marquee 25s linear infinite;
-            font-size: 1.3rem; /* Huruf tebal dan lebih terbaca */
-            letter-spacing: 3px;
+            font-size: 1.55rem; /* Ukuran font lebih besar dan tebal */
+            letter-spacing: 4px;
             font-weight: 800;
             text-transform: uppercase;
         }
