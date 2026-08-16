@@ -308,14 +308,16 @@
             currentPosterUrl = url || '';
             const container = document.getElementById('tvPosterContainer');
             const img = document.getElementById('tvPosterImg');
+            const coreWrapper = document.getElementById('displayCoreWrapper');
             
-            if (container && img) {
+            if (container && img && coreWrapper) {
                 if (currentPosterUrl && currentPosterUrl.trim() !== '') {
                     img.src = currentPosterUrl;
                     container.style.display = 'block';
-                    container.style.opacity = '1';
+                    coreWrapper.style.display = 'none'; // Sembunyikan tulisan scanner jika ada poster
                 } else {
                     container.style.display = 'none';
+                    coreWrapper.style.display = 'flex'; // Munculkan kembali tulisan scanner jika poster kosong
                 }
             }
         }
@@ -367,26 +369,23 @@
         };
 
         // 3. RENDER SAPAAN TAMU (POSTER AUTO-HIDE DAN AUTO-RESTORE)
-        function renderGuestGreeting(guest) {
+       function renderGuestGreeting(guest) {
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
             const posterContainer = document.getElementById('tvPosterContainer');
             
-            // Sembunyikan poster saat sapaan tamu muncul
-            if (posterContainer) {
-                posterContainer.style.display = 'none';
-            }
+            // Sembunyikan poster dan aktifkan wadah sapaan
+            if (posterContainer) posterContainer.style.display = 'none';
+            if (container) container.style.display = 'flex';
 
             let vipBadgeHtml = '';
             let badgesHtml = '';
 
-            // 1. Badge VIP Mewah
             const isVip = guest.kategori_tamu && guest.kategori_tamu.toUpperCase().includes('VIP');
             if (isVip) {
                 vipBadgeHtml = `<div class="vip-badge-banner"><i class="fas fa-crown"></i> TAMU VIP</div>`;
             }
 
-            // 2. Render Badge Dinamis - Otomatis Huruf Kapital (Uppercase)
             if (Array.isArray(guest.tv_badges) && guest.tv_badges.length > 0) {
                 guest.tv_badges.forEach(b => {
                     const cleanVal = (b.value || '').toString().toUpperCase();
@@ -398,10 +397,8 @@
                 });
             }
 
-            // 3. Nama Tamu Bersih & Huruf Kapital Penuh
             const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().toUpperCase();
 
-            // 4. Render ke Layar Sapa
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
@@ -411,11 +408,14 @@
                 </div>
             `;
 
-            // Setelah 7 detik, kembalikan teks standby dan munculkan kembali poster idle
+            // Setelah 7 detik, kembali ke poster (atau ke status scanner jika poster tidak ada)
             greetingTimeout = setTimeout(() => {
-                container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
-                if (posterContainer && currentPosterUrl && currentPosterUrl.trim() !== '') {
-                    posterContainer.style.display = 'block';
+                if (currentPosterUrl && currentPosterUrl.trim() !== '') {
+                    if (posterContainer) posterContainer.style.display = 'block';
+                    if (container) container.style.display = 'none';
+                } else {
+                    container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
+                    if (container) container.style.display = 'flex';
                 }
             }, 7000);
         }
