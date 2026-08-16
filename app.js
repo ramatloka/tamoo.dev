@@ -747,10 +747,14 @@ function activateTab(tab) {
   updateNavHighlight('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
 
   // =========================================================================
-  // TAMBAHAN: OTOMATIS HITUNG REKAP SOUVENIR SAAT TAB SOUVENIR DIBUKA
+  // OTOMATIS HITUNG REKAP SOUVENIR & CHECK-IN SAAT TAB DIBUKA
   // =========================================================================
   if (tab === 'souvenir' && typeof loadSouvenirStats === "function") {
       loadSouvenirStats();
+  }
+  
+  if ((tab === 'petugas' || tab === 'tamu' || tab === 'home') && typeof loadCheckInStats === "function") {
+      loadCheckInStats();
   }
 }
 
@@ -3052,7 +3056,6 @@ async function loadCheckInStats() {
     try {
         if (typeof db === "undefined" || !db) return;
 
-        // Tarik data tamu dari tabel data_tamu
         const { data: allGuests, error } = await db
             .from('data_tamu')
             .select('jumlah_aktual, status_kehadiran');
@@ -3065,30 +3068,19 @@ async function loadCheckInStats() {
         if (allGuests && allGuests.length > 0) {
             allGuests.forEach(guest => {
                 const pax = parseInt(guest.jumlah_aktual, 10) || 1;
-                
-                // Cek apakah tamu sudah melakukan check-in (HADIR)
                 if (guest.status_kehadiran === 'HADIR') {
-                    totalTamuHadir += 1; // 1. Jumlah nama/baris yang sudah di-scan
-                    totalPengunjungPax += pax; // 2. Akumulasi total fisik orang (pax) yang hadir
+                    totalTamuHadir += 1;
+                    totalPengunjungPax += pax;
                 }
             });
         }
 
-        // Format angka 2 digit (misal: 01, 09, 15)
         const padZero = (num) => num < 10 && num >= 0 ? `0${num}` : num;
 
-        // Cari elemen ID counter di halaman Scan Check-in
-        const elRegistered = document.getElementById('scanCountRegistered') || 
-                             document.getElementById('totalTerdaftarScan') || 
-                             document.getElementById('statScannedCount') ||
-                             document.getElementById('countTerdaftarScan');
+        // Menggunakan ID presisi dari index.html Anda
+        const elRegistered = document.getElementById('totalHadirCounter');
+        const elTotal = document.getElementById('totalPengunjungCounter');
 
-        const elTotal = document.getElementById('scanCountTotal') || 
-                        document.getElementById('totalPengunjungScan') || 
-                        document.getElementById('statTotalVisitors') ||
-                        document.getElementById('countTotalPengunjung');
-
-        // Fallback jika menggunakan selector class/tag di dalam box card
         if (elRegistered) elRegistered.innerText = padZero(totalTamuHadir);
         if (elTotal) elTotal.innerText = padZero(totalPengunjungPax);
 
