@@ -1197,38 +1197,43 @@ async function processGuestCheckIn(guestId) {
         // =========================================================================
         try {
             if (typeof tvBroadcast !== "undefined") {
-                // Susun badge dinamis berdasarkan kolom yang memiliki centang show_on_tv = true
                 let dynamicTvBadges = [];
 
-                if (Array.isArray(FORM_QUESTIONS)) {
-                    FORM_QUESTIONS.forEach(q => {
-                        // Lewati nama_tamu karena sudah menjadi teks sapaan utama
-                        const isShowTv = (q.show_on_tv === true || q.show_on_tv === 'true' || q.show_on_tv === 1 || q.show_on_tv === 'TRUE');
-                        if (q.id !== 'nama_tamu' && isShowTv) {
-                            let val = (guest.form_data && guest.form_data[q.id] !== undefined) 
-                                      ? guest.form_data[q.id] 
-                                      : guest[q.id];
+                // Gunakan currentQuestions yang aktif di memori app.js
+                const activeQuestionList = (typeof currentQuestions !== 'undefined' && Array.isArray(currentQuestions)) 
+                                            ? currentQuestions 
+                                            : [];
 
-                            if (val !== undefined && val !== null && String(val).trim() !== "" && String(val).trim().toUpperCase() !== "UMUM") {
-                                dynamicTvBadges.push({
-                                    id: q.id,
-                                    label: q.label,
-                                    value: String(val).trim()
-                                });
-                            }
+                activeQuestionList.forEach(q => {
+                    // Deteksi baik showOnTv maupun show_on_tv
+                    const isShowTv = (q.showOnTv === true || q.showOnTv === 'true' || q.show_on_tv === true || q.show_on_tv === 'true' || q.showOnTv === 1 || q.show_on_tv === 1);
+                    
+                    if (q.id !== 'nama_tamu' && isShowTv) {
+                        let val = (guest.form_data && guest.form_data[q.id] !== undefined) 
+                                  ? guest.form_data[q.id] 
+                                  : guest[q.id];
+
+                        if (val !== undefined && val !== null && String(val).trim() !== "" && String(val).trim().toUpperCase() !== "UMUM") {
+                            dynamicTvBadges.push({
+                                id: q.id,
+                                label: q.label,
+                                value: String(val).trim()
+                            });
                         }
-                    });
-                }
+                    }
+                });
 
                 // Kirim paket data check-in ke tab TV Monitor
                 tvBroadcast.postMessage({
                     type: 'GUEST_CHECKIN',
                     data: {
-                        nama_tamu: guest.nama_tamu,
+                        nama_tamu: guest.nama_tamu || 'Tamu Undangan',
                         kategori_tamu: guest.kategori_tamu || '',
                         tv_badges: dynamicTvBadges
                     }
                 });
+                
+                console.log("✅ Siaran check-in sukses terkirim ke TV Monitor untuk:", guest.nama_tamu);
             }
         } catch (broadcastErr) {
             console.error("Gagal mengirim data ke layar TV monitor:", broadcastErr);
