@@ -455,25 +455,21 @@
                 });
             }
 
-            // Gabungkan Prefix + Nama + Suffix untuk Layar TV
             const prefix = (guest.prefix || '').trim();
             const suffix = (guest.suffix || '').trim();
-            const baseName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().trim().toUpperCase();
+            const cleanGuestName = (guest.nama_tamu || 'TAMU UNDANGAN').toString().trim().toUpperCase();
 
-            let fullTvName = baseName;
-            if (prefix && suffix) {
-                fullTvName = `${prefix} ${baseName} ${suffix}`;
-            } else if (prefix) {
-                fullTvName = `${prefix} ${baseName}`;
-            } else if (suffix) {
-                fullTvName = `${baseName} ${suffix}`;
-            }
+            // Susunan Berjenjang di Layar TV
+            let prefixHtml = prefix ? `<div style="font-size: 1.6rem; font-weight: 600; color: var(--text-dark); margin-bottom: 6px; letter-spacing: 2px;">${prefix}</div>` : '';
+            let suffixHtml = suffix ? `<div style="font-size: 1.5rem; font-weight: 600; color: var(--text-dark); margin-top: -10px; margin-bottom: 20px; letter-spacing: 2px;">${suffix}</div>` : '';
 
             container.innerHTML = `
                 <div class="welcome-blend">
                     ${vipBadgeHtml}
                     <div class="greeting-title">SELAMAT DATANG</div>
-                    <div class="guest-name">${fullTvName}</div>
+                    ${prefixHtml}
+                    <div class="guest-name" style="${suffix ? 'margin-bottom: 12px;' : ''}">${cleanGuestName}</div>
+                    ${suffixHtml}
                     ${badgesHtml ? `<div class="custom-fields-box">${badgesHtml}</div>` : ''}
                 </div>
             `;
