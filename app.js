@@ -439,6 +439,81 @@ function deleteQuestion(id) {
 }
 
 // =========================================================================
+// HANDLER UPLOAD POSTER TV KE SUPABASE STORAGE
+// =========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const posterInput = document.getElementById('adminPosterUpload');
+    if (posterInput) {
+        posterInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 1. Validasi Ukuran (Maksimal 5 MB agar tetap ramping)
+            if (file.size > 5 * 1024 * 1024) {
+                Swal.fire({
+                    title: 'File Terlalu Besar',
+                    text: 'Ukuran poster maksimal adalah 5 MB.',
+                    icon: 'warning'
+                });
+                this.value = '';
+                return;
+            }
+
+            Swal.fire({
+                title: 'Mengunggah Poster...',
+                text: 'Menyimpan gambar ke Supabase Storage...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `tv_poster_${Date.now()}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                // 2. Upload file ke Bucket 'posters'
+                const { data, error } = await db.storage
+                    .from('posters')
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+
+                if (error) throw error;
+
+                // 3. Dapatkan Public URL gambar
+                const { data: publicUrlData } = db.storage
+                    .from('posters')
+                    .getPublicUrl(filePath);
+
+                const finalPosterUrl = publicUrlData.publicUrl;
+
+                // 4. Simpan URL ke input tersembunyi & perbarui status
+                document.getElementById('adminPosterUrl').value = finalPosterUrl;
+                const statusEl = document.getElementById('posterPreviewStatus');
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Poster baru siap disimpan.';
+                }
+
+                Swal.fire({
+                    title: 'Berhasil Diunggah!',
+                    text: 'Klik "Simpan Semua Perubahan" untuk menerapkan poster ke Layar TV.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+            } catch (err) {
+                console.error("Gagal upload poster:", err);
+                Swal.fire('Gagal Unggah', err.message || 'Terjadi kesalahan saat mengunggah poster.', 'error');
+                this.value = '';
+            }
+        });
+    }
+});
+
+// =========================================================================
 // SIMPAN PENGATURAN KE SUPABASE (DATABASE BRIDGE)
 // =========================================================================
 async function saveAdminSettingsData() {
