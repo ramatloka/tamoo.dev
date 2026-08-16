@@ -253,6 +253,11 @@
             <div id="displayEventSubtitle" style="display: none;"></div>
         </div>
 
+        <!-- Wadah Poster Idle TV -->
+        <div id="tvPosterContainer" style="display: none; width: 100%; max-width: 900px; height: 450px; margin: 0 auto 15px auto; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(132, 105, 36, 0.15); border: 2px solid var(--gold-main); transition: opacity 0.5s ease;">
+            <img id="tvPosterImg" src="" style="width: 100%; height: 100%; object-fit: cover;" alt="Poster Acara">
+        </div>
+
         <div class="status-wrapper" id="displayCoreWrapper">
             <div id="displayStatusMessage">- MENUNGGU SCANNER -</div>
         </div>
@@ -276,6 +281,8 @@
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const monitorChannel = new BroadcastChannel('tamoo_tv_broadcast');
+        let currentPosterUrl = '';
+        let greetingTimeout;
 
         // Fungsi Helper Mengatur Judul & Sub-Judul Tanpa Tabrakan
         function updateTvHeaderTitles(title, subtitle) {
@@ -295,7 +302,24 @@
             }
         }
 
-        // 1. TARIK DATA ANNOUNCEMENT & JUDUL/SUBJUDUL DARI SUPABASE
+        // Fungsi Helper Mengatur Poster Idle
+        function updateTvPoster(url) {
+            currentPosterUrl = url || '';
+            const container = document.getElementById('tvPosterContainer');
+            const img = document.getElementById('tvPosterImg');
+            
+            if (container && img) {
+                if (currentPosterUrl && currentPosterUrl.trim() !== '') {
+                    img.src = currentPosterUrl;
+                    container.style.display = 'block';
+                    container.style.opacity = '1';
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        }
+
+        // 1. TARIK DATA ANNOUNCEMENT, JUDUL/SUBJUDUL & POSTER DARI SUPABASE
         async function loadTvConfigFromSupabase() {
             try {
                 const { data: configData, error } = await db.from('app_config').select('*');
@@ -306,9 +330,13 @@
                     const eventTitle = configMap['EventTitle'] || 'GUEST BOOK PRO';
                     const eventName = configMap['EventName'] || '';
                     const announcement = configMap['Announcement'] || 'Selamat Datang - MOHON SIAPKAN QR CODE ANDA';
+                    const posterUrl = configMap['PosterUrl'] || '';
 
                     updateTvHeaderTitles(eventTitle, eventName);
-                    document.getElementById('displayTickerText').innerText = announcement;
+                    updateTvPoster(posterUrl);
+                    
+                    const tickerEl = document.getElementById('displayTickerText');
+                    if (tickerEl) tickerEl.innerText = announcement;
                 }
             } catch (err) {
                 console.error("Gagal memuat config TV dari Supabase:", err);
@@ -326,7 +354,10 @@
                 const title = data.eventTitle || data.eventName || '';
                 const subtitle = (data.eventName && data.eventTitle && data.eventName !== data.eventTitle) ? data.eventName : '';
                 updateTvHeaderTitles(title, subtitle);
-                if (data.tickerText) document.getElementById('displayTickerText').innerText = data.tickerText;
+                if (data.tickerText) {
+                    const tickerEl = document.getElementById('displayTickerText');
+                    if (tickerEl) tickerEl.innerText = data.tickerText;
+                }
             } 
             else if (type === 'GUEST_CHECKIN') {
                 console.log("Data check-in diterima di monitor TV:", data);
@@ -334,11 +365,17 @@
             }
         };
 
-        let greetingTimeout;
+        // 3. RENDER SAPAAN TAMU (POSTER AUTO-HIDE DAN AUTO-RESTORE)
         function renderGuestGreeting(guest) {
             clearTimeout(greetingTimeout);
             const container = document.getElementById('displayCoreWrapper');
+            const posterContainer = document.getElementById('tvPosterContainer');
             
+            // Sembunyikan poster saat sapaan tamu muncul
+            if (posterContainer) {
+                posterContainer.style.display = 'none';
+            }
+
             let vipBadgeHtml = '';
             let badgesHtml = '';
 
@@ -373,8 +410,12 @@
                 </div>
             `;
 
+            // Setelah 7 detik, kembalikan teks standby dan munculkan kembali poster idle
             greetingTimeout = setTimeout(() => {
                 container.innerHTML = `<div id="displayStatusMessage">- MENUNGGU SCANNER -</div>`;
+                if (posterContainer && currentPosterUrl && currentPosterUrl.trim() !== '') {
+                    posterContainer.style.display = 'block';
+                }
             }, 7000);
         }
 
