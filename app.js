@@ -186,6 +186,7 @@ async function loadForm() {
         // RENDER FORM UTAMA DAN SINKRONISASI MODAL REKAP
         renderGuestForm();
         renderSetupQuestionsTable();
+        loadCheckInStats(); // <-- Tambahkan baris ini
         
     } catch(e) { 
         Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
@@ -1389,8 +1390,9 @@ async function processGuestCheckIn(guestId) {
         }
         // =========================================================================
 
-        // PEMBARUAN COUNTER BOX HALAMAN SOUVENIR SAAT TAMU BERHASIL CHECK-IN
+        // PEMBARUAN COUNTER BOX HALAMAN SOUVENIR & CHECK-IN SAAT TAMU BERHASIL CHECK-IN
         if (typeof loadSouvenirStats === "function") loadSouvenirStats();
+        if (typeof loadCheckInStats === "function") loadCheckInStats();
 
         // 3. Tampilkan Pop-Up Selamat Datang Mewah di Laptop Scanner (Sudah Bersih)
         Swal.fire({
@@ -3042,6 +3044,59 @@ document.addEventListener('DOMContentLoaded', checkAndApplyPublicMode);
 if (document.readyState === "complete" || document.readyState === "interactive") {
     checkAndApplyPublicMode();
 }
+
+// =========================================================================
+// REAL-TIME VISUAL KONTROL: REKAP BOX INDIKATOR CHECK-IN SCANNER
+// =========================================================================
+async function loadCheckInStats() {
+    try {
+        if (typeof db === "undefined" || !db) return;
+
+        // Tarik data tamu dari tabel data_tamu
+        const { data: allGuests, error } = await db
+            .from('data_tamu')
+            .select('jumlah_aktual, status_kehadiran');
+
+        if (error) throw error;
+
+        let totalTamuHadir = 0;
+        let totalPengunjungPax = 0;
+
+        if (allGuests && allGuests.length > 0) {
+            allGuests.forEach(guest => {
+                const pax = parseInt(guest.jumlah_aktual, 10) || 1;
+                
+                // Cek apakah tamu sudah melakukan check-in (HADIR)
+                if (guest.status_kehadiran === 'HADIR') {
+                    totalTamuHadir += 1; // 1. Jumlah nama/baris yang sudah di-scan
+                    totalPengunjungPax += pax; // 2. Akumulasi total fisik orang (pax) yang hadir
+                }
+            });
+        }
+
+        // Format angka 2 digit (misal: 01, 09, 15)
+        const padZero = (num) => num < 10 && num >= 0 ? `0${num}` : num;
+
+        // Cari elemen ID counter di halaman Scan Check-in
+        const elRegistered = document.getElementById('scanCountRegistered') || 
+                             document.getElementById('totalTerdaftarScan') || 
+                             document.getElementById('statScannedCount') ||
+                             document.getElementById('countTerdaftarScan');
+
+        const elTotal = document.getElementById('scanCountTotal') || 
+                        document.getElementById('totalPengunjungScan') || 
+                        document.getElementById('statTotalVisitors') ||
+                        document.getElementById('countTotalPengunjung');
+
+        // Fallback jika menggunakan selector class/tag di dalam box card
+        if (elRegistered) elRegistered.innerText = padZero(totalTamuHadir);
+        if (elTotal) elTotal.innerText = padZero(totalPengunjungPax);
+
+    } catch (err) {
+        console.error("TAMOO Error: Gagal menghitung statistik check-in scanner:", err);
+    }
+}
+
 // =========================================================================
 // LOGIKA SCAN SOUVENIR INDEPENDEN (ANTI-BLOCKING CHECK-IN)
 // =========================================================================
@@ -3139,6 +3194,7 @@ async function processIndependentSouvenir(guestId) {
         Swal.fire({ title: 'Sistem Error', text: err.message, icon: 'error', customClass: { popup: 'luxury-popup' } });
     }
 }
+
 // =========================================================================
 // HANDLER UPLOAD FILE GAMBAR QR UNTUK SOUVENIR (INDEPENDEN)
 // =========================================================================
