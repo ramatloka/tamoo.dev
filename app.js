@@ -1196,24 +1196,37 @@ async function processGuestCheckIn(guestId) {
         // PENGIRIMAN DATA LIVE KE LAYAR MONITOR TV VIA BROADCAST CHANNEL
         // =========================================================================
         try {
-            // Deteksi setting centang Form Builder (Gambar 2)
-            // Menggunakan selector checkbox bawaan HTML aplikasi Anda untuk setting TV
-            const isKategoriChecked = document.getElementById('chkShowTvKategori')?.checked ?? true;
-            const isInstitusiChecked = document.getElementById('chkShowTvInstitusi')?.checked ?? true;
-
-            // Inisiasi pengiriman sinyal radio antar-tab browser
             if (typeof tvBroadcast !== "undefined") {
+                // Susun badge dinamis berdasarkan kolom yang memiliki centang show_on_tv = true
+                let dynamicTvBadges = [];
+
+                if (Array.isArray(FORM_QUESTIONS)) {
+                    FORM_QUESTIONS.forEach(q => {
+                        // Lewati nama_tamu karena sudah menjadi teks sapaan utama
+                        const isShowTv = (q.show_on_tv === true || q.show_on_tv === 'true' || q.show_on_tv === 1 || q.show_on_tv === 'TRUE');
+                        if (q.id !== 'nama_tamu' && isShowTv) {
+                            let val = (guest.form_data && guest.form_data[q.id] !== undefined) 
+                                      ? guest.form_data[q.id] 
+                                      : guest[q.id];
+
+                            if (val !== undefined && val !== null && String(val).trim() !== "" && String(val).trim().toUpperCase() !== "UMUM") {
+                                dynamicTvBadges.push({
+                                    id: q.id,
+                                    label: q.label,
+                                    value: String(val).trim()
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // Kirim paket data check-in ke tab TV Monitor
                 tvBroadcast.postMessage({
                     type: 'GUEST_CHECKIN',
                     data: {
                         nama_tamu: guest.nama_tamu,
-                        jumlah_aktual: guest.jumlah_aktual || 1,
-                        kategori_tamu: guest.kategori_tamu || 'Reguler',
-                        institusi: guest.institusi || 'Umum'
-                    },
-                    config: {
-                        showKategori: isKategoriChecked,
-                        showInstitusi: isInstitusiChecked
+                        kategori_tamu: guest.kategori_tamu || '',
+                        tv_badges: dynamicTvBadges
                     }
                 });
             }
