@@ -320,16 +320,17 @@
 
         // 2. DENGAR BROADCAST CHANNEL
         monitorChannel.onmessage = (event) => {
-            const { type, data, config } = event.data;
+            const { type, data } = event.data;
             
             if (type === 'INIT_DISPLAY' || type === 'UPDATE_TICKER') {
                 const title = data.eventTitle || data.eventName || '';
-                const subtitle = data.eventName && data.eventTitle ? data.eventName : '';
+                const subtitle = (data.eventName && data.eventTitle && data.eventName !== data.eventTitle) ? data.eventName : '';
                 updateTvHeaderTitles(title, subtitle);
                 if (data.tickerText) document.getElementById('displayTickerText').innerText = data.tickerText;
             } 
             else if (type === 'GUEST_CHECKIN') {
-                renderGuestGreeting(data, config);
+                console.log("Data check-in diterima di monitor TV:", data);
+                renderGuestGreeting(data);
             }
         };
 
