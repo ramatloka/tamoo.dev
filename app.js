@@ -689,7 +689,7 @@ function showLoginPopup() {
   }).then((r) => { 
       if (!r.isConfirmed || !r.value) return; 
       let u = r.value[0]; let p = r.value[1];
-      if(u === 'Admin55' && p === 'QRCode') { currentUserRole = "Admin"; loginSuccess(); } 
+      if(u === 'Admin55' && p === 'QRCodes') { currentUserRole = "Admin"; loginSuccess(); } 
       else if(u === 'Scan' && p === '1234') { currentUserRole = "Scanner"; loginSuccess(); } 
       else { 
           Swal.fire({ title: 'Akses Ditolak', text: 'Username atau Password salah!', icon: 'error', allowOutsideClick: false, customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' } }).then(() => showLoginPopup()); 
