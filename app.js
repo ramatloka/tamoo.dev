@@ -3034,6 +3034,19 @@ function exportToPdf() {
     // SIMPAN FILE PDF
     doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
 }
+
+// =========================================================================
+// ALIAS & HELPER EKSPOR DATA
+// =========================================================================
+function exportToCsv() {
+    exportToExcel();
+}
+
+function safeFileName(str) {
+    if (!str) str = "tamoo_event";
+    return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0, 10);
+}
+
 // =========================================================================
 // PENGATURAN TEMPLATE & IMPORT EXCEL PREMIUM (DINAMIS 100% ANTI-GAGAL)
 // =========================================================================
