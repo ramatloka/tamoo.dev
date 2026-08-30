@@ -1033,7 +1033,7 @@ async function executeGuestRegistration() {
 }
 
 // =========================================================================
-// UI POP-UP QR CODE & GENERATOR E-TICKET (GAMBAR HD)
+// UI POP-UP QR CODE & GENERATOR E-TICKET (MANDATORY DOWNLOAD & NOTIFIKASI GALERI)
 // =========================================================================
 
 function showQrCodeModal(guestId, guestName) {
@@ -1053,33 +1053,73 @@ function showQrCodeModal(guestId, guestName) {
                 </div>
 
                 <div style="margin-top: 20px;">
-                    <button onclick="downloadETicket('${guestId}', '${guestName}', '${eventTitle}', '${eventDate}', '${eventLoc}')" 
+                    <!-- Tombol Wajib Download -->
+                    <button id="btnMandatoryDownload" 
                             class="btn-action-swal" style="width:100%; border-radius:50px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; padding: 12px 0;">
                         <i class="fas fa-download"></i> DOWNLOAD E-TICKET
                     </button>
+
+                    <!-- Tombol Selesai (Awalnya Tersembunyi) -->
+                    <button id="btnMandatoryClose" 
+                            class="btn-action-swal" style="width:100%; border-radius:50px; font-weight:700; display:none; align-items:center; justify-content:center; gap:10px; padding: 12px 0; background: #28a745; margin-top: 10px;">
+                        <i class="fas fa-check-circle"></i> SELESAI & TUTUP
+                    </button>
                 </div>
-                <button onclick="Swal.close()" style="background:none; border:none; color:#aaa; font-size:12px; margin-top:15px; cursor:pointer;">Tutup</button>
             </div>
         `,
         showConfirmButton: false,
+        allowOutsideClick: false, // Kunci agar tidak bisa ditutup sembarangan
+        allowEscapeKey: false,
         width: '340px',
         padding: '20px',
-        customClass: { popup: 'luxury-popup' }
+        customClass: { popup: 'luxury-popup' },
+        didOpen: () => {
+            const btnDownload = document.getElementById('btnMandatoryDownload');
+            const btnClose = document.getElementById('btnMandatoryClose');
+
+            btnDownload.addEventListener('click', () => {
+                // Eksekusi fungsi download tiket bawaan Anda
+                if (typeof downloadETicket === "function") {
+                    downloadETicket(guestId, guestName, eventTitle, eventDate, eventLoc);
+                }
+
+                // Sembunyikan tombol download dan munculkan tombol selesai
+                btnDownload.style.display = 'none';
+                btnClose.style.display = 'flex';
+            });
+
+            btnClose.addEventListener('click', () => {
+                Swal.close();
+            });
+        }
     }).then(() => {
-        // 1. Reset Total Seluruh Isian Formulir
-        let formContainer = document.getElementById('dynamicFormContainer');
-        if (formContainer) {
-            let inputs = formContainer.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], input[type="date"], select, textarea');
-            inputs.forEach(i => i.value = "");
+        // Notifikasi Pengingat Galeri setelah popup QR ditutup
+        Swal.fire({
+            title: 'Pendaftaran Berhasil!',
+            html: `Tiket E-Ticket Anda telah berhasil diunduh.<br><br>Silakan periksa <b>Galeri Foto</b> atau folder <b>Download</b> di ponsel Anda.<br><br><small style="color:#666;">Harap tunjukkan QR Code ini kepada petugas di pintu masuk acara.</small>`,
+            icon: 'success',
+            confirmButtonText: 'Selesai',
+            allowOutsideClick: false,
+            customClass: { 
+                popup: 'luxury-popup',
+                confirmButton: 'btn-action-swal'
+            }
+        }).then(() => {
+            // 1. Reset Total Seluruh Isian Formulir
+            let formContainer = document.getElementById('dynamicFormContainer');
+            if (formContainer) {
+                let inputs = formContainer.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], input[type="date"], select, textarea');
+                inputs.forEach(i => i.value = "");
 
-            let checks = formContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-            checks.forEach(c => c.checked = false);
-        }
+                let checks = formContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+                checks.forEach(c => c.checked = false);
+            }
 
-        // 2. KUNCI HALAMAN & TAMPILKAN LAYAR TERIMA KASIH (HANYA AKTIF DI LINK PUBLIK)
-        if (typeof showPublicSuccessPage === "function") {
-            showPublicSuccessPage(guestName);
-        }
+            // 2. Kunci Halaman & Tampilkan Layar Terima Kasih Publik
+            if (typeof showPublicSuccessPage === "function") {
+                showPublicSuccessPage(guestName);
+            }
+        });
     });
 }
 
