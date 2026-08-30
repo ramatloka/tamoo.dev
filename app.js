@@ -712,7 +712,7 @@ function showLoginPopup() {
           }).then(() => showLoginPopup()); 
       }
 });
-
+}
 function loginSuccess() {
     let mc = document.querySelector('.main-card'); if(mc) { mc.style.display = 'block'; mc.classList.add('animate__fadeInUp'); }
     let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'flex';
