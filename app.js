@@ -3659,3 +3659,98 @@ async function removeTvPoster() {
         Swal.fire('Gagal Menghapus', err.message || 'Terjadi kesalahan saat menghapus poster.', 'error');
     }
 }
+// =========================================================================
+// FITUR ADMIN: RESET / KOSONGKAN SELURUH ISI TABEL DATA_TAMU SUPABASE
+// =========================================================================
+
+async function resetAllGuestDatabase() {
+    // 1. Verifikasi role (Hanya Admin yang diizinkan)
+    if (currentUserRole !== "Admin") {
+        Swal.fire({
+            title: 'Akses Ditolak',
+            text: 'Hanya peran Admin yang memiliki hak untuk mereset database tamu.',
+            icon: 'error',
+            customClass: { popup: 'luxury-popup' }
+        });
+        return;
+    }
+
+    // 2. Konfirmasi pertama (Peringatan Awal)
+    const firstCheck = await Swal.fire({
+        title: 'KOSONGKAN DATABASE?',
+        html: `Apakah Anda yakin ingin <b>menghapus SEMUA data tamu</b> di sistem?<br><br><small style="color:#c5221f;">Pastikan Anda sudah mengunduh laporan PDF / Excel terlebih dahulu!</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#c5221f',
+        cancelButtonColor: '#888',
+        confirmButtonText: 'Ya, Lanjutkan',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'luxury-popup' }
+    });
+
+    if (!firstCheck.isConfirmed) return;
+
+    // 3. Konfirmasi kedua (Ketik KATA KUNCI untuk mencegah ketidaksengajaan)
+    const secondCheck = await Swal.fire({
+        title: 'Konfirmasi Terakhir',
+        html: `Ketik kata <b>HAPUS</b> di bawah ini untuk mengosongkan seluruh data tamu:`,
+        input: 'text',
+        inputPlaceholder: 'Ketik HAPUS di sini...',
+        showCancelButton: true,
+        confirmButtonColor: '#c5221f',
+        cancelButtonColor: '#888',
+        confirmButtonText: 'Hapus Semua Sekarang',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'luxury-popup' },
+        preConfirm: (inputValue) => {
+            if (inputValue !== 'HAPUS') {
+                Swal.showValidationMessage('Kata kunci salah! Ketik HAPUS dengan huruf kapital.');
+                return false;
+            }
+            return true;
+        }
+    });
+
+    if (!secondCheck.isConfirmed) return;
+
+    // 4. Eksekusi pembersihan ke tabel data_tamu Supabase
+    Swal.fire({
+        title: 'Mengosongkan Database...',
+        text: 'Menghapus data tamu dari Supabase...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        if (typeof db === "undefined" || !db) throw new Error("Database belum terhubung.");
+
+        // Hapus seluruh baris di tabel data_tamu
+        const { error } = await db
+            .from('data_tamu')
+            .delete()
+            .neq('id', 'keep_table_structure_placeholder');
+
+        if (error) throw error;
+
+        // Kosongkan cache lokal dan segarkan seluruh visual
+        if (typeof rawGuestDataCache !== "undefined") rawGuestDataCache = [];
+        if (typeof filteredGuestData !== "undefined") filteredGuestData = [];
+
+        // Reload data UI
+        if (typeof loadForm === "function") await loadForm();
+        if (typeof loadGuestRecapTable === "function") await loadGuestRecapTable();
+        if (typeof loadCheckInStats === "function") await loadCheckInStats();
+        if (typeof loadSouvenirStats === "function") await loadSouvenirStats();
+
+        Swal.fire({
+            title: 'Database Bersih!',
+            text: 'Seluruh data tamu telah berhasil dihapus. Sistem siap untuk event baru!',
+            icon: 'success',
+            customClass: { popup: 'luxury-popup' }
+        });
+
+    } catch (err) {
+        console.error("Gagal mereset data tamu:", err);
+        Swal.fire('Gagal Reset', err.message || 'Terjadi kesalahan saat menghapus database.', 'error');
+    }
+}
