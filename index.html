@@ -311,6 +311,14 @@
           <div class="acc-header" onclick="toggleAcc('accEvent')"><span><i class="fas fa-calendar-alt"></i> Detail Acara & Identitas</span><i id="icon_accEvent" class="fas fa-chevron-down"></i></div>
           <div id="accEvent" class="acc-content">
               <div class="form-group"><label>Judul Utama Acara (Tema Besar)</label><input type="text" id="adminEventTitle" placeholder="Misal: REUNI ALUMNI SMKN 10 BANDUNG"></div>
+              
+              <!-- INPUT SLUG / KODE UNIK URL BARU DI SINI -->
+              <div class="form-group" style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px dashed var(--border-color); margin-bottom:15px;">
+                  <label style="color:var(--gold-dark); font-weight:700;"><i class="fas fa-link"></i> Slug / Kode Unik URL Publik</label>
+                  <input type="text" id="adminEventSlug" placeholder="Misal: gending-karesmen atau reuni-2026" style="background:#fff; width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+                  <div style="font-size:0.65rem; color:var(--text-muted); margin-top:5px;">*Gunakan huruf kecil tanpa spasi (gunakan tanda hubung -). Form publik hanya terbuka jika parameter link sesuai dengan kode ini.</div>
+              </div>
+
               <div style="display:flex; gap:15px; margin-bottom:20px;"><div class="form-group" style="flex:2; margin-bottom:0;"><label>Sub-Judul Acara (Keterangan Khusus / Spesifik)</label><input type="text" id="adminEventName" placeholder="Misal: Angkatan 2000-2005"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Tanggal Acara</label><input type="date" id="adminEventDate"></div></div>
               <div class="form-group"><label>Lokasi Acara</label><input type="text" id="adminEventLocation" placeholder="Misal: Gedung Budaya Bandung"></div>
               <div style="display:flex; gap:15px; margin-bottom:10px;"><div class="form-group" style="flex:1; margin-bottom:0;"><label>Awalan Sapaan (Opsional)</label><input type="text" id="adminPrefix" placeholder="Misal: Bapak / Ibu"></div><div class="form-group" style="flex:1; margin-bottom:0;"><label>Akhiran Nama (Opsional)</label><input type="text" id="adminSuffix" placeholder="Misal: & Partner"></div></div>
