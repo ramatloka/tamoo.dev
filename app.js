@@ -3133,62 +3133,54 @@ async function downloadSelectedQRCodes() {
 // FITUR MODUL: LINK FORM PUBLIK & QR CODE POLOS POSTER (DUAL ACCESS)
 // =========================================================================
 
-// 1. Inisialisasi Link Publik Otomatis dengan Parameter Slug Event
+// 1. Inisialisasi & Pembentukan Link Publik Dinamis (Berdasarkan Slug)
 function initPublicFormUrl(customSlug = "") {
     const baseUrl = window.location.origin + window.location.pathname;
     const slugInput = document.getElementById('adminEventSlug');
-    const activeSlug = (customSlug || (slugInput ? slugInput.value.trim() : "")).toLowerCase().replace(/[^a-z0-9-_]/g, '-');
     
-    // Bentuk URL Publik: tambahkan parameter ?event=slug jika ada
+    // Ambil slug dari parameter atau langsung dari isi input
+    let activeSlug = customSlug || (slugInput ? slugInput.value.trim() : "");
+    activeSlug = activeSlug.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+
+    // Bentuk URL lengkap dengan parameter event jika slug terisi
     const slugParam = activeSlug ? `&event=${activeSlug}` : '';
     const publicUrl = `${baseUrl}?mode=public${slugParam}`;
 
-    // 1. Isi input di Halaman Setup
+    // Update tampilan di kolom input Setup & Rekap
     const inputSetup = document.getElementById('publicLinkDisplay');
     if (inputSetup) inputSetup.value = publicUrl;
 
-    // 2. Isi input di Halaman Rekap
     const inputRekap = document.getElementById('publicLinkDisplayRekap');
     if (inputRekap) inputRekap.value = publicUrl;
-    
+
     return publicUrl;
 }
 
-// 2. Fungsi Tombol COPY Link Publik (Mendeteksi Setup atau Rekap)
+// 2. Fungsi Tombol COPY Link Publik (Selalu Ambil Versi Paling Mutakhir)
 function copyPublicLink() {
-    // Ambil nilai dari input yang tersedia atau fallback ke URL kalkulasi
-    const inputEl = document.getElementById('publicLinkDisplay') || document.getElementById('publicLinkDisplayRekap');
-    const textToCopy = (inputEl && inputEl.value) 
-        ? inputEl.value 
-        : `${window.location.origin}${window.location.pathname}?mode=public`;
+    // Jalankan pembentukan URL terbaru secara real-time
+    const textToCopy = initPublicFormUrl();
 
     navigator.clipboard.writeText(textToCopy).then(() => {
         Swal.fire({
             icon: 'success',
             title: 'Berhasil Disalin!',
-            text: 'Link form publik telah tersimpan di clipboard.',
-            timer: 1500,
+            html: `<p style="font-size:0.85rem; color:#555;">Link publik terbaru telah disalin:<br><b style="color:var(--gold-dark);">${textToCopy}</b></p>`,
+            timer: 2000,
             showConfirmButton: false,
             customClass: { popup: 'luxury-popup' }
         });
     }).catch(err => {
         console.error('Gagal menyalin link:', err);
-        // Fallback untuk browser / perangkat tertentu
+        const inputEl = document.getElementById('publicLinkDisplay') || document.getElementById('publicLinkDisplayRekap');
         if (inputEl) {
+            inputEl.value = textToCopy;
             inputEl.select();
             document.execCommand('copy');
-            Swal.fire({
-                icon: 'success',
-                title: 'Tersalin!',
-                text: 'Link form publik berhasil disalin.',
-                timer: 1500,
-                showConfirmButton: false,
-                customClass: { popup: 'luxury-popup' }
-            });
+            Swal.fire({ icon: 'success', title: 'Tersalin!', timer: 1500, showConfirmButton: false });
         }
     });
 }
-
 // 3. Fungsi Pop-up Modal LIHAT / DOWNLOAD QR POLOS POSTER
 function showPolosPublicFormQR() {
     const inputEl = document.getElementById('publicLinkDisplay') || document.getElementById('publicLinkDisplayRekap');
@@ -3241,10 +3233,19 @@ function showPolosPublicFormQR() {
     }, 150);
 }
 
-// Jalankan inisialisasi link publik otomatis
+// Jalankan inisialisasi link publik otomatis & dengarkan ketikan slug
 document.addEventListener('DOMContentLoaded', () => {
     initPublicFormUrl();
+
+    // Update link publik seketika saat admin mengetik di kolom slug
+    const slugEl = document.getElementById('adminEventSlug');
+    if (slugEl) {
+        slugEl.addEventListener('input', function() {
+            initPublicFormUrl(this.value);
+        });
+    }
 });
+
 if (document.readyState === "complete" || document.readyState === "interactive") {
     initPublicFormUrl();
 }
