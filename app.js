@@ -689,24 +689,58 @@ function showLoginPopup() {
   }).then((r) => { 
       if (!r.isConfirmed || !r.value) return; 
       let u = r.value[0]; let p = r.value[1];
-      if(u === 'Admin55' && p === 'QRCodes') { currentUserRole = "Admin"; loginSuccess(); } 
-      else if(u === 'Scan' && p === '1234') { currentUserRole = "Scanner"; loginSuccess(); } 
-      else { 
-          Swal.fire({ title: 'Akses Ditolak', text: 'Username atau Password salah!', icon: 'error', allowOutsideClick: false, customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' } }).then(() => showLoginPopup()); 
+      
+      if(u === 'Admin55' && p === 'QRCodes') { 
+          currentUserRole = "Admin"; 
+          loginSuccess(); 
+      } 
+      else if(u === 'Panitia' && p === '12345') { 
+          currentUserRole = "Panitia"; 
+          loginSuccess(); 
       }
-  });
-}
+      else if(u === 'Scan' && p === '1234') { 
+          currentUserRole = "Scanner"; 
+          loginSuccess(); 
+      } 
+      else { 
+          Swal.fire({ 
+              title: 'Akses Ditolak', 
+              text: 'Username atau Password salah!', 
+              icon: 'error', 
+              allowOutsideClick: false, 
+              customClass: { popup: 'luxury-popup', confirmButton: 'btn-action-swal' } 
+          }).then(() => showLoginPopup()); 
+      }
+});
 
 function loginSuccess() {
     let mc = document.querySelector('.main-card'); if(mc) { mc.style.display = 'block'; mc.classList.add('animate__fadeInUp'); }
     let fc = document.querySelector('.footer-container'); if(fc) fc.style.display = 'flex';
     let btnOut = document.getElementById('btnLogoutBtn'); if(btnOut) btnOut.style.display = 'flex';
+    
+    // Reset tampilan navigasi ke default agar bersih
+    let nR = document.getElementById('navRekap'); if(nR) nR.style.display = 'inline-flex'; // atau 'flex' / 'block'
+    let nS = document.getElementById('navSetup'); if(nS) nS.style.display = 'inline-flex';
+
+    // Pembatasan akses berdasarkan peran
     if(currentUserRole === "Scanner") {
-        let nR = document.getElementById('navRekap'); if(nR) nR.style.display = 'none';
-        let nS = document.getElementById('navSetup'); if(nS) nS.style.display = 'none';
+        if(nR) nR.style.display = 'none';
+        if(nS) nS.style.display = 'none';
+    } else if(currentUserRole === "Panitia") {
+        // Panitia bisa akses Rekap, tapi tombol Setup disembunyikan
+        if(nS) nS.style.display = 'none';
     }
+    
     Swal.fire({ title: 'Berhasil Login', text: `Selamat datang, ${currentUserRole}!`, icon: 'success', timer: 1500, showConfirmButton: false, customClass: { popup: 'luxury-popup', title: 'luxury-title' } });
-    goToHome();
+    
+    // Arahkan default view
+    if(currentUserRole === "Panitia" && typeof switchTab === "function") {
+        // Jika ingin Panitia langsung masuk ke tab Rekap setelah login:
+        // switchTab('rekap');
+        goToHome();
+    } else {
+        goToHome();
+    }
 }
 
 function logoutSystem() {
