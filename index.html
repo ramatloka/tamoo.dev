@@ -138,6 +138,20 @@
           </div>
         </div>
 
+        <!-- ========================================================================= -->
+        <!-- WIDGET DUPLIKAT: LINK FORM PUBLIK & POSTER QR (HALAMAN REKAP)             -->
+        <!-- ========================================================================= -->
+        <div class="form-group" style="background:#e6f4ea; padding:15px; border-radius:12px; border:1px solid #137333; margin-bottom:20px;">
+          <label style="color:#137333; font-weight:800; font-size:0.8rem;"><i class="fas fa-share-alt"></i> Link Form Publik & QR Desain Poster</label>
+          <div style="display:flex; gap:10px; margin-bottom:10px; margin-top:5px;">
+             <input type="text" id="publicLinkDisplayRekap" readonly style="background:#fff; border-color:#137333; color:#137333; font-weight:700;">
+             <button onclick="copyPublicLink()" style="background:#137333; color:#fff; border:none; border-radius:8px; padding:0 15px; cursor:pointer; font-weight:bold; transition:0.3s;" title="Salin Link"><i class="fas fa-copy"></i> COPY</button>
+          </div>
+          <div style="display:flex; gap:10px; width:100%;">
+             <button onclick="showPolosPublicFormQR()" class="btn-submit" style="background:linear-gradient(to right, #137333, #2e7d32); margin:0; padding:10px 15px; font-size:0.75rem; box-shadow:none;"><i class="fas fa-qrcode"></i> LIHAT / DOWNLOAD QR POLOS POSTER</button>
+          </div>
+        </div>
+
         <div style="margin-top: 10px;">
           <div class="action-container" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-end; align-items: center; border-bottom: none; padding-bottom: 5px;">
             
