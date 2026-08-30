@@ -3018,47 +3018,64 @@ async function downloadSelectedQRCodes() {
     }
 }
 // =========================================================================
-// FITUR MODUL: LINK FORM PUBLIK & QR CODE POLOS POSTER
+// FITUR MODUL: LINK FORM PUBLIK & QR CODE POLOS POSTER (DUAL ACCESS)
 // =========================================================================
 
-// 1. Inisialisasi Link Publik Otomatis saat Halaman Dimuat
+// 1. Inisialisasi Link Publik Otomatis ke Halaman Setup & Rekap
 function initPublicFormUrl() {
-    const inputEl = document.getElementById('publicLinkDisplay');
-    if (!inputEl) return;
-
-    // Deteksi URL domain saat ini lalu tambahkan parameter mode=public
     const baseUrl = window.location.origin + window.location.pathname;
     const publicUrl = `${baseUrl}?mode=public`;
-    
-    inputEl.value = publicUrl;
+
+    // 1. Isi input di Halaman Setup
+    const inputSetup = document.getElementById('publicLinkDisplay');
+    if (inputSetup) inputSetup.value = publicUrl;
+
+    // 2. Isi input di Halaman Rekap (Elemen Baru)
+    const inputRekap = document.getElementById('publicLinkDisplayRekap');
+    if (inputRekap) inputRekap.value = publicUrl;
 }
 
-// 2. Fungsi Tombol COPY Link Publik (Sesuai ID & Onclick HTML)
+// 2. Fungsi Tombol COPY Link Publik (Mendeteksi Setup atau Rekap)
 function copyPublicLink() {
-    const inputEl = document.getElementById('publicLinkDisplay');
-    if (!inputEl || !inputEl.value) return;
+    // Ambil nilai dari input yang tersedia atau fallback ke URL kalkulasi
+    const inputEl = document.getElementById('publicLinkDisplay') || document.getElementById('publicLinkDisplayRekap');
+    const textToCopy = (inputEl && inputEl.value) 
+        ? inputEl.value 
+        : `${window.location.origin}${window.location.pathname}?mode=public`;
 
-    navigator.clipboard.writeText(inputEl.value).then(() => {
+    navigator.clipboard.writeText(textToCopy).then(() => {
         Swal.fire({
             icon: 'success',
             title: 'Berhasil Disalin!',
             text: 'Link form publik telah tersimpan di clipboard.',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            customClass: { popup: 'luxury-popup' }
         });
     }).catch(err => {
         console.error('Gagal menyalin link:', err);
-        // Fallback untuk browser lama
-        inputEl.select();
-        document.execCommand('copy');
-        Swal.fire('Tersalin!', 'Link form publik berhasil disalin.', 'success');
+        // Fallback untuk browser / perangkat tertentu
+        if (inputEl) {
+            inputEl.select();
+            document.execCommand('copy');
+            Swal.fire({
+                icon: 'success',
+                title: 'Tersalin!',
+                text: 'Link form publik berhasil disalin.',
+                timer: 1500,
+                showConfirmButton: false,
+                customClass: { popup: 'luxury-popup' }
+            });
+        }
     });
 }
 
 // 3. Fungsi Pop-up Modal LIHAT / DOWNLOAD QR POLOS POSTER
 function showPolosPublicFormQR() {
-    const inputEl = document.getElementById('publicLinkDisplay');
-    const publicUrl = inputEl ? inputEl.value : `${window.location.origin}${window.location.pathname}?mode=public`;
+    const inputEl = document.getElementById('publicLinkDisplay') || document.getElementById('publicLinkDisplayRekap');
+    const publicUrl = (inputEl && inputEl.value) 
+        ? inputEl.value 
+        : `${window.location.origin}${window.location.pathname}?mode=public`;
 
     // Buat container tersembunyi untuk merender QR Code
     const tempDiv = document.createElement('div');
@@ -3089,7 +3106,8 @@ function showPolosPublicFormQR() {
             confirmButtonColor: '#137333',
             cancelButtonColor: '#888',
             confirmButtonText: '<i class="fas fa-download"></i> Download QR PNG',
-            cancelButtonText: 'Tutup'
+            cancelButtonText: 'Tutup',
+            customClass: { popup: 'luxury-popup' }
         }).then((result) => {
             if (result.isConfirmed && qrSrc) {
                 // Download file PNG QR Code Polos
