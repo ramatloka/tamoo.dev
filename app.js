@@ -154,13 +154,38 @@ async function loadForm() {
             document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
         }
 
-        // PERIKSA KUOTA MAKSIMAL
-        let maxQ = parseInt(data.MaxQuota) || 0; let curRegHead = parseInt(data.currentRegistered) || 0;
-        if (maxQ > 0 && curRegHead >= maxQ) {
-            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">MOHON MAAF</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh.</p></div>';
-            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-            document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+        // =========================================================================
+        // PERIKSA KUOTA MAKSIMAL VIA SUPABASE (HITUNGAN KEPALA)
+        // =========================================================================
+        let maxQ = parseInt(data.MaxQuota) || 0;
+
+        if (maxQ > 0) {
+            // Ambil jumlah tamu terdaftar aktual langsung dari tabel data_tamu
+            const { count: curRegHead, error: countErr } = await db
+                .from('data_tamu')
+                .select('*', { count: 'exact', head: true });
+
+            if (!countErr && curRegHead !== null && curRegHead >= maxQ) {
+                document.getElementById('dynamicFormContainer').innerHTML = `
+                    <div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br>
+                        <h3 style="margin:0; font-family:'Playfair Display', serif;">MOHON MAAF</h3>
+                        <p style="margin-top:8px; font-weight:600; line-height:1.4;">
+                            Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh (${curRegHead}/${maxQ}).
+                        </p>
+                    </div>
+                `;
+                let btnSub = document.getElementById('btnSubmitForm'); 
+                if (btnSub) btnSub.style.display = 'none';
+
+                let pubE = document.getElementById('publicEventInfo'); 
+                if (pubE) pubE.style.display = 'block';
+
+                let pubName = document.getElementById('pubEventName');
+                if (pubName) pubName.innerText = data.EventName || data.EventTitle || "";
+
+                return; // Menghentikan eksekusi agar form input tidak dirender
+            }
         }
 
         if (IS_PUBLIC_MODE) {
@@ -186,7 +211,7 @@ async function loadForm() {
         // RENDER FORM UTAMA DAN SINKRONISASI MODAL REKAP
         renderGuestForm();
         renderSetupQuestionsTable();
-        loadCheckInStats(); // <-- Tambahkan baris ini
+        loadCheckInStats();
         
     } catch(e) { 
         Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
