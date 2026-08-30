@@ -108,6 +108,13 @@ async function loadForm() {
 
         setVal('adminPrefix', data.GreetingPrefix); setVal('adminSuffix', data.GreetingSuffix);
         setText('displayEventTitle', data.EventTitle || "GUEST BOOK PRO"); setVal('adminEventTitle', data.EventTitle);
+        
+        // --- INPUT SLUG EVENT & UPDATE LINK PUBLIK ---
+        setVal('adminEventSlug', data.EventSlug || "");
+        if (typeof initPublicFormUrl === "function") {
+            initPublicFormUrl(data.EventSlug || "");
+        }
+
         let announcementText = data.Announcement || "Selamat Datang";
         setText('runningTextDisplay', announcementText); 
         setVal('adminAnnouncement', announcementText);
@@ -142,7 +149,35 @@ async function loadForm() {
         if (data.PosterUrl && data.PosterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
 
         // =========================================================================
-        // 1. HITUNG AKUMULASI TOTAL KEPALA/PAX AKTUAL DARI SUPABASE
+        // 1. VALIDASI KEAMANAN SLUG / PARAMETER EVENT PADA FORM PUBLIK
+        // =========================================================================
+        if (IS_PUBLIC_MODE) {
+            const currentUrlEvent = (urlParams.get('event') || "").toLowerCase().trim();
+            const validEventSlug = (data.EventSlug || "").toLowerCase().trim();
+
+            // Jika admin menetapkan slug di setup, tapi URL publik tidak sesuai / salah / link lama
+            if (validEventSlug !== "" && currentUrlEvent !== validEventSlug) {
+                document.getElementById('dynamicFormContainer').innerHTML = `
+                    <div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;">
+                        <i class="fas fa-link-slash" style="font-size: 3rem; margin-bottom:15px;"></i><br>
+                        <h3 style="margin:0; font-family:'Playfair Display', serif;">TAUTAN TIDAK AKTIF</h3>
+                        <p style="margin-top:8px; font-weight:600; line-height:1.4;">
+                            Mohon maaf, tautan pendaftaran ini sudah tidak berlaku, kedaluwarsa, atau digantikan oleh acara baru.
+                        </p>
+                    </div>
+                `;
+                let btnSub = document.getElementById('btnSubmitForm') || document.querySelector('button[onclick*="confirmTamu"]'); 
+                if (btnSub) btnSub.style.display = 'none';
+
+                let pubE = document.getElementById('publicEventInfo'); 
+                if (pubE) pubE.style.display = 'none';
+
+                return; // Kunci akses form pendaftaran
+            }
+        }
+
+        // =========================================================================
+        // 2. HITUNG AKUMULASI TOTAL KEPALA/PAX DARI DATABASE SUPABASE
         // =========================================================================
         let totalHeadCount = 0;
         const { data: allGuestsCount, error: countErr } = await db
@@ -161,7 +196,7 @@ async function loadForm() {
         data.currentRegistered = totalHeadCount;
 
         // =========================================================================
-        // 2. PERIKSA STATUS FORM MANUAL (TUTUP) ATAU KUOTA MAKSIMAL TERPENUHI
+        // 3. PERIKSA STATUS MANUAL (TUTUP) ATAU BATAS MAKSIMAL KUOTA
         // =========================================================================
         let maxQ = parseInt(data.MaxQuota, 10) || 0;
         let isQuotaFull = (maxQ > 0 && totalHeadCount >= maxQ);
@@ -189,10 +224,9 @@ async function loadForm() {
             let pubName = document.getElementById('pubEventName');
             if (pubName) pubName.innerText = data.EventName || data.EventTitle || "";
 
-            // Render table setup admin tetap berjalan tanpa render input formulir publik
             renderSetupQuestionsTable();
             loadCheckInStats();
-            return; // Hentikan di sini, jangan render input form pendaftaran
+            return;
         }
 
         if (IS_PUBLIC_MODE) {
@@ -215,7 +249,7 @@ async function loadForm() {
             }
         }
         
-        // RENDER FORM UTAMA JIKA KUOTA MASIH TERSEDIA
+        // RENDER FORM UTAMA JIKA SEMUA VALIDASI LOLOS
         renderGuestForm();
         renderSetupQuestionsTable();
         loadCheckInStats();
@@ -564,6 +598,7 @@ async function saveAdminSettingsData() {
         const configs = [
             { key: 'EventTitle', value: eventTitle },
             { key: 'EventName', value: eventName },
+            { key: 'EventSlug', value: getVal('adminEventSlug').toLowerCase().trim() },
             { key: 'EventDate', value: getVal('adminEventDate') },
             { key: 'EventLocation', value: getVal('adminEventLocation') },
             { key: 'Announcement', value: announcement },
@@ -3098,18 +3133,25 @@ async function downloadSelectedQRCodes() {
 // FITUR MODUL: LINK FORM PUBLIK & QR CODE POLOS POSTER (DUAL ACCESS)
 // =========================================================================
 
-// 1. Inisialisasi Link Publik Otomatis ke Halaman Setup & Rekap
-function initPublicFormUrl() {
+// 1. Inisialisasi Link Publik Otomatis dengan Parameter Slug Event
+function initPublicFormUrl(customSlug = "") {
     const baseUrl = window.location.origin + window.location.pathname;
-    const publicUrl = `${baseUrl}?mode=public`;
+    const slugInput = document.getElementById('adminEventSlug');
+    const activeSlug = (customSlug || (slugInput ? slugInput.value.trim() : "")).toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    
+    // Bentuk URL Publik: tambahkan parameter ?event=slug jika ada
+    const slugParam = activeSlug ? `&event=${activeSlug}` : '';
+    const publicUrl = `${baseUrl}?mode=public${slugParam}`;
 
     // 1. Isi input di Halaman Setup
     const inputSetup = document.getElementById('publicLinkDisplay');
     if (inputSetup) inputSetup.value = publicUrl;
 
-    // 2. Isi input di Halaman Rekap (Elemen Baru)
+    // 2. Isi input di Halaman Rekap
     const inputRekap = document.getElementById('publicLinkDisplayRekap');
     if (inputRekap) inputRekap.value = publicUrl;
+    
+    return publicUrl;
 }
 
 // 2. Fungsi Tombol COPY Link Publik (Mendeteksi Setup atau Rekap)
