@@ -2607,7 +2607,7 @@ function formatSimpleTimestamp(isoString) {
 }
 
 // =========================================================================
-// HELPER AMBIL DATA AKTIF UNTUK EXPORT (EXCEL & PDF)
+// HELPER AMBIL DATA AKTIF & EKSTRAKSI DINAMIS UNTUK EXPORT
 // =========================================================================
 function getCurrentlyFilteredData() {
     if (typeof filteredGuestData !== "undefined" && filteredGuestData.length > 0) {
@@ -2619,7 +2619,38 @@ function getCurrentlyFilteredData() {
     return [];
 }
 
-// 1. FUNGSI EXPORT TO EXCEL
+// Helper aman membaca data jawaban dinamis dari form_data
+function getGuestFieldValue(guest, fieldId) {
+    if (!guest) return '-';
+    if (guest[fieldId] !== undefined && guest[fieldId] !== null && guest[fieldId] !== '') {
+        return guest[fieldId];
+    }
+    if (guest.form_data) {
+        let fd = typeof guest.form_data === 'string' ? JSON.parse(guest.form_data) : guest.form_data;
+        if (fd && fd[fieldId] !== undefined && fd[fieldId] !== null && fd[fieldId] !== '') {
+            return fd[fieldId];
+        }
+    }
+    return '-';
+}
+
+function formatSimpleTimestamp(isoString) {
+    if (!isoString || isoString === '-') return '-';
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+
+        const dateStr = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
+        return `${dateStr} ${timeStr}`;
+    } catch (e) {
+        return isoString;
+    }
+}
+
+// =========================================================================
+// 1. FUNGSI EXPORT TO EXCEL (100% DINAMIS MENAMPILKAN SEMUA PERTANYAAN FORM)
+// =========================================================================
 function exportToExcel() {
     const targetData = getCurrentlyFilteredData();
     if (targetData.length === 0) {
@@ -2660,6 +2691,11 @@ function exportToExcel() {
         if (isSouv) totalSouvenir += 1;
     });
 
+    const activeQuestions = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0)
+        ? currentQuestions
+        : [{ id: 'nama_tamu', label: 'NAMA LENGKAP' }];
+
+    // 1. Ringkasan Dokumen
     const wsData = [
         ["LAPORAN DAFTAR HADIR & REKAPITULASI TAMU"],
         ["Nama Event:", currentEventName.toUpperCase()],
@@ -2673,21 +2709,35 @@ function exportToExcel() {
         ["Total Tamu VIP Hadir (Pax)", vipHadir],
         ["Total Tamu Reguler Hadir (Pax)", regulerHadir],
         [],
-        ["DAFTAR RINCIAN TAMU UNDANGAN"],
-        ["NO", "NAMA TAMU", "INSTITUSI", "KATEGORI", "JUMLAH (PAX)", "STATUS CHECK-IN", "STATUS SOUVENIR", "WAKTU HADIR"]
+        ["DAFTAR RINCIAN TAMU UNDANGAN"]
     ];
 
+    // 2. Susun Header Tabel Excel Secara Dinamis
+    let dynamicHeaders = ["NO"];
+    activeQuestions.forEach(q => {
+        dynamicHeaders.push(q.label.toUpperCase());
+    });
+    dynamicHeaders.push("PAX", "KATEGORI", "STATUS CHECK-IN", "STATUS SOUVENIR", "WAKTU PENDAFTARAN", "WAKTU CHECK-IN");
+    wsData.push(dynamicHeaders);
+
+    // 3. Susun Baris Data Excel
     targetData.forEach((guest, index) => {
-        wsData.push([
-            index + 1,
-            guest.nama_tamu || '-',
-            extractInstitusiVal(guest),
-            (guest.kategori_tamu || 'Reguler').toUpperCase(),
+        let row = [index + 1];
+        
+        activeQuestions.forEach(q => {
+            row.push(getGuestFieldValue(guest, q.id));
+        });
+
+        row.push(
             guest.jumlah_aktual || 1,
+            (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
             (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
+            formatSimpleTimestamp(guest.created_at),
             formatSimpleTimestamp(guest.waktu_hadir)
-        ]);
+        );
+
+        wsData.push(row);
     });
 
     const wb = XLSX.utils.book_new();
@@ -2696,7 +2746,13 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (PENDAFTARAN = BERBASIS TANGGAL, CHECK-IN = BERBASIS JAM)
+function exportToCsv() {
+    exportToExcel();
+}
+
+// =========================================================================
+// 2. FUNGSI EXPORT TO PDF (RINGKAS, RAPI & MEMILIKI 2-TIER EXECUTIVE SUMMARY)
+// =========================================================================
 function exportToPdf() {
     if (typeof window.jspdf === "undefined") {
         Swal.fire('Library Error', 'Library jsPDF belum terpasang di HTML.', 'error');
@@ -2725,10 +2781,7 @@ function exportToPdf() {
     let totalVipNama = 0;
     let totalRegulerNama = 0;
 
-    // 1. Objek tampungan gelombang pendaftaran BERBASIS TANGGAL (created_at)
     let regDateCounts = {};
-
-    // 2. Objek tampungan gelombang kedatangan BERBASIS JAM (waktu_hadir)
     let checkInTimeSlots = {
         "Pagi (00:00 - 11:59)": 0,
         "Siang (12:00 - 15:59)": 0,
@@ -2754,7 +2807,6 @@ function exportToPdf() {
             if (kat === 'VIP' || kat === 'TAMU VIP') vipHadirPax += pax;
             else regulerHadirPax += pax;
 
-            // Kelompokkan tren jam check-in aktual hari-H
             if (g.waktu_hadir) {
                 try {
                     let hour = new Date(g.waktu_hadir).getHours();
@@ -2770,7 +2822,6 @@ function exportToPdf() {
 
         if (isSouv) totalSouvenir += 1;
 
-        // Kelompokkan tren pendaftaran BERBASIS TANGGAL
         if (g.created_at) {
             try {
                 let d = new Date(g.created_at);
@@ -2782,18 +2833,13 @@ function exportToPdf() {
         }
     });
 
-    // Urutkan tanggal dan batasi maksimal 5 baris tanggal terakhir agar tampilan tetap rapi
     let sortedDateKeys = Object.keys(regDateCounts).sort((a, b) => new Date(a) - new Date(b));
     let displayRegDateSlots = {};
-    
     if (sortedDateKeys.length === 0) {
         displayRegDateSlots["Belum Ada Data"] = 0;
     } else {
-        // Ambil maksimal 5 tanggal terakhir yang aktif
         let recentKeys = sortedDateKeys.slice(-5);
-        recentKeys.forEach(k => {
-            displayRegDateSlots[k] = regDateCounts[k];
-        });
+        recentKeys.forEach(k => { displayRegDateSlots[k] = regDateCounts[k]; });
     }
 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2837,19 +2883,33 @@ function exportToPdf() {
     doc.text(`• Total Tamu VIP Hadir (Pax)     :  ${vipHadirPax} Orang`, cardX + 410, cardY + 38);
     doc.text(`• Total Tamu Reguler Hadir (Pax) :  ${regulerHadirPax} Orang`, cardX + 410, cardY + 54);
 
-    // DATA TABLE UNDANGAN
-    const tableHeaders = [["NO", "NAMA LENGKAP TAMU", "INSTITUSI", "PAX", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR"]];
+    // =========================================================================
+    // DINAMISASI KOLOM KEDUA UNTUK PDF (Mengambil pertanyaan teks ke-2 dari form)
+    // =========================================================================
+    const activeQuestions = (typeof currentQuestions !== 'undefined' && currentQuestions.length > 0) ? currentQuestions : [];
+    
+    // Cari pertanyaan kedua yang bukan nama tamu dan bukan pax
+    let secondFieldObj = activeQuestions.find(q => 
+        q.id !== 'nama_tamu' && 
+        !q.id.includes('jumlah') && 
+        !q.label.toLowerCase().includes('jumlah')
+    );
+
+    const secondFieldId = secondFieldObj ? secondFieldObj.id : 'institusi';
+    const secondFieldHeader = secondFieldObj ? secondFieldObj.label.toUpperCase() : 'INSTITUSI';
+
+    const tableHeaders = [["NO", "NAMA LENGKAP TAMU", secondFieldHeader, "PAX", "KATEGORI", "STATUS KEHADIRAN", "STATUS SOUVENIR", "WAKTU HADIR"]];
     
     const tableRows = targetData.map((guest, idx) => {
         return [
             idx + 1,
             guest.nama_tamu || '-',
-            typeof extractInstitusiVal === "function" ? extractInstitusiVal(guest) : '-',
+            getGuestFieldValue(guest, secondFieldId),
             guest.jumlah_aktual || 1,
             (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
             (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
-            typeof formatSimpleTimestamp === "function" ? formatSimpleTimestamp(guest.waktu_hadir) : (guest.waktu_hadir || '-')
+            formatSimpleTimestamp(guest.waktu_hadir)
         ];
     });
 
@@ -2892,7 +2952,6 @@ function exportToPdf() {
     // =========================================================================
     doc.addPage('a4', 'l');
 
-    // Header Halaman Ringkasan
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(179, 147, 67);
@@ -2908,7 +2967,6 @@ function exportToPdf() {
     doc.setTextColor(110, 110, 110);
     doc.text(`Event: ${currentEventName.toUpperCase()}   |   Laporan Diekspor: ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}`, pageWidth / 2, 66, { align: "center" });
 
-    // 3 KARTU KPI UTAMA DI ATAS
     const boxW = (pageWidth - 80 - 30) / 3;
     const boxY = 78;
     const boxH = 45;
@@ -2936,7 +2994,6 @@ function exportToPdf() {
         doc.text(kpi.val, bx + boxW / 2, boxY + 33, { align: "center" });
     });
 
-    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR ---
     function drawPdfPieChart(centerX, centerY, radius, dataList, title) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
@@ -2976,7 +3033,6 @@ function exportToPdf() {
             startAngle = endAngle;
         });
 
-        // Legend Kotak Keterangan
         let legY = centerY + radius + 14;
         dataList.forEach(slice => {
             const pct = total > 0 ? Math.round((slice.value / total) * 100) : 0;
@@ -2991,24 +3047,20 @@ function exportToPdf() {
         });
     }
 
-    // =========================================================================
-    // BARIS 1 (ATAS): 2 PIE CHART
-    // =========================================================================
+    // 2 PIE CHART (BARIS ATAS)
     const hadirData = [
-        { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },     // Hijau
-        { label: "Belum Hadir", value: totalBelumHadirNama, color: [197, 34, 31] } // Merah
+        { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },
+        { label: "Belum Hadir", value: totalBelumHadirNama, color: [197, 34, 31] }
     ];
     drawPdfPieChart(240, 205, 52, hadirData, "STATUS KEHADIRAN (NAMA)");
 
     const kategoriData = [
-        { label: "Tamu VIP", value: totalVipNama, color: [179, 147, 67] },         // Gold
-        { label: "Tamu Reguler", value: totalRegulerNama, color: [66, 133, 244] }   // Biru
+        { label: "Tamu VIP", value: totalVipNama, color: [179, 147, 67] },
+        { label: "Tamu Reguler", value: totalRegulerNama, color: [66, 133, 244] }
     ];
     drawPdfPieChart(595, 205, 52, kategoriData, "KOMPOSISI KATEGORI TAMU");
 
-    // =========================================================================
-    // BARIS 2 (BAWAH): 2 GRAFIK BATANG WAKTU
-    // =========================================================================
+    // 2 BAR CHART (BARIS BAWAH)
     function drawTimeBarChart(barX, barY, barW, barH, timeDataObj, title, barColor) {
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(252, 252, 252);
@@ -3033,17 +3085,14 @@ function exportToPdf() {
             doc.setTextColor(80, 80, 80);
             doc.text(timeKey, barX + 16, bY + 8);
 
-            // Bar Background
             doc.setFillColor(235, 235, 235);
             doc.roundedRect(barX + 130, bY, chartAreaW, 10, 2, 2, 'F');
 
-            // Bar Value Fill
             if (barFillW > 0) {
                 doc.setFillColor(barColor[0], barColor[1], barColor[2]);
                 doc.roundedRect(barX + 130, bY, Math.max(barFillW, 4), 10, 2, 2, 'F');
             }
 
-            // Angka Total di Ujung Bar
             doc.setFont("helvetica", "bold");
             doc.setFontSize(8);
             doc.setTextColor(60, 60, 60);
@@ -3057,20 +3106,23 @@ function exportToPdf() {
     const bottomBoxW = (pageWidth - 80 - 20) / 2;
     const bottomBoxH = 160;
 
-    // GRAFIK BATANG 1: TREN PENDAFTARAN BERDASARKAN TANGGAL (Kiri Bawah)
     drawTimeBarChart(40, bottomRowY, bottomBoxW, bottomBoxH, displayRegDateSlots, "TREN TANGGAL PENDAFTARAN (HARI)", [179, 147, 67]);
-
-    // GRAFIK BATANG 2: WAKTU CHECK-IN HARI-H BERDASARKAN JAM (Kanan Bawah)
     drawTimeBarChart(40 + bottomBoxW + 20, bottomRowY, bottomBoxW, bottomBoxH, checkInTimeSlots, "GELOMBANG WAKTU CHECK-IN (HARI-H)", [46, 125, 50]);
 
-    // FOOTER HALAMAN SUMMARY
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text("Powered by RAMATLOKA", pageWidth - 145, 575);
 
-    // SIMPAN FILE PDF
     doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
+}
+
+// =========================================================================
+// HELPER NAMA FILE EKSPOR (SAFE FILE NAME SANITIZER)
+// =========================================================================
+function safeFileName(str) {
+    if (!str) str = "tamoo_event";
+    return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0, 10);
 }
 
 // =========================================================================
