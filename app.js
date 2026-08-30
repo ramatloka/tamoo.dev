@@ -2696,7 +2696,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (LENGKAP DENGAN EXECUTIVE SUMMARY & CHART DI HALAMAN TERAKHIR)
+// 2. FUNGSI EXPORT TO PDF (LENGKAP: 2 PIE CHART + 2 GRAFIK GELOMBANG WAKTU)
 function exportToPdf() {
     if (typeof window.jspdf === "undefined") {
         Swal.fire('Library Error', 'Library jsPDF belum terpasang di HTML.', 'error');
@@ -2725,8 +2725,16 @@ function exportToPdf() {
     let totalVipNama = 0;
     let totalRegulerNama = 0;
 
-    // Objek tampungan gelombang jam pendaftaran (created_at)
+    // 1. Objek tampungan gelombang jam pendaftaran (created_at)
     let regTimeSlots = {
+        "Pagi (00:00 - 11:59)": 0,
+        "Siang (12:00 - 15:59)": 0,
+        "Sore (16:00 - 18:59)": 0,
+        "Malam (19:00 - 23:59)": 0
+    };
+
+    // 2. Objek tampungan gelombang jam check-in kedatangan (waktu_hadir)
+    let checkInTimeSlots = {
         "Pagi (00:00 - 11:59)": 0,
         "Siang (12:00 - 15:59)": 0,
         "Sore (16:00 - 18:59)": 0,
@@ -2750,6 +2758,17 @@ function exportToPdf() {
             totalHadirPax += pax;
             if (kat === 'VIP' || kat === 'TAMU VIP') vipHadirPax += pax;
             else regulerHadirPax += pax;
+
+            // Kelompokkan tren jam check-in aktual
+            if (g.waktu_hadir) {
+                try {
+                    let hour = new Date(g.waktu_hadir).getHours();
+                    if (hour < 12) checkInTimeSlots["Pagi (00:00 - 11:59)"]++;
+                    else if (hour < 16) checkInTimeSlots["Siang (12:00 - 15:59)"]++;
+                    else if (hour < 19) checkInTimeSlots["Sore (16:00 - 18:59)"]++;
+                    else checkInTimeSlots["Malam (19:00 - 23:59)"]++;
+                } catch (e) {}
+            }
         } else {
             totalBelumHadirNama += 1;
         }
@@ -2873,7 +2892,7 @@ function exportToPdf() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(50, 50, 50);
-    doc.text("RINGKASAN EKSEKUTIF & ANALITIK KEHADIRAN", pageWidth / 2, 56, { align: "center" });
+    doc.text("RINGKASAN EKSEKUTIF & ANALITIK EVENT", pageWidth / 2, 56, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
@@ -2883,7 +2902,7 @@ function exportToPdf() {
     // 3 KARTU KPI UTAMA DI ATAS
     const boxW = (pageWidth - 80 - 30) / 3;
     const boxY = 88;
-    const boxH = 50;
+    const boxH = 48;
 
     const kpis = [
         { label: "PERSENTASE KEHADIRAN", val: `${Math.round((totalHadirNama / (totalNamaTerdaftar || 1)) * 100)}% (${totalHadirNama}/${totalNamaTerdaftar} Nama)` },
@@ -2898,22 +2917,22 @@ function exportToPdf() {
         doc.roundedRect(bx, boxY, boxW, boxH, 5, 5, 'FD');
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(150, 120, 50);
-        doc.text(kpi.label, bx + boxW / 2, boxY + 18, { align: "center" });
+        doc.text(kpi.label, bx + boxW / 2, boxY + 16, { align: "center" });
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
+        doc.setFontSize(10.5);
         doc.setTextColor(40, 40, 40);
-        doc.text(kpi.val, bx + boxW / 2, boxY + 36, { align: "center" });
+        doc.text(kpi.val, bx + boxW / 2, boxY + 34, { align: "center" });
     });
 
-    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR NATIVE ---
+    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR ---
     function drawPdfPieChart(centerX, centerY, radius, dataList, title) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
         doc.setTextColor(60, 60, 60);
-        doc.text(title, centerX, centerY - radius - 15, { align: "center" });
+        doc.text(title, centerX, centerY - radius - 12, { align: "center" });
 
         const total = dataList.reduce((acc, d) => acc + d.value, 0);
         let startAngle = -Math.PI / 2;
@@ -2949,81 +2968,84 @@ function exportToPdf() {
         });
 
         // Legend Kotak Keterangan di bawah Chart
-        let legY = centerY + radius + 18;
+        let legY = centerY + radius + 15;
         dataList.forEach(slice => {
             const pct = total > 0 ? Math.round((slice.value / total) * 100) : 0;
             doc.setFillColor(slice.color[0], slice.color[1], slice.color[2]);
-            doc.rect(centerX - 60, legY - 7, 8, 8, 'F');
+            doc.rect(centerX - 55, legY - 6, 7, 7, 'F');
 
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
+            doc.setFontSize(7.5);
             doc.setTextColor(70, 70, 70);
-            doc.text(`${slice.label}: ${slice.value} (${pct}%)`, centerX - 46, legY);
-            legY += 13;
+            doc.text(`${slice.label}: ${slice.value} (${pct}%)`, centerX - 42, legY);
+            legY += 12;
         });
     }
 
-    // CHART 1: STATUS KEHADIRAN
+    // PIE CHART 1: STATUS KEHADIRAN
     const hadirData = [
-        { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },     // Hijau
-        { label: "Belum Hadir", value: totalBelumHadirNama, color: [197, 34, 31] } // Merah
+        { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },
+        { label: "Belum Hadir", value: totalBelumHadirNama, color: [197, 34, 31] }
     ];
-    drawPdfPieChart(150, 240, 52, hadirData, "STATUS KEHADIRAN (NAMA)");
+    drawPdfPieChart(130, 235, 48, hadirData, "STATUS KEHADIRAN (NAMA)");
 
-    // CHART 2: KOMPOSISI KATEGORI TAMU
+    // PIE CHART 2: KOMPOSISI KATEGORI TAMU
     const kategoriData = [
-        { label: "Tamu VIP", value: totalVipNama, color: [179, 147, 67] },         // Gold
-        { label: "Tamu Reguler", value: totalRegulerNama, color: [66, 133, 244] }   // Biru
+        { label: "Tamu VIP", value: totalVipNama, color: [179, 147, 67] },
+        { label: "Tamu Reguler", value: totalRegulerNama, color: [66, 133, 244] }
     ];
-    drawPdfPieChart(380, 240, 52, kategoriData, "KOMPOSISI KATEGORI TAMU");
+    drawPdfPieChart(315, 235, 48, kategoriData, "KOMPOSISI KATEGORI TAMU");
 
-    // CHART 3: GRAFIK BATANG GELOMBANG PENDAFTARAN
-    const barX = 525;
-    const barY = 165;
-    const barW = pageWidth - barX - 40;
-    const barH = 175;
+    // --- HELPER FUNCTION: MENGGAMBAR BAR CHART WAKTU ---
+    function drawTimeBarChart(barX, barY, barW, barH, timeDataObj, title, barColor) {
+        doc.setDrawColor(230, 230, 230);
+        doc.setFillColor(252, 252, 252);
+        doc.roundedRect(barX, barY, barW, barH, 5, 5, 'FD');
 
-    doc.setDrawColor(230, 230, 230);
-    doc.setFillColor(250, 250, 250);
-    doc.roundedRect(barX, barY, barW, barH, 6, 6, 'FD');
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(60, 60, 60);
-    doc.text("GELOMBANG WAKTU PENDAFTARAN", barX + barW / 2, barY + 20, { align: "center" });
-
-    const timeLabels = Object.keys(regTimeSlots);
-    const maxVal = Math.max(...Object.values(regTimeSlots), 1);
-    const chartAreaW = barW - 130;
-    let bY = barY + 45;
-
-    timeLabels.forEach(timeKey => {
-        const val = regTimeSlots[timeKey];
-        const barFillW = (val / maxVal) * chartAreaW;
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        doc.setTextColor(80, 80, 80);
-        doc.text(timeKey, barX + 12, bY + 8);
-
-        // Bar Background
-        doc.setFillColor(235, 235, 235);
-        doc.roundedRect(barX + 105, bY, chartAreaW, 10, 2, 2, 'F');
-
-        // Bar Value Fill
-        if (barFillW > 0) {
-            doc.setFillColor(179, 147, 67);
-            doc.roundedRect(barX + 105, bY, Math.max(barFillW, 3), 10, 2, 2, 'F');
-        }
-
-        // Angka Nilai di Ujung Bar
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.5);
         doc.setTextColor(60, 60, 60);
-        doc.text(`${val}`, barX + 105 + chartAreaW + 8, bY + 8);
+        doc.text(title, barX + barW / 2, barY + 16, { align: "center" });
 
-        bY += 28;
-    });
+        const timeLabels = Object.keys(timeDataObj);
+        const maxVal = Math.max(...Object.values(timeDataObj), 1);
+        const chartAreaW = barW - 120;
+        let bY = barY + 34;
+
+        timeLabels.forEach(timeKey => {
+            const val = timeDataObj[timeKey];
+            const barFillW = (val / maxVal) * chartAreaW;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(80, 80, 80);
+            doc.text(timeKey, barX + 8, bY + 7);
+
+            // Bar Base
+            doc.setFillColor(235, 235, 235);
+            doc.roundedRect(barX + 90, bY, chartAreaW, 8, 2, 2, 'F');
+
+            // Bar Value
+            if (barFillW > 0) {
+                doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+                doc.roundedRect(barX + 90, bY, Math.max(barFillW, 3), 8, 2, 2, 'F');
+            }
+
+            // Angka Total
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(60, 60, 60);
+            doc.text(`${val}`, barX + 90 + chartAreaW + 6, bY + 7);
+
+            bY += 23;
+        });
+    }
+
+    // GRAFIK BATANG 1: GELOMBANG WAKTU PENDAFTARAN (Gold)
+    drawTimeBarChart(430, 160, 175, 135, regTimeSlots, "WAKTU PENDAFTARAN", [179, 147, 67]);
+
+    // GRAFIK BATANG 2: GELOMBANG WAKTU CHECK-IN / HADIR (Hijau)
+    drawTimeBarChart(620, 160, 175, 135, checkInTimeSlots, "WAKTU CHECK-IN (HARI-H)", [46, 125, 50]);
 
     // FOOTER HALAMAN SUMMARY
     doc.setFont("helvetica", "italic");
