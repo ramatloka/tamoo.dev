@@ -2696,7 +2696,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF (TATA LETAK LAPANG: 2 BARIS / 2-TIER ANALYTICS)
+// 2. FUNGSI EXPORT TO PDF (PENDAFTARAN = BERBASIS TANGGAL, CHECK-IN = BERBASIS JAM)
 function exportToPdf() {
     if (typeof window.jspdf === "undefined") {
         Swal.fire('Library Error', 'Library jsPDF belum terpasang di HTML.', 'error');
@@ -2725,15 +2725,10 @@ function exportToPdf() {
     let totalVipNama = 0;
     let totalRegulerNama = 0;
 
-    // 1. Objek tampungan gelombang jam pendaftaran (created_at)
-    let regTimeSlots = {
-        "Pagi (00:00 - 11:59)": 0,
-        "Siang (12:00 - 15:59)": 0,
-        "Sore (16:00 - 18:59)": 0,
-        "Malam (19:00 - 23:59)": 0
-    };
+    // 1. Objek tampungan gelombang pendaftaran BERBASIS TANGGAL (created_at)
+    let regDateCounts = {};
 
-    // 2. Objek tampungan gelombang jam check-in kedatangan (waktu_hadir)
+    // 2. Objek tampungan gelombang kedatangan BERBASIS JAM (waktu_hadir)
     let checkInTimeSlots = {
         "Pagi (00:00 - 11:59)": 0,
         "Siang (12:00 - 15:59)": 0,
@@ -2759,7 +2754,7 @@ function exportToPdf() {
             if (kat === 'VIP' || kat === 'TAMU VIP') vipHadirPax += pax;
             else regulerHadirPax += pax;
 
-            // Kelompokkan tren jam check-in aktual
+            // Kelompokkan tren jam check-in aktual hari-H
             if (g.waktu_hadir) {
                 try {
                     let hour = new Date(g.waktu_hadir).getHours();
@@ -2775,17 +2770,31 @@ function exportToPdf() {
 
         if (isSouv) totalSouvenir += 1;
 
-        // Kelompokkan tren waktu pendaftaran
+        // Kelompokkan tren pendaftaran BERBASIS TANGGAL
         if (g.created_at) {
             try {
-                let hour = new Date(g.created_at).getHours();
-                if (hour < 12) regTimeSlots["Pagi (00:00 - 11:59)"]++;
-                else if (hour < 16) regTimeSlots["Siang (12:00 - 15:59)"]++;
-                else if (hour < 19) regTimeSlots["Sore (16:00 - 18:59)"]++;
-                else regTimeSlots["Malam (19:00 - 23:59)"]++;
+                let d = new Date(g.created_at);
+                if (!isNaN(d.getTime())) {
+                    let dateKey = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                    regDateCounts[dateKey] = (regDateCounts[dateKey] || 0) + 1;
+                }
             } catch (e) {}
         }
     });
+
+    // Urutkan tanggal dan batasi maksimal 5 baris tanggal terakhir agar tampilan tetap rapi
+    let sortedDateKeys = Object.keys(regDateCounts).sort((a, b) => new Date(a) - new Date(b));
+    let displayRegDateSlots = {};
+    
+    if (sortedDateKeys.length === 0) {
+        displayRegDateSlots["Belum Ada Data"] = 0;
+    } else {
+        // Ambil maksimal 5 tanggal terakhir yang aktif
+        let recentKeys = sortedDateKeys.slice(-5);
+        recentKeys.forEach(k => {
+            displayRegDateSlots[k] = regDateCounts[k];
+        });
+    }
 
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -2927,7 +2936,7 @@ function exportToPdf() {
         doc.text(kpi.val, bx + boxW / 2, boxY + 33, { align: "center" });
     });
 
-    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR LAPANG ---
+    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR ---
     function drawPdfPieChart(centerX, centerY, radius, dataList, title) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
@@ -2967,7 +2976,7 @@ function exportToPdf() {
             startAngle = endAngle;
         });
 
-        // Legend Kotak Keterangan di Samping/Bawah Chart
+        // Legend Kotak Keterangan
         let legY = centerY + radius + 14;
         dataList.forEach(slice => {
             const pct = total > 0 ? Math.round((slice.value / total) * 100) : 0;
@@ -2983,7 +2992,7 @@ function exportToPdf() {
     }
 
     // =========================================================================
-    // BARIS 1 (ATAS): 2 PIE CHART (LEBIH BESAR & TATA LETAK SEIMBANG)
+    // BARIS 1 (ATAS): 2 PIE CHART
     // =========================================================================
     const hadirData = [
         { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },     // Hijau
@@ -2998,7 +3007,7 @@ function exportToPdf() {
     drawPdfPieChart(595, 205, 52, kategoriData, "KOMPOSISI KATEGORI TAMU");
 
     // =========================================================================
-    // BARIS 2 (BAWAH): 2 GRAFIK BATANG WAKTU (LEBAR, KIRI & KANAN)
+    // BARIS 2 (BAWAH): 2 GRAFIK BATANG WAKTU
     // =========================================================================
     function drawTimeBarChart(barX, barY, barW, barH, timeDataObj, title, barColor) {
         doc.setDrawColor(220, 220, 220);
@@ -3013,7 +3022,7 @@ function exportToPdf() {
         const timeLabels = Object.keys(timeDataObj);
         const maxVal = Math.max(...Object.values(timeDataObj), 1);
         const chartAreaW = barW - 170;
-        let bY = barY + 40;
+        let bY = barY + 38;
 
         timeLabels.forEach(timeKey => {
             const val = timeDataObj[timeKey];
@@ -3040,18 +3049,18 @@ function exportToPdf() {
             doc.setTextColor(60, 60, 60);
             doc.text(`${val}`, barX + 130 + chartAreaW + 10, bY + 8);
 
-            bY += 26;
+            bY += 24;
         });
     }
 
     const bottomRowY = 320;
-    const bottomBoxW = (pageWidth - 80 - 20) / 2; // Lebar lapang ~365pt per box
+    const bottomBoxW = (pageWidth - 80 - 20) / 2;
     const bottomBoxH = 160;
 
-    // GRAFIK BATANG 1: WAKTU PENDAFTARAN (Kiri Bawah)
-    drawTimeBarChart(40, bottomRowY, bottomBoxW, bottomBoxH, regTimeSlots, "GELOMBANG WAKTU PENDAFTARAN", [179, 147, 67]);
+    // GRAFIK BATANG 1: TREN PENDAFTARAN BERDASARKAN TANGGAL (Kiri Bawah)
+    drawTimeBarChart(40, bottomRowY, bottomBoxW, bottomBoxH, displayRegDateSlots, "TREN TANGGAL PENDAFTARAN (HARI)", [179, 147, 67]);
 
-    // GRAFIK BATANG 2: WAKTU CHECK-IN HARI-H (Kanan Bawah)
+    // GRAFIK BATANG 2: WAKTU CHECK-IN HARI-H BERDASARKAN JAM (Kanan Bawah)
     drawTimeBarChart(40 + bottomBoxW + 20, bottomRowY, bottomBoxW, bottomBoxH, checkInTimeSlots, "GELOMBANG WAKTU CHECK-IN (HARI-H)", [46, 125, 50]);
 
     // FOOTER HALAMAN SUMMARY
