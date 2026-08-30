@@ -87,11 +87,6 @@ async function loadForm() {
         const { data: settingsData, error: settingsError } = await db.from('form_settings').select('*').order('sort_order', { ascending: true });
         if (settingsError) throw settingsError;
 
-        const { count, error: countError } = await db.from('data_tamu').select('*', { count: 'exact', head: true });
-        if (!countError) {
-            data.currentRegistered = count || 0;
-        }
-
         // Ambil data pertanyaan dari database Supabase
         currentQuestions = settingsData.map(q => ({
             id: q.id,
@@ -146,46 +141,58 @@ async function loadForm() {
 
         if (data.PosterUrl && data.PosterUrl.trim() !== "") { let preSt = document.getElementById('posterPreviewStatus'); if(preSt) preSt.style.display = 'block'; }
 
-        // PERIKSA STATUS FORM (TUTUP)
-        if (data.FormStatus === "TUTUP") {
-            document.getElementById('dynamicFormContainer').innerHTML = '<div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;"><i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br><h3 style="margin:0; font-family:\'Playfair Display\', serif;">PENDAFTARAN DITUTUP</h3><p style="margin-top:8px; font-weight:600; line-height:1.4;">Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.</p></div>';
-            let btnSub = document.getElementById('btnSubmitForm'); if(btnSub) btnSub.style.display = 'none';
-            let pubE = document.getElementById('publicEventInfo'); if (pubE) pubE.style.display = 'block';
-            document.getElementById('pubEventName').innerText = data.EventName || data.EventTitle; return;
+        // =========================================================================
+        // 1. HITUNG AKUMULASI TOTAL KEPALA/PAX AKTUAL DARI SUPABASE
+        // =========================================================================
+        let totalHeadCount = 0;
+        const { data: allGuestsCount, error: countErr } = await db
+            .from('data_tamu')
+            .select('jumlah_aktual, form_data');
+
+        if (!countErr && allGuestsCount) {
+            allGuestsCount.forEach(g => {
+                let pax = parseInt(g.jumlah_aktual, 10);
+                if (isNaN(pax) && g.form_data) {
+                    pax = parseInt(g.form_data.jumlah_pax || g.form_data.jumlah_tamu || 1, 10);
+                }
+                totalHeadCount += (pax || 1);
+            });
         }
+        data.currentRegistered = totalHeadCount;
 
         // =========================================================================
-        // PERIKSA KUOTA MAKSIMAL VIA SUPABASE (HITUNGAN KEPALA)
+        // 2. PERIKSA STATUS FORM MANUAL (TUTUP) ATAU KUOTA MAKSIMAL TERPENUHI
         // =========================================================================
-        let maxQ = parseInt(data.MaxQuota) || 0;
+        let maxQ = parseInt(data.MaxQuota, 10) || 0;
+        let isQuotaFull = (maxQ > 0 && totalHeadCount >= maxQ);
 
-        if (maxQ > 0) {
-            // Ambil jumlah tamu terdaftar aktual langsung dari tabel data_tamu
-            const { count: curRegHead, error: countErr } = await db
-                .from('data_tamu')
-                .select('*', { count: 'exact', head: true });
+        if (data.FormStatus === "TUTUP" || isQuotaFull) {
+            const lockTitle = isQuotaFull ? "KUOTA PENUH" : "PENDAFTARAN DITUTUP";
+            const lockMsg = isQuotaFull 
+                ? `Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh (${totalHeadCount}/${maxQ} Kepala).`
+                : "Mohon maaf, pendaftaran online untuk acara ini sudah resmi ditutup oleh panitia.";
 
-            if (!countErr && curRegHead !== null && curRegHead >= maxQ) {
-                document.getElementById('dynamicFormContainer').innerHTML = `
-                    <div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom:15px;"></i><br>
-                        <h3 style="margin:0; font-family:'Playfair Display', serif;">MOHON MAAF</h3>
-                        <p style="margin-top:8px; font-weight:600; line-height:1.4;">
-                            Mohon maaf, kapasitas kuota penampung tamu untuk acara ini sudah terisi penuh (${curRegHead}/${maxQ}).
-                        </p>
-                    </div>
-                `;
-                let btnSub = document.getElementById('btnSubmitForm'); 
-                if (btnSub) btnSub.style.display = 'none';
+            document.getElementById('dynamicFormContainer').innerHTML = `
+                <div style="text-align:center; padding: 40px 20px; background:#fce8e6; border:2px dashed #c5221f; border-radius:12px; color: #c5221f; margin-bottom:15px;">
+                    <i class="fas fa-lock" style="font-size: 3rem; margin-bottom:15px;"></i><br>
+                    <h3 style="margin:0; font-family:'Playfair Display', serif;">${lockTitle}</h3>
+                    <p style="margin-top:8px; font-weight:600; line-height:1.4;">${lockMsg}</p>
+                </div>
+            `;
+            
+            let btnSub = document.getElementById('btnSubmitForm') || document.querySelector('button[onclick*="confirmTamu"]'); 
+            if (btnSub) btnSub.style.display = 'none';
 
-                let pubE = document.getElementById('publicEventInfo'); 
-                if (pubE) pubE.style.display = 'block';
+            let pubE = document.getElementById('publicEventInfo'); 
+            if (pubE) pubE.style.display = 'block';
 
-                let pubName = document.getElementById('pubEventName');
-                if (pubName) pubName.innerText = data.EventName || data.EventTitle || "";
+            let pubName = document.getElementById('pubEventName');
+            if (pubName) pubName.innerText = data.EventName || data.EventTitle || "";
 
-                return; // Menghentikan eksekusi agar form input tidak dirender
-            }
+            // Render table setup admin tetap berjalan tanpa render input formulir publik
+            renderSetupQuestionsTable();
+            loadCheckInStats();
+            return; // Hentikan di sini, jangan render input form pendaftaran
         }
 
         if (IS_PUBLIC_MODE) {
@@ -208,7 +215,7 @@ async function loadForm() {
             }
         }
         
-        // RENDER FORM UTAMA DAN SINKRONISASI MODAL REKAP
+        // RENDER FORM UTAMA JIKA KUOTA MASIH TERSEDIA
         renderGuestForm();
         renderSetupQuestionsTable();
         loadCheckInStats();
@@ -217,7 +224,6 @@ async function loadForm() {
         Swal.fire({ title: 'Error UI', text: e.message, icon: 'error' }); 
     }
 }
-
 // =========================================================================
 // SETUP ACCORDION & MANAGEMENT UTILS (PENGENDALI ACTION SETUP)
 // =========================================================================
@@ -1024,10 +1030,9 @@ function confirmTamu() {
 function submitForm() { confirmTamu(); }
 function submitGuestForm() { confirmTamu(); }
 
-// 2. Eksekusi Pengiriman Data ke Supabase (Dengan Proteksi Kuota Kepala)
+// 2. Eksekusi Pengiriman Data ke Supabase (Validasi Kuota Akumulasi Kepala)
 async function executeGuestRegistration() {
     try {
-        // Validasi Input Dinamis
         let formPayload = {};
         let missingRequired = false;
 
@@ -1057,31 +1062,52 @@ async function executeGuestRegistration() {
             return;
         }
 
-        // Tampilkan loading
         Swal.fire({ title: 'Memproses...', text: 'Mengecek kuota & membuat QR Code', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        // =========================================================================
-        // VALIDASI KUOTA TAMU VIA SUPABASE (HITUNGAN KEPALA)
-        // =========================================================================
-        const maxQuotaInput = document.getElementById('adminMaxQuota');
-        const maxQuota = maxQuotaInput ? parseInt(maxQuotaInput.value, 10) : 0;
+        // Ambil data pax pendaftar saat ini
+        const currentPax = parseInt(formPayload['jumlah_pax'] || formPayload['jumlah_tamu'] || formPayload['c_jumlah_tamu_termasuk_anda'] || 1, 10) || 1;
 
-        // Jika batas kuota diatur lebih dari 0
+        // =========================================================================
+        // PROTEKSI KUOTA REAL-TIME DARI SUPABASE
+        // =========================================================================
+        const { data: configRows } = await db.from('app_config').select('*');
+        let configObj = {};
+        if (configRows) configRows.forEach(r => configObj[r.key] = r.value);
+
+        const maxQuota = parseInt(configObj.MaxQuota, 10) || 0;
+
+        if (configObj.FormStatus === "TUTUP") {
+            Swal.fire({ title: 'Pendaftaran Ditutup', text: 'Pendaftaran online untuk acara ini sudah resmi ditutup.', icon: 'warning', customClass: { popup: 'luxury-popup' } });
+            return;
+        }
+
         if (maxQuota > 0) {
-            // Hitung total baris yang sudah terdaftar di database Supabase
-            const { count, error: countErr } = await db
+            const { data: currentGuests, error: countErr } = await db
                 .from('data_tamu')
-                .select('*', { count: 'exact', head: true });
+                .select('jumlah_aktual, form_data');
 
             if (countErr) throw countErr;
 
-            if (count >= maxQuota) {
+            let totalExistingHead = 0;
+            if (currentGuests) {
+                currentGuests.forEach(g => {
+                    let p = parseInt(g.jumlah_aktual, 10);
+                    if (isNaN(p) && g.form_data) {
+                        p = parseInt(g.form_data.jumlah_pax || g.form_data.jumlah_tamu || 1, 10);
+                    }
+                    totalExistingHead += (p || 1);
+                });
+            }
+
+            // Jika total terdaftar + pax pendaftar baru melebihi kapasitas
+            if ((totalExistingHead + currentPax) > maxQuota) {
                 Swal.fire({
                     title: 'Kuota Penuh!',
-                    text: `Mohon maaf, pendaftaran telah ditutup karena kuota maksimal (${maxQuota} orang) sudah terpenuhi.`,
+                    text: `Mohon maaf, sisa kuota tidak mencukupi (${totalExistingHead}/${maxQuota} kepala terisi). Pendaftaran ditutup.`,
                     icon: 'warning',
                     customClass: { popup: 'luxury-popup' }
                 });
+                loadForm();
                 return;
             }
         }
@@ -1097,6 +1123,7 @@ async function executeGuestRegistration() {
             id: guestId,
             nama_tamu: guestName,
             kategori_tamu: formPayload['kategori_tamu'] || formPayload['kategori'] || 'Umum',
+            jumlah_aktual: currentPax,
             status_kehadiran: 'BELUM_HADIR',
             status_souvenir: 'BELUM_AMBIL',
             form_data: formPayload,
@@ -1106,10 +1133,8 @@ async function executeGuestRegistration() {
         const { data, error } = await db.from('data_tamu').insert([insertData]);
         if (error) throw error;
 
-        // Play sound effect jika sukses
         if (typeof playBeepSound === "function") playBeepSound('success');
 
-        // Tampilkan Pop-Up QR Code
         showQrCodeModal(guestId, guestName);
 
     } catch (err) {
