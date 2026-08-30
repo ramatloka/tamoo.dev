@@ -333,7 +333,25 @@
               <div id="adminQuestionList"></div>
               <button onclick="addQuestion()" class="btn-submit" style="background: var(--bg-color); color: var(--gold-dark); border: 1px dashed var(--gold-light); box-shadow:none; margin-top:0;"><i class="fas fa-plus"></i> Tambah Field Form Baru</button>
           </div>
+
+          <!-- TOMBOL SIMPAN PENGATURAN UTAMA -->
           <button onclick="saveAdminSettingsData()" class="btn-submit" style="margin-top:20px;"><i class="fas fa-save"></i> Simpan Semua Perubahan</button>
+
+          <!-- ========================================================================= -->
+          <!-- BLOK ZONA BAHAYA: RESET / KOSONGKAN DATABASE TAMU DITARUH DI SINI -->
+          <!-- ========================================================================= -->
+          <div style="margin-top: 30px; padding: 20px; border: 2px dashed #ea4335; border-radius: 12px; background: #fdf3f2; text-align: left;">
+              <h4 style="margin: 0 0 8px 0; color: #c5221f; font-family: 'Playfair Display', serif;">
+                  <i class="fas fa-exclamation-triangle"></i> Zona Bahaya: Reset Database Tamu
+              </h4>
+              <p style="font-size: 0.8rem; color: #666; margin-bottom: 15px; line-height: 1.4;">
+                  Gunakan tombol ini setelah event selesai dan Anda sudah mengunduh rekap Excel/PDF. Tindakan ini akan <b>menghapus seluruh nama tamu yang terdaftar</b> di Supabase agar sistem bersih untuk event baru.
+              </p>
+              <button type="button" onclick="resetAllGuestDatabase()" style="width: 100%; padding: 12px; background: #c5221f; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem;">
+                  <i class="fas fa-trash-alt"></i> KOSONGKAN SELURUH DATA TAMU
+              </button>
+          </div>
+
         </div>
       </div>
     </div>
