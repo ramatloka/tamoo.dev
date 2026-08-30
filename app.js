@@ -999,7 +999,7 @@ function confirmTamu() {
 function submitForm() { confirmTamu(); }
 function submitGuestForm() { confirmTamu(); }
 
-// 2. Eksekusi Pengiriman Data ke Supabase
+// 2. Eksekusi Pengiriman Data ke Supabase (Dengan Proteksi Kuota Kepala)
 async function executeGuestRegistration() {
     try {
         // Validasi Input Dinamis
@@ -1033,7 +1033,33 @@ async function executeGuestRegistration() {
         }
 
         // Tampilkan loading
-        Swal.fire({ title: 'Memproses...', text: 'Mendaftarkan data & membuat QR Code', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Memproses...', text: 'Mengecek kuota & membuat QR Code', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        // =========================================================================
+        // VALIDASI KUOTA TAMU VIA SUPABASE (HITUNGAN KEPALA)
+        // =========================================================================
+        const maxQuotaInput = document.getElementById('adminMaxQuota');
+        const maxQuota = maxQuotaInput ? parseInt(maxQuotaInput.value, 10) : 0;
+
+        // Jika batas kuota diatur lebih dari 0
+        if (maxQuota > 0) {
+            // Hitung total baris yang sudah terdaftar di database Supabase
+            const { count, error: countErr } = await db
+                .from('data_tamu')
+                .select('*', { count: 'exact', head: true });
+
+            if (countErr) throw countErr;
+
+            if (count >= maxQuota) {
+                Swal.fire({
+                    title: 'Kuota Penuh!',
+                    text: `Mohon maaf, pendaftaran telah ditutup karena kuota maksimal (${maxQuota} orang) sudah terpenuhi.`,
+                    icon: 'warning',
+                    customClass: { popup: 'luxury-popup' }
+                });
+                return;
+            }
+        }
 
         // Generate ID Unique Tamu & Timestamp
         const timestamp = new Date().toISOString();
