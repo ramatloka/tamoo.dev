@@ -2696,7 +2696,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, `Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.xlsx`);
 }
 
-// 2. FUNGSI EXPORT TO PDF
+// 2. FUNGSI EXPORT TO PDF (LENGKAP DENGAN EXECUTIVE SUMMARY & CHART DI HALAMAN TERAKHIR)
 function exportToPdf() {
     if (typeof window.jspdf === "undefined") {
         Swal.fire('Library Error', 'Library jsPDF belum terpasang di HTML.', 'error');
@@ -2717,10 +2717,21 @@ function exportToPdf() {
 
     let totalNamaTerdaftar = targetData.length;
     let totalHadirPax = 0;
+    let totalHadirNama = 0;
     let totalSouvenir = 0;
     let totalBelumHadirNama = 0;
     let vipHadirPax = 0;
     let regulerHadirPax = 0;
+    let totalVipNama = 0;
+    let totalRegulerNama = 0;
+
+    // Objek tampungan gelombang jam pendaftaran (created_at)
+    let regTimeSlots = {
+        "Pagi (00:00 - 11:59)": 0,
+        "Siang (12:00 - 15:59)": 0,
+        "Sore (16:00 - 18:59)": 0,
+        "Malam (19:00 - 23:59)": 0
+    };
 
     targetData.forEach(g => {
         const pax = parseInt(g.jumlah_aktual || g.jumlah_tamu || 1, 10);
@@ -2728,7 +2739,14 @@ function exportToPdf() {
         const isSouv = g.status_souvenir === 'SUDAH_AMBIL' || g.status_souvenir === 'SUDAH AMBIL';
         let kat = (g.kategori_tamu || 'REGULER').toUpperCase();
 
+        if (kat === 'VIP' || kat === 'TAMU VIP') {
+            totalVipNama += 1;
+        } else {
+            totalRegulerNama += 1;
+        }
+
         if (isHadir) {
+            totalHadirNama += 1;
             totalHadirPax += pax;
             if (kat === 'VIP' || kat === 'TAMU VIP') vipHadirPax += pax;
             else regulerHadirPax += pax;
@@ -2737,11 +2755,22 @@ function exportToPdf() {
         }
 
         if (isSouv) totalSouvenir += 1;
+
+        // Kelompokkan tren waktu pendaftaran
+        if (g.created_at) {
+            try {
+                let hour = new Date(g.created_at).getHours();
+                if (hour < 12) regTimeSlots["Pagi (00:00 - 11:59)"]++;
+                else if (hour < 16) regTimeSlots["Siang (12:00 - 15:59)"]++;
+                else if (hour < 19) regTimeSlots["Sore (16:00 - 18:59)"]++;
+                else regTimeSlots["Malam (19:00 - 23:59)"]++;
+            } catch (e) {}
+        }
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // HEADER SECTION
+    // HEADER SECTION HALAMAN UTAMA
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(179, 147, 67);
@@ -2757,7 +2786,7 @@ function exportToPdf() {
     doc.setTextColor(100, 100, 100);
     doc.text(`Nama Event: ${currentEventName.toUpperCase()}   |   Tanggal Pelaksanaan: ${currentEventDate}`, pageWidth / 2, 72, { align: "center" });
 
-    // STATISTIK SUMMARY CARD BOX
+    // STATISTIK SUMMARY CARD BOX (HALAMAN 1)
     const cardX = 40;
     const cardY = 88;
     const cardWidth = pageWidth - 80;
@@ -2787,12 +2816,12 @@ function exportToPdf() {
         return [
             idx + 1,
             guest.nama_tamu || '-',
-            extractInstitusiVal(guest),
+            typeof extractInstitusiVal === "function" ? extractInstitusiVal(guest) : '-',
             guest.jumlah_aktual || 1,
             (guest.kategori_tamu || 'Reguler').toUpperCase(),
             guest.status_kehadiran === 'HADIR' ? 'HADIR' : 'BELUM HADIR',
             (guest.status_souvenir === 'SUDAH_AMBIL' || guest.status_souvenir === 'SUDAH AMBIL') ? 'SUDAH AMBIL' : 'BELUM AMBIL',
-            formatSimpleTimestamp(guest.waktu_hadir)
+            typeof formatSimpleTimestamp === "function" ? formatSimpleTimestamp(guest.waktu_hadir) : (guest.waktu_hadir || '-')
         ];
     });
 
@@ -2830,11 +2859,180 @@ function exportToPdf() {
         });
     }
 
-    doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
-}
+    // =========================================================================
+    // TAMBAH HALAMAN TERAKHIR: EXECUTIVE SUMMARY & VISUAL ANALYTICS
+    // =========================================================================
+    doc.addPage('a4', 'l');
 
-function safeFileName(str) {
-    return str.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_' + new Date().toISOString().slice(0,10);
+    // Header Halaman Ringkasan
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(179, 147, 67);
+    doc.text("TAMOO ANALYTICS", pageWidth / 2, 38, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(50, 50, 50);
+    doc.text("RINGKASAN EKSEKUTIF & ANALITIK KEHADIRAN", pageWidth / 2, 56, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(110, 110, 110);
+    doc.text(`Event: ${currentEventName.toUpperCase()}   |   Laporan Diekspor: ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}`, pageWidth / 2, 72, { align: "center" });
+
+    // 3 KARTU KPI UTAMA DI ATAS
+    const boxW = (pageWidth - 80 - 30) / 3;
+    const boxY = 88;
+    const boxH = 50;
+
+    const kpis = [
+        { label: "PERSENTASE KEHADIRAN", val: `${Math.round((totalHadirNama / (totalNamaTerdaftar || 1)) * 100)}% (${totalHadirNama}/${totalNamaTerdaftar} Nama)` },
+        { label: "TOTAL JIWA / AKTUAL (PAX)", val: `${totalHadirPax} Jiwa Hadir` },
+        { label: "DISTRIBUSI SOUVENIR", val: `${Math.round((totalSouvenir / (totalNamaTerdaftar || 1)) * 100)}% (${totalSouvenir} Pcs Terbagi)` }
+    ];
+
+    kpis.forEach((kpi, i) => {
+        const bx = 40 + i * (boxW + 15);
+        doc.setDrawColor(218, 192, 123);
+        doc.setFillColor(254, 253, 247);
+        doc.roundedRect(bx, boxY, boxW, boxH, 5, 5, 'FD');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(150, 120, 50);
+        doc.text(kpi.label, bx + boxW / 2, boxY + 18, { align: "center" });
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(40, 40, 40);
+        doc.text(kpi.val, bx + boxW / 2, boxY + 36, { align: "center" });
+    });
+
+    // --- HELPER FUNCTION: MENGGAMBAR PIE CHART VECTOR NATIVE ---
+    function drawPdfPieChart(centerX, centerY, radius, dataList, title) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 60);
+        doc.text(title, centerX, centerY - radius - 15, { align: "center" });
+
+        const total = dataList.reduce((acc, d) => acc + d.value, 0);
+        let startAngle = -Math.PI / 2;
+
+        dataList.forEach(slice => {
+            const angle = total > 0 ? (slice.value / total) * 2 * Math.PI : 0;
+            const endAngle = startAngle + angle;
+
+            if (angle > 0) {
+                doc.setFillColor(slice.color[0], slice.color[1], slice.color[2]);
+                doc.setDrawColor(255, 255, 255);
+                doc.setLineWidth(1.5);
+
+                const steps = Math.max(10, Math.floor(angle * 15));
+                const points = [{ x: centerX, y: centerY }];
+
+                for (let i = 0; i <= steps; i++) {
+                    const a = startAngle + (i / steps) * angle;
+                    points.push({
+                        x: centerX + radius * Math.cos(a),
+                        y: centerY + radius * Math.sin(a)
+                    });
+                }
+                points.push({ x: centerX, y: centerY });
+
+                const lines = [];
+                for (let i = 1; i < points.length; i++) {
+                    lines.push([points[i].x - points[i - 1].x, points[i].y - points[i - 1].y]);
+                }
+                doc.lines(lines, points[0].x, points[0].y, [1, 1], 'FD', true);
+            }
+            startAngle = endAngle;
+        });
+
+        // Legend Kotak Keterangan di bawah Chart
+        let legY = centerY + radius + 18;
+        dataList.forEach(slice => {
+            const pct = total > 0 ? Math.round((slice.value / total) * 100) : 0;
+            doc.setFillColor(slice.color[0], slice.color[1], slice.color[2]);
+            doc.rect(centerX - 60, legY - 7, 8, 8, 'F');
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(70, 70, 70);
+            doc.text(`${slice.label}: ${slice.value} (${pct}%)`, centerX - 46, legY);
+            legY += 13;
+        });
+    }
+
+    // CHART 1: STATUS KEHADIRAN
+    const hadirData = [
+        { label: "Sudah Hadir", value: totalHadirNama, color: [46, 125, 50] },     // Hijau
+        { label: "Belum Hadir", value: totalBelumHadirNama, color: [197, 34, 31] } // Merah
+    ];
+    drawPdfPieChart(150, 240, 52, hadirData, "STATUS KEHADIRAN (NAMA)");
+
+    // CHART 2: KOMPOSISI KATEGORI TAMU
+    const kategoriData = [
+        { label: "Tamu VIP", value: totalVipNama, color: [179, 147, 67] },         // Gold
+        { label: "Tamu Reguler", value: totalRegulerNama, color: [66, 133, 244] }   // Biru
+    ];
+    drawPdfPieChart(380, 240, 52, kategoriData, "KOMPOSISI KATEGORI TAMU");
+
+    // CHART 3: GRAFIK BATANG GELOMBANG PENDAFTARAN
+    const barX = 525;
+    const barY = 165;
+    const barW = pageWidth - barX - 40;
+    const barH = 175;
+
+    doc.setDrawColor(230, 230, 230);
+    doc.setFillColor(250, 250, 250);
+    doc.roundedRect(barX, barY, barW, barH, 6, 6, 'FD');
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(60, 60, 60);
+    doc.text("GELOMBANG WAKTU PENDAFTARAN", barX + barW / 2, barY + 20, { align: "center" });
+
+    const timeLabels = Object.keys(regTimeSlots);
+    const maxVal = Math.max(...Object.values(regTimeSlots), 1);
+    const chartAreaW = barW - 130;
+    let bY = barY + 45;
+
+    timeLabels.forEach(timeKey => {
+        const val = regTimeSlots[timeKey];
+        const barFillW = (val / maxVal) * chartAreaW;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text(timeKey, barX + 12, bY + 8);
+
+        // Bar Background
+        doc.setFillColor(235, 235, 235);
+        doc.roundedRect(barX + 105, bY, chartAreaW, 10, 2, 2, 'F');
+
+        // Bar Value Fill
+        if (barFillW > 0) {
+            doc.setFillColor(179, 147, 67);
+            doc.roundedRect(barX + 105, bY, Math.max(barFillW, 3), 10, 2, 2, 'F');
+        }
+
+        // Angka Nilai di Ujung Bar
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`${val}`, barX + 105 + chartAreaW + 8, bY + 8);
+
+        bY += 28;
+    });
+
+    // FOOTER HALAMAN SUMMARY
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Powered by RAMATLOKA", pageWidth - 145, 575);
+
+    // SIMPAN FILE PDF
+    doc.save(`Laporan_Rekap_Tamu_${safeFileName(currentEventName)}.pdf`);
 }
 // =========================================================================
 // PENGATURAN TEMPLATE & IMPORT EXCEL PREMIUM (DINAMIS 100% ANTI-GAGAL)
